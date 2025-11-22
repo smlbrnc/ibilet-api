@@ -7,6 +7,7 @@ import configuration from './config/configuration';
 import { AuthModule } from './auth/auth.module';
 import { PaxModule } from './pax/pax.module';
 import { HealthModule } from './health/health.module';
+import { AppController } from './app.controller';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { HealthModule } from './health/health.module';
     PaxModule,
     HealthModule,
   ],
+  controllers: [AppController],
   providers: [
     {
       provide: APP_GUARD,
