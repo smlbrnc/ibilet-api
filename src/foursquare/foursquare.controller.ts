@@ -4,7 +4,8 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { FoursquareService } from './foursquare.service';
 import { NearbyQueryDto, SortOption } from './dto/nearby-query.dto';
-import { NearbyPlaceDto } from './dto/nearby-place.dto';
+import { NearbyGroupedResponseDto } from './dto/nearby-response.dto';
+import { randomUUID } from 'crypto';
 
 @ApiTags('Foursquare Places')
 @Controller('places')
@@ -26,7 +27,7 @@ export class FoursquareController {
   @ApiResponse({
     status: 200,
     description: 'Yakındaki yerler başarıyla getirildi',
-    type: [NearbyPlaceDto],
+    type: NearbyGroupedResponseDto,
   })
   @ApiResponse({
     status: 400,
@@ -36,15 +37,15 @@ export class FoursquareController {
     status: 500,
     description: 'Sunucu hatası',
   })
-  async getNearbyPlaces(@Query() query: NearbyQueryDto): Promise<NearbyPlaceDto[]> {
+  async getNearbyPlaces(@Query() query: NearbyQueryDto): Promise<NearbyGroupedResponseDto> {
     const cacheKey = `foursquare:nearby:${JSON.stringify(query)}`;
-    const cached = await this.cacheManager.get<NearbyPlaceDto[]>(cacheKey);
+    const cached = await this.cacheManager.get<NearbyGroupedResponseDto>(cacheKey);
     
     if (cached) {
       return cached;
     }
 
-    const result = await this.foursquareService.getNearbyPlaces({
+    const places = await this.foursquareService.getNearbyPlaces({
       lat: query.lat,
       lng: query.lng,
       radius: query.radius,
@@ -53,10 +54,26 @@ export class FoursquareController {
       sort: query.sort,
     });
 
-    // 30 dakika cache
-    await this.cacheManager.set(cacheKey, result, 1800 * 1000);
+    // Mesafeye göre sırala (en yakından en uzağa)
+    const sortedPlaces = places.sort((a, b) => a.distance - b.distance);
     
-    return result;
+    // İlk 5'i yürüme mesafesi, geri kalanları simge yapılar olarak grupla
+    const walkingDistance = sortedPlaces.slice(0, 5);
+    const nearbyLandmarks = sortedPlaces.slice(5);
+
+    const response: NearbyGroupedResponseDto = {
+      success: true,
+      data: {
+        walkingDistance,
+        nearbyLandmarks,
+      },
+      requestId: randomUUID(),
+    };
+
+    // 30 dakika cache
+    await this.cacheManager.set(cacheKey, response, 1800 * 1000);
+    
+    return response;
   }
 }
 
