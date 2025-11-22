@@ -14,7 +14,7 @@ import { CancellationPenaltyRequestDto } from './dto/cancellation-penalty-reques
 import { CancelReservationRequestDto } from './dto/cancel-reservation-request.dto';
 import { handlePaxApiError } from '../../common/utils/error-handler.util';
 
-@ApiTags('PAX BOOKING')
+@ApiTags('Booking')
 @Controller('booking')
 export class BookingController {
   constructor(

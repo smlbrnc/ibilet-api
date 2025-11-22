@@ -39,5 +39,9 @@ export default () => ({
       cancelReservation: '/bookingservice/cancelreservation',
     },
   },
+  foursquare: {
+    baseUrl: process.env.FOURSQUARE_BASE_URL,
+    apiKey: process.env.FOURSQUARE_API_KEY,
+  },
 });
 

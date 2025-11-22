@@ -17,7 +17,7 @@ import { FareRulesRequestDto } from './dto/fare-rules-request.dto';
 import { ConfigService } from '@nestjs/config';
 import { handlePaxApiError } from '../common/utils/error-handler.util';
 
-@ApiTags('PAX API')
+@ApiTags('API')
 @Controller('')
 export class PaxController {
   constructor(

@@ -7,6 +7,7 @@ import configuration from './config/configuration';
 import { AuthModule } from './auth/auth.module';
 import { PaxModule } from './pax/pax.module';
 import { HealthModule } from './health/health.module';
+import { FoursquareModule } from './foursquare/foursquare.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -29,6 +30,7 @@ import { AppController } from './app.controller';
     AuthModule,
     PaxModule,
     HealthModule,
+    FoursquareModule,
   ],
   controllers: [AppController],
   providers: [

@@ -28,6 +28,8 @@
     "@nestjs/throttler": "^5.1.1",
     "helmet": "^7.1.0",
     "@nestjs/terminus": "^10.2.0",
+    "@nestjs/axios": "^3.0.1",
+    "axios": "^1.6.5",
     "class-validator": "^0.14.1",
     "class-transformer": "^0.5.1",
     "@nestjs/swagger": "^7.2.0",

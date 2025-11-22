@@ -49,12 +49,17 @@ async function bootstrap() {
     .setDescription('iBilet Core API - Flight & Hotel Booking')
     .setVersion('1.0')
     .addBearerAuth()
-    .addTag('PAX API', 'Paximum raw endpoints')
-    .addTag('PAX BOOKING', 'Paximum booking endpoints')
     .addTag('Health', 'Health check endpoints')
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document);
+  SwaggerModule.setup('api/docs', app, document, {
+    swaggerOptions: {
+      operationsSorter: 'alpha',
+      tagsSorter: 'alpha',
+      docExpansion: 'none',
+      filter: true,
+    },
+  });
 
   const port = configService.get<number>('port') || 3000;
   await app.listen(port);
