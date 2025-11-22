@@ -81,14 +81,15 @@ export class FoursquareService {
     radius?: number;
     categories?: string;
     limit?: number;
+    sort?: string;
   }): Promise<NearbyPlaceDto[]> {
-    const { lat, lng, radius = 2000, categories, limit = 12 } = params;
+    const { lat, lng, radius = 2000, categories, limit = 12, sort = 'POPULARITY' } = params;
 
     try {
       const url = `${this.baseUrl}/places/search`;
       
       this.logger.debug(
-        `Foursquare nearby isteği: ${url} - lat:${lat}, lng:${lng}, radius:${radius}, categories:${categories || 'yok'}, limit:${limit}`,
+        `Foursquare nearby isteği: ${url} - lat:${lat}, lng:${lng}, radius:${radius}, categories:${categories || 'yok'}, limit:${limit}, sort:${sort}`,
       );
 
       const response$ = this.http.get<FsqNearbyResponse>(url, {
@@ -102,6 +103,7 @@ export class FoursquareService {
           radius,
           ...(categories && { categories }),
           limit,
+          sort,
         },
       });
 

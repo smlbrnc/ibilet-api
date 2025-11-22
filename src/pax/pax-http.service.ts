@@ -133,7 +133,9 @@ export class PaxHttpService {
           ...options,
         });
 
-        throw new Error(errorMessages);
+        const error = new Error(errorMessages);
+        error.name = 'PAX_BUSINESS_ERROR'; // Error'a özel işaret ekle
+        throw error;
       }
 
       if (data.error || data.errors || data.body?.error || data.body?.errors) {
@@ -153,7 +155,9 @@ export class PaxHttpService {
           ...options,
         });
 
-        throw new Error(errorMessage);
+        const error = new Error(errorMessage);
+        error.name = 'PAX_RESPONSE_ERROR'; // Error'a özel işaret ekle
+        throw error;
       }
 
       const responseSize = JSON.stringify(data).length;
@@ -178,8 +182,10 @@ export class PaxHttpService {
       errorMessage = errorMessage.replace(/^PAX API yanıtında hata: /, '');
       errorMessage = errorMessage.replace(/^PAX API POST Hatası \[.*?\]: /, '');
 
-      // Beklenmeyen hatalar için (token hatası, network hatası vb.)
-      if (!errorMessage.includes('PAX API')) {
+      // Sadece beklenmeyen hatalar için logla (business/response error'ları zaten loglandı)
+      if (error instanceof Error && 
+          error.name !== 'PAX_BUSINESS_ERROR' && 
+          error.name !== 'PAX_RESPONSE_ERROR') {
         this.logger.error({
           message: 'PAX API UNEXPECTED ERROR',
           type: 'PAX_UNEXPECTED_ERROR',

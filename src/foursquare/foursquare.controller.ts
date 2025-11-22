@@ -1,9 +1,9 @@
 import { Controller, Get, Query, Inject } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { FoursquareService } from './foursquare.service';
-import { NearbyQueryDto } from './dto/nearby-query.dto';
+import { NearbyQueryDto, SortOption } from './dto/nearby-query.dto';
 import { NearbyPlaceDto } from './dto/nearby-place.dto';
 
 @ApiTags('Foursquare Places')
@@ -16,6 +16,13 @@ export class FoursquareController {
 
   @Get('nearby')
   @ApiOperation({ summary: 'Yakındaki yerleri listele' })
+  @ApiQuery({
+    name: 'sort',
+    enum: SortOption,
+    required: false,
+    description: 'Sıralama kriteri (POPULARITY, RATING, DISTANCE)',
+    example: SortOption.POPULARITY,
+  })
   @ApiResponse({
     status: 200,
     description: 'Yakındaki yerler başarıyla getirildi',
@@ -43,6 +50,7 @@ export class FoursquareController {
       radius: query.radius,
       categories: query.categories,
       limit: query.limit,
+      sort: query.sort,
     });
 
     // 30 dakika cache

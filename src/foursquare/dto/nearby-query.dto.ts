@@ -1,6 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNumber, IsOptional, IsString, Min, Max } from 'class-validator';
+import { IsNumber, IsOptional, IsString, Min, Max, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
+
+export enum SortOption {
+  POPULARITY = 'POPULARITY',
+  RATING = 'RATING',
+  DISTANCE = 'DISTANCE',
+}
 
 export class NearbyQueryDto {
   @ApiProperty({
@@ -53,5 +59,16 @@ export class NearbyQueryDto {
   @Max(50)
   @Type(() => Number)
   limit?: number = 12;
+
+  @ApiProperty({
+    description: 'Sıralama kriteri',
+    enum: SortOption,
+    example: SortOption.POPULARITY,
+    required: false,
+    default: SortOption.POPULARITY,
+  })
+  @IsOptional()
+  @IsEnum(SortOption)
+  sort?: SortOption = SortOption.POPULARITY;
 }
 
