@@ -1,5 +1,5 @@
 import { Controller, Post, Body, Req, Headers, Inject } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { Request } from 'express';
@@ -11,8 +11,8 @@ import { CheckinDatesRequestDto } from './dto/checkin-dates-request.dto';
 import { FlightPriceSearchDto } from './dto/flight-price-search.dto';
 import { HotelPriceSearchDto } from './dto/hotel-price-search.dto';
 import { GetOffersRequestDto } from './dto/get-offers-request.dto';
+import { GetOfferDetailsRequestDto } from './dto/get-offer-details-request.dto';
 import { ProductInfoRequestDto } from './dto/product-info-request.dto';
-import { OfferDetailsRequestDto } from './dto/offer-details-request.dto';
 import { FareRulesRequestDto } from './dto/fare-rules-request.dto';
 import { ConfigService } from '@nestjs/config';
 import { handlePaxApiError } from '../common/utils/error-handler.util';
@@ -169,8 +169,43 @@ export class PaxController {
   }
 
   @Post('get-offers')
-  @ApiOperation({ summary: 'Teklifleri getir (Get Offers)' })
+  @ApiOperation({ 
+    summary: 'Teklifleri getir (Get Offers)',
+    description: 'Uçak veya Otel tekliflerini getirmek için kullanılır. productType değerine göre farklı parametreler kullanılır.'
+  })
   @ApiResponse({ status: 200, description: 'Teklif detayları' })
+  @ApiBody({
+    type: GetOffersRequestDto,
+    examples: {
+      ucak: {
+        summary: 'Uçak için örnek (productType: 3)',
+        description: 'Uçak teklifleri için offerIds array olarak gönderilir',
+        value: {
+          productType: 3,
+          searchId: '52143f58-1fa2-4689-a8c6-59ffc1ff04e8',
+          offerIds: [
+            'F0BQUFwNnZvTUZkNV96VDdER19hcFdaTXh3PT0',
+            'F1BQUFwNnZvTUZkNV96VDdER19hcFdaTXh3PT1'
+          ],
+          currency: 'TRY',
+          culture: 'en-US'
+        }
+      },
+      otel: {
+        summary: 'Otel için örnek (productType: 2)',
+        description: 'Otel teklifleri için offerId string olarak gönderilir ve ek parametreler gerekir',
+        value: {
+          productType: 2,
+          searchId: 'f43dcb3a-0214-4d17-8838-7540c815245d',
+          offerId: '2$2$05ba9a42-24a8-41ce-bc61-40e6c443f9e5',
+          productId: '105841',
+          currency: 'EUR',
+          culture: 'tr-TR',
+          getRoomInfo: true
+        }
+      }
+    }
+  })
   async getOffers(
     @Body() request: GetOffersRequestDto,
     @Req() req: Request,
@@ -181,6 +216,24 @@ export class PaxController {
       request,
       'GET_OFFERS_ERROR',
       'Teklif detayları alınamadı',
+      req,
+      authorization,
+    );
+  }
+
+  @Post('get-offer-details')
+  @ApiOperation({ summary: 'Teklif detayları ve ürün bilgisi getir (Get Offer Details)' })
+  @ApiResponse({ status: 200, description: 'Detaylı teklif ve ürün bilgileri' })
+  async getOfferDetails(
+    @Body() request: GetOfferDetailsRequestDto,
+    @Req() req: Request,
+    @Headers('authorization') authorization?: string,
+  ) {
+    return this.executePaxRequest(
+      'offerDetails',
+      request,
+      'GET_OFFER_DETAILS_ERROR',
+      'Teklif detayları ve ürün bilgisi alınamadı',
       req,
       authorization,
     );
@@ -199,24 +252,6 @@ export class PaxController {
       request,
       'PRODUCT_INFO_ERROR',
       'Ürün bilgisi alınamadı',
-      req,
-      authorization,
-    );
-  }
-
-  @Post('offer-details')
-  @ApiOperation({ summary: 'Teklif detayları getir (Offer Details)' })
-  @ApiResponse({ status: 200, description: 'Teklif detayları ve ürün bilgileri' })
-  async getOfferDetails(
-    @Body() request: OfferDetailsRequestDto,
-    @Req() req: Request,
-    @Headers('authorization') authorization?: string,
-  ) {
-    return this.executePaxRequest(
-      'offerDetails',
-      request,
-      'OFFER_DETAILS_ERROR',
-      'Teklif detayları alınamadı',
       req,
       authorization,
     );
