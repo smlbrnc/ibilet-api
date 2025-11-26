@@ -229,9 +229,15 @@ export class PaxController {
     @Req() req: Request,
     @Headers('authorization') authorization?: string,
   ) {
+    // getProductInfo parametresini otomatik olarak true ekle
+    const requestWithProductInfo = {
+      ...request,
+      getProductInfo: true,
+    };
+
     return this.executePaxRequest(
       'offerDetails',
-      request,
+      requestWithProductInfo,
       'GET_OFFER_DETAILS_ERROR',
       'Teklif detayları ve ürün bilgisi alınamadı',
       req,

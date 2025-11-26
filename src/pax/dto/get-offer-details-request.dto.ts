@@ -25,8 +25,5 @@ export class GetOfferDetailsRequestDto {
   @IsNotEmpty()
   @IsString()
   currency: string;
-
-  // getProductInfo her zaman true olarak gönderilecek (statik)
-  getProductInfo: boolean = true;
 }
 

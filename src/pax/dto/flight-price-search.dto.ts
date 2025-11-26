@@ -82,5 +82,20 @@ export class FlightPriceSearchDto {
   @IsNumber()
   @IsOptional()
   Night?: number;
+
+  @ApiPropertyOptional({ example: false, description: 'Paket teklif toplam fiyatını devre dışı bırak' })
+  @IsBoolean()
+  @IsOptional()
+  disablePackageOfferTotalPrice?: boolean;
+
+  @ApiPropertyOptional({ example: false, description: 'Uçuş ücretlerini hesapla' })
+  @IsBoolean()
+  @IsOptional()
+  calculateFlightFees?: boolean;
+
+  @ApiPropertyOptional({ example: false, description: 'Uçuş paketini zorla' })
+  @IsBoolean()
+  @IsOptional()
+  forceFlightBundlePackage?: boolean;
 }
 

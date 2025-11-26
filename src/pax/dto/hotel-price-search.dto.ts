@@ -22,8 +22,21 @@ class RoomCriteria {
   @ApiProperty({ example: 2 })
   adult: number;
 
-  @ApiProperty({ type: [Number], example: [1] })
-  childAges: number[];
+  @ApiProperty({ type: [Number], example: [1], required: false })
+  @IsOptional()
+  childAges?: number[];
+}
+
+class ProductPriceCategory {
+  @ApiProperty({ example: '103746' })
+  @IsString()
+  @IsNotEmpty()
+  product: string;
+
+  @ApiProperty({ example: 'a' })
+  @IsString()
+  @IsNotEmpty()
+  category: string;
 }
 
 export class HotelPriceSearchDto {
@@ -95,5 +108,17 @@ export class HotelPriceSearchDto {
   @IsArray()
   @IsOptional()
   Products?: string[];
+
+  @ApiProperty({
+    type: [ProductPriceCategory],
+    required: false,
+    description: 'Belirli ürünler için fiyat kategorisi filtresi',
+    example: [{ product: '103746', category: 'a' }],
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ProductPriceCategory)
+  @IsOptional()
+  productPriceCategories?: ProductPriceCategory[];
 }
 
