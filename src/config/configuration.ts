@@ -43,5 +43,10 @@ export default () => ({
     baseUrl: process.env.FOURSQUARE_BASE_URL,
     apiKey: process.env.FOURSQUARE_API_KEY,
   },
+  supabase: {
+    url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  },
 });
 

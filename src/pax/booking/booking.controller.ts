@@ -13,6 +13,8 @@ import { ReservationListRequestDto } from './dto/reservation-list-request.dto';
 import { CancellationPenaltyRequestDto } from './dto/cancellation-penalty-request.dto';
 import { CancelReservationRequestDto } from './dto/cancel-reservation-request.dto';
 import { handlePaxApiError } from '../../common/utils/error-handler.util';
+import { SupabaseService } from '../../common/services/supabase.service';
+import { LoggerService } from '../../common/logger/logger.service';
 
 @ApiTags('Booking')
 @Controller('booking')
@@ -20,7 +22,11 @@ export class BookingController {
   constructor(
     private readonly paxHttp: PaxHttpService,
     private readonly config: ConfigService,
-  ) {}
+    private readonly supabase: SupabaseService,
+    private readonly logger: LoggerService,
+  ) {
+    this.logger.setContext('BookingController');
+  }
 
   private async getUserInfoFromToken(
     authorization?: string,
@@ -108,18 +114,103 @@ export class BookingController {
     @Req() req: Request,
     @Headers('authorization') authorization?: string,
   ) {
+    let paxResult: any;
     try {
       const baseUrl = this.config.get<string>('pax.baseUrl');
       const endpoint = this.config.get<string>('pax.endpoints.setReservationInfo');
       const ip = req.ip || req.socket.remoteAddress || undefined;
       const userInfo = await this.getUserInfoFromToken(authorization);
-      const result = await this.paxHttp.post(`${baseUrl}${endpoint}`, request, {
+      paxResult = await this.paxHttp.post(`${baseUrl}${endpoint}`, request, {
         ip,
         userId: userInfo.userId ?? undefined,
         email: userInfo.email ?? undefined,
       });
-      return result.body || result;
+      
+      // PAX API eski formatı yeni formata dönüştür: { body, header } -> { success, data: { body } }
+      const success = paxResult?.header?.success ?? false;
+      const normalizedResult = {
+        success,
+        data: {
+          body: paxResult?.body || null,
+        },
+      };
+      
+      // Supabase'e kayıt (try-catch ile izole et, PAX yanıtını engelleme)
+      try {
+        const adminClient = this.supabase.getAdminClient();
+        
+        const transactionId = normalizedResult?.data?.body?.transactionId ?? null;
+        const expiresOn = normalizedResult?.data?.body?.expiresOn ?? null;
+        const code = null;
+        const messages = null;
+        
+        const body = success ? normalizedResult.data.body : { error: 'error-set-reservation' };
+
+        const { data: insertData, error: insertError } = await adminClient
+          .schema('backend')
+          .from('pre_transactionid')
+          .insert({
+            transaction_id: transactionId,
+            expires_on: expiresOn,
+            success,
+            code,
+            messages,
+            body,
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          this.logger.error({
+            message: 'Supabase kayıt hatası',
+            error: insertError.message,
+            details: insertError,
+            transactionId,
+          });
+        } else {
+          this.logger.log({
+            message: 'set-reservation-info yanıtı Supabase\'e kaydedildi',
+            transactionId,
+            success,
+            insertedId: insertData?.id,
+          });
+        }
+      } catch (supabaseError) {
+        const transactionId = normalizedResult?.data?.body?.transactionId ?? null;
+        this.logger.error({
+          message: 'Supabase kayıt hatası',
+          error: supabaseError instanceof Error ? supabaseError.message : String(supabaseError),
+          transactionId,
+        });
+      }
+
+      return normalizedResult.data.body;
     } catch (error) {
+      // PAX API hatası olsa bile Supabase'e kayıt yap (success: false ile)
+      try {
+        const adminClient = this.supabase.getAdminClient();
+        await adminClient
+          .schema('backend')
+          .from('pre_transactionid')
+          .insert({
+            transaction_id: null,
+            expires_on: null,
+            success: false,
+            code: null,
+            messages: null,
+            body: { error: 'error-set-reservation' },
+          });
+
+        this.logger.log({
+          message: 'PAX API hatası - Supabase\'e hata kaydı yapıldı',
+        });
+      } catch (supabaseError) {
+        this.logger.error({
+          message: 'PAX API hatası sonrası Supabase kayıt hatası',
+          error: supabaseError instanceof Error ? supabaseError.message : String(supabaseError),
+        });
+      }
+
       handlePaxApiError(error, 'SET_RESERVATION_INFO_ERROR', 'Rezervasyon bilgileri kaydedilemedi');
     }
   }

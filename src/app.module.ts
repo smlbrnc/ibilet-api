@@ -9,12 +9,16 @@ import { PaxModule } from './pax/pax.module';
 import { HealthModule } from './health/health.module';
 import { FoursquareModule } from './foursquare/foursquare.module';
 import { AirportModule } from './airport/airport.module';
+import { SupabaseModule } from './common/services/supabase.module';
 import { AppController } from './app.controller';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
-      envFilePath: `.env.${process.env.NODE_ENV || 'development'}`,
+      envFilePath: [
+        `.env.${process.env.NODE_ENV || 'development'}`,
+        '.env', // Fallback olarak .env dosyasını da oku
+      ],
       isGlobal: true,
       load: [configuration],
     }),
@@ -33,6 +37,7 @@ import { AppController } from './app.controller';
     HealthModule,
     FoursquareModule,
     AirportModule,
+    SupabaseModule,
   ],
   controllers: [AppController],
   providers: [
