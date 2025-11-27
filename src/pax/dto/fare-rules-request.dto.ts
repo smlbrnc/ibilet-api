@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, IsObject, ValidateNested } from 'class-validator';
+import { IsNotEmpty, IsString, IsObject, ValidateNested, IsOptional } from 'class-validator';
 import { Type } from 'class-transformer';
 
 /**
@@ -22,12 +22,22 @@ export class SegmentDto {
  */
 export class FareRulesRequestDto {
   @ApiProperty({
-    description: 'İşlem ID (Transaction ID)',
-    example: 'c89c8c94-da29-4c49-bbb0-92e1b1649ec3',
+    description: 'Rezervasyon numarası (Reservation Number) - transactionId ile birlikte kullanılabilir',
+    example: 'RC00231C',
+    required: false,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  transactionId: string;
+  reservationNumber?: string;
+
+  @ApiProperty({
+    description: 'İşlem ID (Transaction ID) - Eski format desteği için',
+    example: 'b59f54ef-867d-4415-93a1-b456361838cf',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  transactionId?: string;
 
   @ApiProperty({
     description: 'Servis ID',

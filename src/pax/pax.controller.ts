@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Req, Headers, Inject } from '@nestjs/common';
+import { Controller, Post, Body, Req, Headers, Inject, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
@@ -271,14 +271,29 @@ export class PaxController {
     @Req() req: Request,
     @Headers('authorization') authorization?: string,
   ) {
-    return this.executePaxRequest(
-      'fareRules',
-      request,
-      'FARE_RULES_ERROR',
-      'Ücret kuralları alınamadı',
-      req,
-      authorization,
-    );
+    if (!request.transactionId && !request.reservationNumber) {
+      throw new BadRequestException('transactionId veya reservationNumber zorunludur');
+    }
+
+    try {
+      const baseUrl = this.config.get<string>('pax.baseUrl');
+      const endpoint = this.config.get<string>('pax.endpoints.fareRules');
+      const ip = req?.ip || req?.socket?.remoteAddress || undefined;
+      const userInfo =
+        req && authorization
+          ? await this.getUserInfoFromToken(authorization)
+          : { userId: null, email: null };
+
+      const result = await this.paxHttp.post(`${baseUrl}${endpoint}`, request, {
+        ip,
+        userId: userInfo.userId ?? undefined,
+        email: userInfo.email ?? undefined,
+      });
+
+      return result;
+    } catch (error) {
+      handlePaxApiError(error, 'FARE_RULES_ERROR', 'Ücret kuralları alınamadı');
+    }
   }
 }
 

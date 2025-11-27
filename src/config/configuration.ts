@@ -27,7 +27,7 @@ export default () => ({
       getOffers: '/productservice/getoffers',
       productInfo: '/productservice/getproductinfo',
       offerDetails: '/productservice/getofferdetails',
-      fareRules: '/productservice/getfarerules',
+      fareRules: '/flightservice/getfarerules',
       beginTransaction: '/bookingservice/begintransaction',
       addServices: '/bookingservice/addservices',
       removeServices: '/bookingservice/removeservices',
