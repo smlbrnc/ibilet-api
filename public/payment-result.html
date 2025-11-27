@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ödeme Sonucu - iBilet API</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        
+        .card {
+            background: white;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 30px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .status {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        
+        .icon {
+            font-size: 60px;
+            margin-bottom: 16px;
+        }
+        
+        .success { color: #10b981; }
+        .failed { color: #ef4444; }
+        
+        h1 {
+            margin: 0;
+            font-size: 24px;
+            color: #111;
+        }
+        
+        .message {
+            color: #666;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+        
+        .details {
+            border-top: 1px solid #e5e5e5;
+            padding-top: 20px;
+            margin-top: 20px;
+        }
+        
+        .row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            font-size: 14px;
+        }
+        
+        .label {
+            color: #666;
+        }
+        
+        .value {
+            font-weight: 500;
+            color: #111;
+            text-align: right;
+        }
+        
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e5e5;
+        }
+        
+        .back-link a {
+            color: #0066cc;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        
+        .back-link a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="status">
+            <div class="icon" id="icon">⏳</div>
+            <h1 id="title">Yükleniyor...</h1>
+            <div class="message" id="message"></div>
+        </div>
+        
+        <div class="details" id="details" style="display: none;">
+            <div class="row">
+                <span class="label">Sipariş No</span>
+                <span class="value" id="orderId">-</span>
+            </div>
+            <div class="row">
+                <span class="label">Tutar</span>
+                <span class="value" id="amount">-</span>
+            </div>
+            <div class="row">
+                <span class="label">Onay Kodu</span>
+                <span class="value" id="authCode">-</span>
+            </div>
+            <div class="row">
+                <span class="label">Referans No</span>
+                <span class="value" id="hostRefNum">-</span>
+            </div>
+            <div class="row">
+                <span class="label">Kart</span>
+                <span class="value" id="maskedPan">-</span>
+            </div>
+            <div class="row">
+                <span class="label">Kart Sahibi</span>
+                <span class="value" id="cardholderName">-</span>
+            </div>
+            <div class="row">
+                <span class="label">Tarih</span>
+                <span class="value" id="timestamp">-</span>
+            </div>
+        </div>
+        
+        <div class="back-link">
+            <a href="/payment.html">← Yeni Test Yap</a>
+        </div>
+    </div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const status = params.get('status');
+        const isSuccess = status === 'success';
+        
+        setTimeout(() => {
+            // Icon ve başlık
+            document.getElementById('icon').textContent = isSuccess ? '✓' : '✕';
+            document.getElementById('icon').className = 'icon ' + (isSuccess ? 'success' : 'failed');
+            document.getElementById('title').textContent = isSuccess ? 'Ödeme Başarılı' : 'Ödeme Başarısız';
+            document.getElementById('message').textContent = decodeURIComponent(params.get('message') || '');
+            
+            // Detaylar
+            if (status) {
+                document.getElementById('orderId').textContent = params.get('orderId') || '-';
+                document.getElementById('amount').textContent = (params.get('amount') || '-') + ' TL';
+                document.getElementById('authCode').textContent = params.get('authCode') || '-';
+                document.getElementById('hostRefNum').textContent = params.get('hostRefNum') || '-';
+                document.getElementById('maskedPan').textContent = params.get('maskedPan') || '-';
+                
+                const ts = params.get('timestamp');
+                document.getElementById('timestamp').textContent = ts 
+                    ? new Date(ts).toLocaleString('tr-TR') 
+                    : '-';
+                
+                document.getElementById('details').style.display = 'block';
+            }
+        }, 300);
+    </script>
+</body>
+</html>
+

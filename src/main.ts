@@ -1,7 +1,9 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
+import { join } from 'path';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { RequestIdInterceptor } from './common/interceptors/request-id.interceptor';
@@ -10,9 +12,17 @@ import { DebugInterceptor } from './common/interceptors/debug.interceptor';
 import { ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   const configService = app.get(ConfigService);
+
+  // Global prefix - Tüm API route'ları /api ile başlar
+  app.setGlobalPrefix('api');
+
+  // Static files (public folder)
+  app.useStaticAssets(join(__dirname, '..', 'public'), {
+    prefix: '/',
+  });
 
   // Security headers
   app.use(helmet());
@@ -66,7 +76,9 @@ async function bootstrap() {
 
   console.log(`🚀 Server running on port ${port}`);
   console.log(`📚 Swagger docs: http://localhost:${port}/api/docs`);
-  console.log(`🏥 Health check: http://localhost:${port}/health`);
+  console.log(`🏥 Health check: http://localhost:${port}/api/health`);
+  console.log(`💳 Payment test: http://localhost:${port}/payment.html`);
+  console.log(`💳 Payment callback: http://localhost:${port}/api/payment/callback`);
 }
 
 bootstrap();

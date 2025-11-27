@@ -10,6 +10,7 @@ import { HealthModule } from './health/health.module';
 import { FoursquareModule } from './foursquare/foursquare.module';
 import { AirportModule } from './airport/airport.module';
 import { SupabaseModule } from './common/services/supabase.module';
+import { PaymentModule } from './payment/payment.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -38,6 +39,7 @@ import { AppController } from './app.controller';
     FoursquareModule,
     AirportModule,
     SupabaseModule,
+    PaymentModule,
   ],
   controllers: [AppController],
   providers: [

@@ -48,5 +48,27 @@ export default () => ({
     anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
   },
+  payment: {
+    // Production credentials - Config.env'den alınacak
+    merchantId: process.env.PAYMENT_MERCHANT_ID,
+    terminalId: process.env.PAYMENT_TERMINAL_ID,
+    storeKey: process.env.PAYMENT_STORE_KEY,
+    provisionPassword: process.env.PAYMENT_PROVISION_PASSWORD,
+    provisionUserId: process.env.PAYMENT_PROVISION_USER_ID || 'PROVAUT',
+    terminalUserId: process.env.PAYMENT_TERMINAL_USER_ID,
+    terminalJwkKeyProvizyon: process.env.PAYMENT_TERMINAL_JWKKEY_PROVIZYON,
+    // Test credentials - Config.env'den alınacak
+    testMerchantId: process.env.PAYMENT_TEST_MERCHANT_ID,
+    testTerminalId: process.env.PAYMENT_TEST_TERMINAL_ID,
+    testStoreKey: process.env.PAYMENT_TEST_STORE_KEY,
+    testProvisionPassword: process.env.PAYMENT_TEST_PROVISION_PASSWORD,
+    testProvisionUserId: process.env.PAYMENT_TEST_PROVISION_USER_ID || 'PROVAUT',
+    testTerminalUserId: process.env.PAYMENT_TEST_TERMINAL_USER_ID,
+    testTerminalJwkKeyProvizyon: process.env.PAYMENT_TEST_TERMINAL_JWKKEY_PROVIZYON,
+    // Common URLs - API_URL kullanılarak dinamik oluşturulacak
+    callbackBaseUrl: process.env.API_URL,
+    successUrl: process.env.API_URL ? `${process.env.API_URL}/api/payment/callback` : undefined,
+    errorUrl: process.env.API_URL ? `${process.env.API_URL}/api/payment/callback` : undefined,
+  },
 });
 

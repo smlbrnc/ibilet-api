@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Test - iBilet API</title>
+    <style>
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #0a0a0a;
+            color: #e5e5e5;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        header {
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #2a2a2a;
+        }
+        
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 8px;
+        }
+        
+        .subtitle {
+            font-size: 14px;
+            color: #888;
+        }
+        
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+        
+        .card-option {
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .card-option:hover {
+            border-color: #444;
+            background: #1f1f1f;
+        }
+        
+        .card-option.selected {
+            border-color: #fff;
+            background: #252525;
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .badge-troy { background: #fff; color: #000; }
+        .badge-bonus { background: #e5e5e5; color: #000; }
+        .badge-visa { background: #1a1f71; color: #fff; }
+        .badge-amex { background: #006fcf; color: #fff; }
+        .badge-sim { background: #555; color: #fff; }
+        .badge-debitsnl { background: #2d5aa0; color: #fff; }
+        .badge-paracard { background: #8b4513; color: #fff; }
+        
+        .card-number {
+            font-size: 18px;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 12px;
+            letter-spacing: 1px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .card-details {
+            font-size: 12px;
+            color: #888;
+            line-height: 1.6;
+        }
+        
+        .card-meta {
+            display: flex;
+            gap: 12px;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #2a2a2a;
+        }
+        
+        .meta-item {
+            font-size: 11px;
+            color: #666;
+        }
+        
+        .meta-item strong {
+            color: #aaa;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 16px;
+            background: #fff;
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .btn:hover {
+            background: #e5e5e5;
+        }
+        
+        .btn:disabled {
+            background: #333;
+            color: #666;
+            cursor: not-allowed;
+        }
+        
+        .btn-secondary {
+            background: #333;
+            color: #fff;
+        }
+        
+        .btn-secondary:hover {
+            background: #444;
+        }
+        
+        .info-panel {
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            padding: 24px;
+            margin-top: 32px;
+        }
+        
+        .info-panel h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .info-content {
+            font-size: 13px;
+            color: #888;
+            line-height: 1.8;
+        }
+        
+        .otp-display {
+            background: #252525;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 16px;
+            margin: 16px 0;
+            text-align: center;
+        }
+        
+        .otp-label {
+            font-size: 11px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+        
+        .otp-code {
+            font-size: 28px;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: 8px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .divider {
+            height: 1px;
+            background: #2a2a2a;
+            margin: 16px 0;
+        }
+        
+        footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #2a2a2a;
+            text-align: center;
+        }
+        
+        footer a {
+            color: #888;
+            text-decoration: none;
+            font-size: 12px;
+            margin: 0 12px;
+            transition: color 0.2s;
+        }
+        
+        footer a:hover {
+            color: #fff;
+        }
+        
+        .status-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #1a1a1a;
+            border-top: 1px solid #2a2a2a;
+            padding: 12px 20px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            color: #888;
+        }
+        
+        .status-bar.active {
+            display: flex;
+        }
+        
+        @media (max-width: 768px) {
+            .card-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            body {
+                padding: 20px 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Payment Test - iBilet API</h1>
+            <p class="subtitle">Garanti BBVA Resmi Test Kartları</p>
+        </header>
+        
+        <div class="card-grid">
+            <div class="card-option" onclick="selectCard('troy1')">
+                <div class="card-header">
+                    <span class="badge badge-troy">TROY</span>
+                </div>
+                <div class="card-number">9792 0525 6520 0015</div>
+                <div class="card-details">
+                    CVV: 327 • Exp: 01/27
+                </div>
+                <div class="card-meta">
+                    <span class="meta-item"><strong>3D</strong> Evet</span>
+                    <span class="meta-item"><strong>BNS</strong> Evet</span>
+                </div>
+            </div>
+            
+            <div class="card-option" onclick="selectCard('bonus1')">
+                <div class="card-header">
+                    <span class="badge badge-bonus">BONUS</span>
+                </div>
+                <div class="card-number">5406 6975 4321 1173</div>
+                <div class="card-details">
+                    CVV: 423 • Exp: 04/27
+                </div>
+                <div class="card-meta">
+                    <span class="meta-item"><strong>3D</strong> Evet</span>
+                    <span class="meta-item"><strong>BNS</strong> Evet</span>
+                    <span class="meta-item"><strong>FBB</strong> Evet</span>
+                </div>
+            </div>
+            
+            <div class="card-option" onclick="selectCard('bonus2')">
+                <div class="card-header">
+                    <span class="badge badge-bonus">BONUS</span>
+                </div>
+                <div class="card-number">5549 6034 6942 6017</div>
+                <div class="card-details">
+                    CVV: 916 • Exp: 01/27
+                </div>
+                <div class="card-meta">
+                    <span class="meta-item"><strong>3D</strong> Evet</span>
+                    <span class="meta-item"><strong>BNS</strong> Evet</span>
+                    <span class="meta-item"><strong>FBB</strong> Evet</span>
+                </div>
+            </div>
+            
+            <div class="card-option selected" onclick="selectCard('simulator')">
+                <div class="card-header">
+                    <span class="badge badge-sim">SIMÜLATÖR</span>
+                </div>
+                <div class="card-number">4282 2090 0434 8015</div>
+                <div class="card-details">
+                    CVV: 123 • Exp: 08/27
+                </div>
+                <div class="card-meta">
+                    <span class="meta-item"><strong>3D</strong> Evet</span>
+                    <span class="meta-item"><strong>Test</strong> Amaçlı</span>
+                </div>
+            </div>
+            
+            <div class="card-option" onclick="selectCard('troy2')">
+                <div class="card-header">
+                    <span class="badge badge-troy">TROY</span>
+                </div>
+                <div class="card-number">9792 0527 2556 9010</div>
+                <div class="card-details">
+                    CVV: 113 • Exp: 01/27
+                </div>
+                <div class="card-meta">
+                    <span class="meta-item"><strong>3D</strong> Evet</span>
+                    <span class="meta-item"><strong>BNS</strong> Evet</span>
+                </div>
+            </div>
+            
+            <div class="card-option" onclick="selectCard('amex')">
+                <div class="card-header">
+                    <span class="badge badge-amex">AMEX</span>
+                </div>
+                <div class="card-number">3756 2400 0001 036</div>
+                <div class="card-details">
+                    CVV: 3041 • Exp: 04/26
+                </div>
+                <div class="card-meta">
+                    <span class="meta-item"><strong>3D</strong> Evet</span>
+                    <span class="meta-item"><strong>AmEx</strong> Card</span>
+                </div>
+            </div>
+            
+            <div class="card-option" onclick="selectCard('debitsnl')">
+                <div class="card-header">
+                    <span class="badge badge-debitsnl">DEBITSNL</span>
+                </div>
+                <div class="card-number">5170 4140 0518 7022</div>
+                <div class="card-details">
+                    CVV: 705 • Exp: 10/29
+                </div>
+                <div class="card-meta">
+                    <span class="meta-item"><strong>3D</strong> Hayır</span>
+                    <span class="meta-item"><strong>BNS</strong> Evet</span>
+                </div>
+            </div>
+            
+            <div class="card-option" onclick="selectCard('paracard1')">
+                <div class="card-header">
+                    <span class="badge badge-paracard">PARACARD</span>
+                </div>
+                <div class="card-number">9792 3648 3269 0872</div>
+                <div class="card-details">
+                    CVV: 579 • Exp: 10/29
+                </div>
+                <div class="card-meta">
+                    <span class="meta-item"><strong>3D</strong> Hayır</span>
+                    <span class="meta-item"><strong>BNS</strong> Evet</span>
+                </div>
+            </div>
+            
+            <div class="card-option" onclick="selectCard('paracard2')">
+                <div class="card-header">
+                    <span class="badge badge-paracard">PARACARD</span>
+                </div>
+                <div class="card-number">5170 4049 6612 3637</div>
+                <div class="card-details">
+                    CVV: 096 • Exp: 03/26
+                </div>
+                <div class="card-meta">
+                    <span class="meta-item"><strong>3D</strong> Hayır</span>
+                    <span class="meta-item"><strong>BNS</strong> Evet</span>
+                </div>
+            </div>
+            
+            <div class="card-option" onclick="selectCard('paracard3')">
+                <div class="card-header">
+                    <span class="badge badge-paracard">PARACARD</span>
+                </div>
+                <div class="card-number">4894 5549 0217 5881</div>
+                <div class="card-details">
+                    CVV: 616 • Exp: 03/26
+                </div>
+                <div class="card-meta">
+                    <span class="meta-item"><strong>3D</strong> Hayır</span>
+                    <span class="meta-item"><strong>BNS</strong> Evet</span>
+                </div>
+            </div>
+        </div>
+        
+        <button class="btn" onclick="testPayment3D()" id="payment3DBtn">3D Secure ile Test</button>
+        <button class="btn btn-secondary" onclick="testDirectPayment()" id="directPaymentBtn">Direkt Ödeme (3D&apos;siz)</button>
+        
+        <div class="info-panel">
+            <h3>3D Secure OTP</h3>
+            <div class="otp-display">
+                <div class="otp-label">Tüm Kartlar İçin</div>
+                <div class="otp-code">1 4 7 8 5 2</div>
+            </div>
+            
+            <div class="divider"></div>
+            
+            <div class="info-content">
+                <p style="margin-bottom: 12px;">
+                    <strong style="color: #fff;">Cache Mekanizması:</strong> 
+                    Garanti VPOS, aynı kart ile kısa süre içinde yapılan işlemlerde 
+                    3D Secure doğrulamasını cache'den kontrol eder. Bu normal ve güvenli bir davranıştır.
+                </p>
+                <p>
+                    <strong style="color: #fff;">Çözüm:</strong> 
+                    Her testte farklı kart seçin veya 10-15 dakika bekleyin.
+                </p>
+            </div>
+        </div>
+        
+        <footer>
+            <a href="/api/docs">API Dokümantasyonu</a>
+            <a href="/health">Health Check</a>
+            <a href="https://dev.garantibbva.com.tr/test-kartlari" target="_blank">Kaynak: Garanti BBVA</a>
+        </footer>
+    </div>
+    
+    <div class="status-bar" id="statusBar">İşlem yapılıyor...</div>
+
+    <script>
+        let selectedCard = {
+            name: 'Test User',
+            number: '4282209004348015',
+            month: '08',
+            year: '27',
+            cvv: '123'
+        };
+
+        const cards = {
+            troy1: { name: 'Test User', number: '9792052565200015', month: '01', year: '27', cvv: '327' },
+            bonus1: { name: 'Test User', number: '5406697543211173', month: '04', year: '27', cvv: '423' },
+            bonus2: { name: 'Test User', number: '5549603469426017', month: '01', year: '27', cvv: '916' },
+            simulator: { name: 'Test User', number: '4282209004348015', month: '08', year: '27', cvv: '123' },
+            troy2: { name: 'Test User', number: '9792052725569010', month: '01', year: '27', cvv: '113' },
+            amex: { name: 'Test User', number: '375624000001036', month: '04', year: '26', cvv: '3041' },
+            debitsnl: { name: 'Test User', number: '5170414005187022', month: '10', year: '29', cvv: '705' },
+            paracard1: { name: 'Test User', number: '9792364832690872', month: '10', year: '29', cvv: '579' },
+            paracard2: { name: 'Test User', number: '5170404966123637', month: '03', year: '26', cvv: '096' },
+            paracard3: { name: 'Test User', number: '4894554902175881', month: '03', year: '26', cvv: '616' }
+        };
+
+        function selectCard(type) {
+            document.querySelectorAll('.card-option').forEach(el => {
+                el.classList.remove('selected');
+            });
+            
+            // event global olarak kullanılabilir (onclick attribute'ları için)
+            const evt = window.event || event;
+            if (evt && evt.target) {
+                const cardElement = evt.target.closest('.card-option');
+                if (cardElement) {
+                    cardElement.classList.add('selected');
+                }
+            } else {
+                // Fallback: type'a göre seç
+                const cardElement = document.querySelector(`[onclick*="selectCard('${type}')"]`);
+                if (cardElement) {
+                    cardElement.classList.add('selected');
+                }
+            }
+            
+            if (cards[type]) {
+                selectedCard = cards[type];
+                console.log('✅ Seçilen kart:', type);
+                console.log('📋 Kart bilgileri:', {
+                    number: selectedCard.number,
+                    month: selectedCard.month,
+                    year: selectedCard.year,
+                    cvv: selectedCard.cvv
+                });
+            } else {
+                console.warn('⚠️ Bilinmeyen kart tipi:', type);
+            }
+        }
+
+        async function testPayment3D() {
+            const btn = document.getElementById('payment3DBtn');
+            const statusBar = document.getElementById('statusBar');
+            
+            btn.disabled = true;
+            btn.textContent = 'İşleniyor...';
+            statusBar.classList.add('active');
+            statusBar.textContent = '3D Secure sayfasına yönlendiriliyorsunuz...';
+            
+            try {
+                console.log('🔄 3D Secure ödeme isteği gönderiliyor...');
+                console.log('📦 Seçilen kart:', selectedCard);
+                console.log('💳 Gönderilen kart numarası:', selectedCard.number);
+                
+                const requestBody = {
+                    amount: 10000, // 100.00 TL
+                    currencyCode: '949',
+                    transactionType: 'sales',
+                    installmentCount: 0,
+                    customerEmail: 'test@example.com',
+                    customerIp: '192.168.1.1',
+                    companyName: 'IBGROUP',
+                    cardInfo: {
+                        cardholderName: selectedCard.name,
+                        cardNumber: selectedCard.number,
+                        cardExpireMonth: selectedCard.month,
+                        cardExpireYear: selectedCard.year,
+                        cardCvv2: selectedCard.cvv
+                    }
+                };
+                
+                console.log('📤 İstek body:', JSON.stringify(requestBody, null, 2));
+                
+                const response = await fetch('/api/payment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                const result = await response.json();
+                console.log('📥 API Yanıtı:', result);
+                
+                if (result.success && result.data) {
+                    console.log('✅ Order ID:', result.data.orderId);
+                    console.log('🌐 Redirect URL:', result.data.redirectUrl);
+                    
+                    // Form oluştur ve submit et
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = result.data.redirectUrl;
+                    
+                    Object.entries(result.data.formData).forEach(([key, value]) => {
+                        const input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = key;
+                        input.value = value;
+                        form.appendChild(input);
+                    });
+                    
+                    document.body.appendChild(form);
+                    
+                    setTimeout(() => {
+                        console.log('🚀 3D Secure sayfasına yönlendiriliyor...');
+                        form.submit();
+                    }, 800);
+                } else {
+                    throw new Error(result.message || 'Ödeme başlatılamadı');
+                }
+            } catch (error) {
+                console.error('❌ Hata:', error);
+                statusBar.textContent = '❌ Hata: ' + error.message;
+                statusBar.style.background = '#ff4444';
+                btn.disabled = false;
+                btn.textContent = '3D Secure ile Test';
+                
+                setTimeout(() => {
+                    statusBar.classList.remove('active');
+                    statusBar.style.background = '#1a1a1a';
+                }, 3000);
+            }
+        }
+
+        async function testDirectPayment() {
+            const btn = document.getElementById('directPaymentBtn');
+            const statusBar = document.getElementById('statusBar');
+            
+            btn.disabled = true;
+            btn.textContent = 'İşleniyor...';
+            statusBar.classList.add('active');
+            statusBar.textContent = 'Direkt ödeme işlemi yapılıyor...';
+            
+            try {
+                console.log('🔄 Direkt ödeme isteği gönderiliyor...');
+                console.log('📦 Seçilen kart:', selectedCard);
+                console.log('💳 Gönderilen kart numarası:', selectedCard.number);
+                
+                const requestBody = {
+                    amount: 10000, // 100.00 TL
+                    currencyCode: '949',
+                    transactionType: 'sales',
+                    customerEmail: 'test@example.com',
+                    customerIp: '192.168.1.1',
+                    cardInfo: {
+                        cardholderName: selectedCard.name,
+                        cardNumber: selectedCard.number,
+                        cardExpireMonth: selectedCard.month,
+                        cardExpireYear: selectedCard.year,
+                        cardCvv2: selectedCard.cvv
+                    }
+                };
+                
+                console.log('📤 İstek body:', JSON.stringify(requestBody, null, 2));
+                
+                const response = await fetch('/api/payment/direct', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                const result = await response.json();
+                console.log('📥 API Yanıtı:', result);
+                
+                if (result.success && result.data) {
+                    statusBar.textContent = '✅ Ödeme başarılı! Order ID: ' + result.data.orderId;
+                    statusBar.style.background = '#10b981';
+                    
+                    // Sonuçları göster
+                    alert('Ödeme Başarılı!\n\n' +
+                          'Order ID: ' + result.data.orderId + '\n' +
+                          'Auth Code: ' + (result.data.transaction?.authCode || '-') + '\n' +
+                          'Amount: ' + (result.data.transaction?.amount || 0) + ' TL\n' +
+                          'Status: ' + (result.data.transaction?.status || '-'));
+                } else {
+                    throw new Error(result.message || 'Ödeme başarısız');
+                }
+            } catch (error) {
+                console.error('❌ Hata:', error);
+                statusBar.textContent = '❌ Hata: ' + error.message;
+                statusBar.style.background = '#ff4444';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Direkt Ödeme (3D'siz)";
+                
+                setTimeout(() => {
+                    statusBar.classList.remove('active');
+                    statusBar.style.background = '#1a1a1a';
+                }, 5000);
+            }
+        }
+        
+        // Sayfa yüklendiğinde
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🔐 Payment Test Sayfası Hazır');
+            console.log('📋 Test OTP: 147852');
+            console.log('💳 Toplam Kart: ' + Object.keys(cards).length);
+        });
+        
+        // Global event için fallback (IE ve bazı tarayıcılar için)
+        if (typeof window.event === 'undefined') {
+            window.event = null;
+        }
+    </script>
+</body>
+</html>
+
