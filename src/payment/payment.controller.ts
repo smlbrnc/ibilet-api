@@ -10,6 +10,7 @@ import { RefundRequestDto } from './dto/refund-request.dto';
 import { CallbackRequestDto } from './dto/callback-request.dto';
 import { LoggerService } from '../common/logger/logger.service';
 import { SupabaseService } from '../common/services/supabase.service';
+import { PaxHttpService } from '../pax/pax-http.service';
 
 @ApiTags('Payment')
 @Controller('payment')
@@ -19,6 +20,7 @@ export class PaymentController {
     private readonly logger: LoggerService,
     private readonly supabase: SupabaseService,
     private readonly configService: ConfigService,
+    private readonly paxHttp: PaxHttpService,
   ) {
     this.logger.setContext('PaymentController');
   }
@@ -265,11 +267,10 @@ export class PaymentController {
   async callback(@Body() dto: CallbackRequestDto, @Res() res: Response) {
     const responseData = await this.paymentService.handleCallback(dto);
 
-    // Booking status'unu güncelle (orderId ile)
+    // Booking güncelle (orderId ile)
     if (responseData.orderId) {
       try {
         const adminClient = this.supabase.getAdminClient();
-        const newStatus = responseData.success ? 'SUCCESS' : 'FAILED';
 
         const { data: booking, error: findError } = await adminClient
           .schema('backend')
@@ -285,10 +286,63 @@ export class PaymentController {
             error: findError?.message,
           });
         } else {
+          // Her durumda order_detail'e ödeme sonucunu kaydet
+          let newStatus = responseData.success ? 'SUCCESS' : 'FAILED';
+          let bookingDetail = null;
+
+          // Ödeme başarılı ise commit-transaction çağır
+          if (responseData.success) {
+            try {
+              this.logger.log({
+                message: 'Callback: commit-transaction başlatılıyor',
+                transactionId: booking.transaction_id,
+              });
+
+              const baseUrl = this.configService.get<string>('pax.baseUrl');
+              const endpoint = this.configService.get<string>('pax.endpoints.commitTransaction');
+              
+              const commitResult = await this.paxHttp.post(`${baseUrl}${endpoint}`, {
+                transactionId: booking.transaction_id,
+              });
+
+              bookingDetail = commitResult;
+
+              // Commit başarılı mı kontrol et
+              if (commitResult?.header?.success === true) {
+                newStatus = 'CONFIRMED';
+                this.logger.log({
+                  message: 'Callback: commit-transaction başarılı',
+                  transactionId: booking.transaction_id,
+                });
+              } else {
+                newStatus = 'COMMIT_FAILED';
+                this.logger.warn({
+                  message: 'Callback: commit-transaction başarısız',
+                  transactionId: booking.transaction_id,
+                  response: commitResult,
+                });
+              }
+            } catch (commitError) {
+              newStatus = 'COMMIT_FAILED';
+              bookingDetail = { error: commitError instanceof Error ? commitError.message : String(commitError) };
+              this.logger.error({
+                message: 'Callback: commit-transaction hatası',
+                transactionId: booking.transaction_id,
+                error: commitError instanceof Error ? commitError.message : String(commitError),
+              });
+            }
+          }
+
+          // Booking'i güncelle (order_detail ve booking_detail ile birlikte)
           const { error: updateError } = await adminClient
             .schema('backend')
             .from('booking')
-            .update({ status: newStatus, updated_at: new Date().toISOString() })
+            .update({
+              status: newStatus,
+              order_detail: responseData,
+              booking_detail: bookingDetail,
+              updated_at: new Date().toISOString(),
+            })
             .eq('id', booking.id);
 
           if (updateError) {
@@ -299,7 +353,7 @@ export class PaymentController {
             });
           } else {
             this.logger.log({
-              message: `Callback: Booking status güncellendi → ${newStatus}`,
+              message: `Callback: Booking güncellendi → ${newStatus}`,
               orderId: responseData.orderId,
               transactionId: booking.transaction_id,
               success: responseData.success,
