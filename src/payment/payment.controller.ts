@@ -267,6 +267,10 @@ export class PaymentController {
   async callback(@Body() dto: CallbackRequestDto, @Res() res: Response) {
     const responseData = await this.paymentService.handleCallback(dto);
 
+    // URL parametreleri için değişkenler
+    let transactionId = '';
+    let reservationNumber = '';
+
     // Booking güncelle (orderId ile)
     if (responseData.orderId) {
       try {
@@ -286,6 +290,8 @@ export class PaymentController {
             error: findError?.message,
           });
         } else {
+          transactionId = booking.transaction_id;
+
           // Her durumda order_detail'e ödeme sonucunu kaydet
           let newStatus = responseData.success ? 'SUCCESS' : 'FAILED';
           let bookingDetail = null;
@@ -310,9 +316,11 @@ export class PaymentController {
               // Commit başarılı mı kontrol et
               if (commitResult?.header?.success === true) {
                 newStatus = 'CONFIRMED';
+                reservationNumber = commitResult?.body?.reservationNumber || '';
                 this.logger.log({
                   message: 'Callback: commit-transaction başarılı',
                   transactionId: booking.transaction_id,
+                  reservationNumber,
                 });
               } else {
                 newStatus = 'COMMIT_FAILED';
@@ -369,19 +377,12 @@ export class PaymentController {
       }
     }
 
-    // URL parametrelerini oluştur
+    // URL parametrelerini oluştur (sadece gerekli alanlar)
     const params = new URLSearchParams({
       status: responseData.success ? 'success' : 'failed',
-      orderId: responseData.orderId || '',
-      returnCode: responseData.transaction.returnCode || '',
-      authCode: responseData.transaction.authCode || '',
-      amount: responseData.transaction.amount?.toString() || '',
-      currencyCode: responseData.transaction.currencyCode || '',
-      message: responseData.transaction.message || '',
-      hostRefNum: responseData.paymentDetails.hostRefNum || '',
-      maskedPan: responseData.paymentDetails.maskedPan || '',
-      cardholderName: responseData.paymentDetails.cardholderName || '',
-      timestamp: responseData.timestamp || '',
+      transactionId,
+      success: String(responseData.success),
+      reservationNumber,
     });
 
     // Frontend sonuç sayfasına yönlendir (mobil ve web için)

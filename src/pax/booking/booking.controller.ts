@@ -34,6 +34,26 @@ export class BookingController {
     return { userId: null, email: null };
   }
 
+  /**
+   * Booking verisini frontend için formatlar
+   * Sadece gerekli alanları döndürür
+   */
+  private formatBookingResponse(booking: any) {
+    return {
+      success: true,
+      data: {
+        transactionId: booking.transaction_id,
+        userId: booking.user_id,
+        status: booking.status,
+        orderId: booking.order_id,
+        orderDetail: booking.order_detail,
+        reservationNumber: booking.booking_detail?.body?.reservationNumber || null,
+        createdAt: booking.created_at,
+        updatedAt: booking.updated_at,
+      },
+    };
+  }
+
   @Post('begin-transaction')
   @ApiOperation({ summary: 'Rezervasyon başlat (Begin Transaction)' })
   @ApiResponse({ status: 200, description: 'Transaction başlatıldı' })
@@ -421,10 +441,7 @@ export class BookingController {
             preTransactionId: booking.pre_transaction_id,
           });
           // pre_transaction bulunamasa bile mevcut status'u döndür
-          return {
-            success: true,
-            data: booking,
-          };
+          return this.formatBookingResponse(booking);
         }
 
         let newStatus: string | null = null;
@@ -462,10 +479,7 @@ export class BookingController {
               transactionId,
             });
             // Güncelleme başarısız olsa bile mevcut status'u döndür
-            return {
-              success: true,
-              data: booking,
-            };
+            return this.formatBookingResponse(booking);
           }
 
           this.logger.log({
@@ -475,18 +489,12 @@ export class BookingController {
             newStatus,
           });
 
-          return {
-            success: true,
-            data: updatedBooking,
-          };
+          return this.formatBookingResponse(updatedBooking);
         }
       }
 
       // 3. Diğer statuslarda veya güncelleme gerekmiyorsa mevcut durumu döndür
-      return {
-        success: true,
-        data: booking,
-      };
+      return this.formatBookingResponse(booking);
     } catch (error) {
       if (error instanceof NotFoundException || error instanceof HttpException) {
         throw error;
