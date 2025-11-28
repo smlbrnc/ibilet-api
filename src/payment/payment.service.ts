@@ -36,7 +36,8 @@ export class PaymentService {
 
       const orderId = generateOrderId('IB');
 
-      // Hash değeri hesapla
+      // Hash değeri hesapla (installmentCount boş string olmalı, 0 değil!)
+      const installmentCountForHash = dto.installmentCount || '';
       const hashData = get3DSecureHash({
         terminalId: this.paymentConfig.getTerminalId(),
         orderId,
@@ -45,12 +46,12 @@ export class PaymentService {
         successUrl: this.paymentConfig.getSuccessUrl(),
         errorUrl: this.paymentConfig.getErrorUrl(),
         type: dto.transactionType,
-        installmentCount: dto.installmentCount || 0,
+        installmentCount: installmentCountForHash,
         storeKey: this.paymentConfig.getStoreKey(),
         provisionPassword: this.paymentConfig.getProvisionPassword(),
       });
 
-      // Form verilerini hazırla
+      // Form verilerini hazırla (installmentCount hash ile aynı olmalı)
       const formData = build3DSecureFormData({
         orderId,
         hashData,
@@ -58,7 +59,7 @@ export class PaymentService {
         amount: dto.amount,
         transactionType: dto.transactionType,
         currencyCode: dto.currencyCode || '949',
-        installmentCount: dto.installmentCount || 0,
+        installmentCount: installmentCountForHash,
         customerEmail: dto.customerEmail,
         customerIp: dto.customerIp,
         companyName: dto.companyName,

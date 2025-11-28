@@ -10,16 +10,20 @@ ngrok http 3000
 
 Ngrok size şu formatta bir URL verecek:
 ```
-Forwarding: https://5fb89059a05b.ngrok-free.app -> http://localhost:3000
+Forwarding: https://8911471cf511.ngrok-free.app -> http://localhost:3000
 ```
+
+**Önemli:** Her ngrok başlatışında URL değişir. Çalışan URL'i kullanın!
 
 ### 2. .env.development Dosyasını Güncelleyin
 
-Ngrok'tan aldığınız URL'yi `.env.development` dosyasına ekleyin:
+Ngrok'tan aldığınız **çalışan** URL'yi `.env.development` dosyasına ekleyin:
 
 ```env
-API_URL=https://5fb89059a05b.ngrok-free.app
+API_URL=https://8911471cf511.ngrok-free.app
 ```
+
+**⚠️ UYARI:** Eski/offline URL'leri kullanmayın! Her ngrok başlatışında yeni URL alın ve `.env.development` dosyasını güncelleyin.
 
 **Önemli:** Her ngrok başlatışında URL değişir, bu yüzden her seferinde güncellemeniz gerekir.
 
@@ -32,8 +36,8 @@ npm run start:dev
 ### 4. Test Edin
 
 ```bash
-# Ngrok üzerinden health check
-curl https://5fb89059a05b.ngrok-free.app/health
+# Ngrok üzerinden health check (çalışan URL'i kullanın!)
+curl https://8911471cf511.ngrok-free.app/health
 
 # Localhost üzerinden test sayfası
 open http://localhost:3000/payment.html

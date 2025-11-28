@@ -27,8 +27,8 @@ export class PaymentConfigService {
 
     // Callback URL'lerini API_URL'den oluştur
     const callbackBaseUrl = this.configService.get<string>('payment.callbackBaseUrl') || apiUrl;
-    const successUrl = this.configService.get<string>('payment.successUrl') || (apiUrl ? `${apiUrl}/api/payment/callback` : '');
-    const errorUrl = this.configService.get<string>('payment.errorUrl') || (apiUrl ? `${apiUrl}/api/payment/callback` : '');
+    const successUrl = this.configService.get<string>('payment.successUrl') || (apiUrl ? `${apiUrl}/payment/callback` : '');
+    const errorUrl = this.configService.get<string>('payment.errorUrl') || (apiUrl ? `${apiUrl}/payment/callback` : '');
 
     if (isProduction) {
       this.config = {

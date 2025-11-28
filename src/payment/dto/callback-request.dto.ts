@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsString, IsOptional, IsNotEmpty } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class CallbackRequestDto {
   @ApiProperty({ description: 'Sipariş ID', example: 'IB_1758739748270_Z22460' })
@@ -164,9 +165,9 @@ export class CallbackRequestDto {
   customeripaddress?: string;
 
   @ApiPropertyOptional({ description: 'Terminal ID' })
-  @IsString()
   @IsOptional()
-  terminalid?: string;
+  @Transform(({ value }) => value?.toString())
+  terminalid?: string | number;
 
   @ApiPropertyOptional({ description: 'Terminal Provision User ID' })
   @IsString()
@@ -197,6 +198,67 @@ export class CallbackRequestDto {
   @IsString()
   @IsOptional()
   rnd?: string;
+
+  // 3D Secure ek alanları
+  @ApiPropertyOptional({ description: 'XID' })
+  @IsString()
+  @IsOptional()
+  xid?: string;
+
+  @ApiPropertyOptional({ description: 'Transaction Status' })
+  @IsString()
+  @IsOptional()
+  txnstatus?: string;
+
+  @ApiPropertyOptional({ description: 'PARES Syntax OK' })
+  @IsString()
+  @IsOptional()
+  paressyntaxok?: string;
+
+  @ApiPropertyOptional({ description: 'PARES Verified' })
+  @IsString()
+  @IsOptional()
+  paresverified?: string;
+
+  @ApiPropertyOptional({ description: 'Version' })
+  @IsString()
+  @IsOptional()
+  version?: string;
+
+  @ApiPropertyOptional({ description: 'IReq Code' })
+  @IsString()
+  @IsOptional()
+  ireqcode?: string;
+
+  @ApiPropertyOptional({ description: 'IReq Detail' })
+  @IsString()
+  @IsOptional()
+  ireqdetail?: string;
+
+  @ApiPropertyOptional({ description: 'Vendor Code' })
+  @IsString()
+  @IsOptional()
+  vendorcode?: string;
+
+  @ApiPropertyOptional({ description: 'CAVV Algorithm' })
+  @IsString()
+  @IsOptional()
+  cavvalgorithm?: string;
+
+  @ApiPropertyOptional({ description: 'Host Message' })
+  @IsString()
+  @IsOptional()
+  hostmsg?: string;
+
+  @ApiPropertyOptional({ description: 'Transaction ID' })
+  @IsString()
+  @IsOptional()
+  transid?: string;
+
+  @ApiPropertyOptional({ description: 'Garanti Card Indicator' })
+  @IsString()
+  @IsOptional()
+  garanticardind?: string;
 
   // Diğer callback alanları (opsiyonel)
   [key: string]: any;

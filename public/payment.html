@@ -445,7 +445,7 @@
         </div>
         
         <footer>
-            <a href="/api/docs">API Dokümantasyonu</a>
+            <a href="/docs">API Dokümantasyonu</a>
             <a href="/health">Health Check</a>
             <a href="https://dev.garantibbva.com.tr/test-kartlari" target="_blank">Kaynak: Garanti BBVA</a>
         </footer>
@@ -455,7 +455,7 @@
 
     <script>
         let selectedCard = {
-            name: 'Test User',
+            name: 'Mehmet Daldeviren',
             number: '4282209004348015',
             month: '08',
             year: '27',
@@ -463,16 +463,16 @@
         };
 
         const cards = {
-            troy1: { name: 'Test User', number: '9792052565200015', month: '01', year: '27', cvv: '327' },
-            bonus1: { name: 'Test User', number: '5406697543211173', month: '04', year: '27', cvv: '423' },
-            bonus2: { name: 'Test User', number: '5549603469426017', month: '01', year: '27', cvv: '916' },
-            simulator: { name: 'Test User', number: '4282209004348015', month: '08', year: '27', cvv: '123' },
-            troy2: { name: 'Test User', number: '9792052725569010', month: '01', year: '27', cvv: '113' },
-            amex: { name: 'Test User', number: '375624000001036', month: '04', year: '26', cvv: '3041' },
-            debitsnl: { name: 'Test User', number: '5170414005187022', month: '10', year: '29', cvv: '705' },
-            paracard1: { name: 'Test User', number: '9792364832690872', month: '10', year: '29', cvv: '579' },
-            paracard2: { name: 'Test User', number: '5170404966123637', month: '03', year: '26', cvv: '096' },
-            paracard3: { name: 'Test User', number: '4894554902175881', month: '03', year: '26', cvv: '616' }
+            troy1: { name: 'Mehmet Daldeviren', number: '9792052565200015', month: '01', year: '27', cvv: '327' },
+            bonus1: { name: 'Mehmet Daldeviren', number: '5406697543211173', month: '04', year: '27', cvv: '423' },
+            bonus2: { name: 'Mehmet Daldeviren', number: '5549603469426017', month: '01', year: '27', cvv: '916' },
+            simulator: { name: 'Mehmet Daldeviren', number: '4282209004348015', month: '08', year: '27', cvv: '123' },
+            troy2: { name: 'Mehmet Daldeviren', number: '9792052725569010', month: '01', year: '27', cvv: '113' },
+            amex: { name: 'Mehmet Daldeviren', number: '375624000001036', month: '04', year: '26', cvv: '3041' },
+            debitsnl: { name: 'Mehmet Daldeviren', number: '5170414005187022', month: '10', year: '29', cvv: '705' },
+            paracard1: { name: 'Mehmet Daldeviren', number: '9792364832690872', month: '10', year: '29', cvv: '579' },
+            paracard2: { name: 'Mehmet Daldeviren', number: '5170404966123637', month: '03', year: '26', cvv: '096' },
+            paracard3: { name: 'Mehmet Daldeviren', number: '4894554902175881', month: '03', year: '26', cvv: '616' }
         };
 
         function selectCard(type) {
@@ -533,16 +533,16 @@
                     companyName: 'IBGROUP',
                     cardInfo: {
                         cardholderName: selectedCard.name,
-                        cardNumber: selectedCard.number,
+                        cardNumber: selectedCard.number.replace(/\s/g, ''), // Boşlukları kaldır
                         cardExpireMonth: selectedCard.month,
                         cardExpireYear: selectedCard.year,
-                        cardCvv2: selectedCard.cvv
+                        cardCvv2: selectedCard.cvv.trim() // CVV'yi trim et
                     }
                 };
                 
                 console.log('📤 İstek body:', JSON.stringify(requestBody, null, 2));
                 
-                const response = await fetch('/api/payment', {
+                const response = await fetch('/payment', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(requestBody)
@@ -613,16 +613,16 @@
                     customerIp: '192.168.1.1',
                     cardInfo: {
                         cardholderName: selectedCard.name,
-                        cardNumber: selectedCard.number,
+                        cardNumber: selectedCard.number.replace(/\s/g, ''), // Boşlukları kaldır
                         cardExpireMonth: selectedCard.month,
                         cardExpireYear: selectedCard.year,
-                        cardCvv2: selectedCard.cvv
+                        cardCvv2: selectedCard.cvv.trim() // CVV'yi trim et
                     }
                 };
                 
                 console.log('📤 İstek body:', JSON.stringify(requestBody, null, 2));
                 
-                const response = await fetch('/api/payment/direct', {
+                const response = await fetch('/payment/direct', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(requestBody)

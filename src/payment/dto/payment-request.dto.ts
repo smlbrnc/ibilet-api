@@ -82,7 +82,7 @@ export class PaymentRequestDto {
 
   @ApiPropertyOptional({
     description: 'Başarılı işlem için callback URL (API_URL kullanılır)',
-    example: '${API_URL}/api/payment/callback',
+    example: '${API_URL}/payment/callback',
   })
   @IsString()
   @IsOptional()
@@ -90,7 +90,7 @@ export class PaymentRequestDto {
 
   @ApiPropertyOptional({
     description: 'Başarısız işlem için callback URL (API_URL kullanılır)',
-    example: '${API_URL}/api/payment/callback',
+    example: '${API_URL}/payment/callback',
   })
   @IsString()
   @IsOptional()

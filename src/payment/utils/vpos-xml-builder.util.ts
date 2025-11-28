@@ -36,7 +36,7 @@ export function build3DSecureFormData(params: {
   amount: number;
   transactionType: string;
   currencyCode: string;
-  installmentCount: number;
+  installmentCount: number | string;
   customerEmail: string;
   customerIp: string;
   companyName: string;

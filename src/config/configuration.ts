@@ -67,8 +67,8 @@ export default () => ({
     testTerminalJwkKeyProvizyon: process.env.PAYMENT_TEST_TERMINAL_JWKKEY_PROVIZYON,
     // Common URLs - API_URL kullanılarak dinamik oluşturulacak
     callbackBaseUrl: process.env.API_URL,
-    successUrl: process.env.API_URL ? `${process.env.API_URL}/api/payment/callback` : undefined,
-    errorUrl: process.env.API_URL ? `${process.env.API_URL}/api/payment/callback` : undefined,
+    successUrl: process.env.API_URL ? `${process.env.API_URL}/payment/callback` : undefined,
+    errorUrl: process.env.API_URL ? `${process.env.API_URL}/payment/callback` : undefined,
   },
 });
 

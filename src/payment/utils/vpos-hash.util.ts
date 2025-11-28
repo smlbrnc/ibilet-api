@@ -66,7 +66,18 @@ export class VPOSHash {
     const hashedPassword = this.getHashedPassword(provisionPassword, terminalId);
     
     // 3D Secure için hash sırası: terminalId + orderId + amount + currencyCode + successUrl + errorUrl + type + installmentCount + storeKey + hashedPassword
-    const hashString = terminalId + orderId + amount + currencyCode + successUrl + errorUrl + type + installmentCount + storeKey + hashedPassword;
+    // Tüm değerleri string'e çevir (eski kodla uyumluluk için)
+    const hashString = 
+      String(terminalId) + 
+      String(orderId) + 
+      String(amount) + 
+      String(currencyCode) + 
+      String(successUrl) + 
+      String(errorUrl) + 
+      String(type) + 
+      String(installmentCount) + 
+      String(storeKey) + 
+      String(hashedPassword);
     
     return this.sha512(hashString);
   }

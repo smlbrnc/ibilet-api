@@ -16,9 +16,6 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
 
-  // Global prefix - Tüm API route'ları /api ile başlar
-  app.setGlobalPrefix('api');
-
   // Static files (public folder)
   app.useStaticAssets(join(__dirname, '..', 'public'), {
     prefix: '/',
@@ -62,7 +59,7 @@ async function bootstrap() {
     .addTag('Health', 'Health check endpoints')
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document, {
+  SwaggerModule.setup('docs', app, document, {
     swaggerOptions: {
       operationsSorter: 'alpha',
       tagsSorter: 'alpha',
@@ -75,10 +72,10 @@ async function bootstrap() {
   await app.listen(port);
 
   console.log(`🚀 Server running on port ${port}`);
-  console.log(`📚 Swagger docs: http://localhost:${port}/api/docs`);
-  console.log(`🏥 Health check: http://localhost:${port}/api/health`);
+  console.log(`📚 Swagger docs: http://localhost:${port}/docs`);
+  console.log(`🏥 Health check: http://localhost:${port}/health`);
   console.log(`💳 Payment test: http://localhost:${port}/payment.html`);
-  console.log(`💳 Payment callback: http://localhost:${port}/api/payment/callback`);
+  console.log(`💳 Payment callback: http://localhost:${port}/payment/callback`);
 }
 
 bootstrap();
