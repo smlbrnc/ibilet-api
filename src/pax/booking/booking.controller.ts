@@ -1,5 +1,5 @@
-import { Controller, Post, Body, Req, Headers } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Controller, Post, Get, Body, Req, Headers, Param, NotFoundException, HttpException, HttpStatus } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { Request } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { PaxHttpService } from '../pax-http.service';
@@ -128,6 +128,7 @@ export class BookingController {
       
       // PAX API eski formatı yeni formata dönüştür: { body, header } -> { success, data: { body } }
       const success = paxResult?.header?.success ?? false;
+      const headerMessages = paxResult?.header?.messages ?? null;
       const normalizedResult = {
         success,
         data: {
@@ -141,10 +142,11 @@ export class BookingController {
         
         const transactionId = normalizedResult?.data?.body?.transactionId ?? null;
         const expiresOn = normalizedResult?.data?.body?.expiresOn ?? null;
-        const code = null;
-        const messages = null;
         
-        const body = success ? normalizedResult.data.body : { error: 'error-set-reservation' };
+        // Hata durumunda messages değerini body'ye kaydet
+        const body = success 
+          ? normalizedResult.data.body 
+          : { messages: headerMessages };
 
         const { data: insertData, error: insertError } = await adminClient
           .schema('backend')
@@ -153,8 +155,8 @@ export class BookingController {
             transaction_id: transactionId,
             expires_on: expiresOn,
             success,
-            code,
-            messages,
+            code: null,
+            messages: headerMessages,
             body,
           })
           .select()
@@ -174,6 +176,39 @@ export class BookingController {
             success,
             insertedId: insertData?.id,
           });
+
+          // Success durumunda booking tablosuna kayıt ekle
+          if (success && insertData?.id && transactionId) {
+            // expires_on kontrolü ve status belirleme
+            const expiresOnDate = expiresOn ? new Date(expiresOn) : null;
+            const isExpired = expiresOnDate ? expiresOnDate <= new Date() : true;
+            const bookingStatus = isExpired ? 'EXPIRED' : 'AWAITING_PAYMENT';
+
+            const { error: bookingError } = await adminClient
+              .schema('backend')
+              .from('booking')
+              .insert({
+                pre_transaction_id: insertData.id,
+                transaction_id: transactionId,
+                user_id: userInfo.userId || null,
+                status: bookingStatus,
+              });
+
+            if (bookingError) {
+              this.logger.error({
+                message: 'Booking kayıt hatası',
+                error: bookingError.message,
+                details: bookingError,
+                transactionId,
+              });
+            } else {
+              this.logger.log({
+                message: 'Booking kaydı oluşturuldu',
+                transactionId,
+                status: bookingStatus,
+              });
+            }
+          }
         }
       } catch (supabaseError) {
         const transactionId = normalizedResult?.data?.body?.transactionId ?? null;
@@ -187,6 +222,8 @@ export class BookingController {
       return normalizedResult.data.body;
     } catch (error) {
       // PAX API hatası olsa bile Supabase'e kayıt yap (success: false ile)
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
       try {
         const adminClient = this.supabase.getAdminClient();
         await adminClient
@@ -197,12 +234,13 @@ export class BookingController {
             expires_on: null,
             success: false,
             code: null,
-            messages: null,
-            body: { error: 'error-set-reservation' },
+            messages: [{ message: errorMessage }],
+            body: { messages: [{ message: errorMessage }] },
           });
 
         this.logger.log({
           message: 'PAX API hatası - Supabase\'e hata kaydı yapıldı',
+          errorMessage,
         });
       } catch (supabaseError) {
         this.logger.error({
@@ -338,6 +376,136 @@ export class BookingController {
       return result.body || result;
     } catch (error) {
       handlePaxApiError(error, 'CANCEL_RESERVATION_ERROR', 'Rezervasyon iptal edilemedi');
+    }
+  }
+
+  @Get(':transactionId')
+  @ApiOperation({ summary: 'Booking durumunu getir ve güncelle' })
+  @ApiParam({ name: 'transactionId', description: 'PAX API transaction ID' })
+  @ApiResponse({ status: 200, description: 'Booking durumu' })
+  @ApiResponse({ status: 404, description: 'Booking bulunamadı' })
+  async getBookingStatus(@Param('transactionId') transactionId: string) {
+    try {
+      const adminClient = this.supabase.getAdminClient();
+
+      // 1. booking kaydını bul
+      const { data: booking, error: bookingError } = await adminClient
+        .schema('backend')
+        .from('booking')
+        .select('*')
+        .eq('transaction_id', transactionId)
+        .single();
+
+      if (bookingError || !booking) {
+        throw new NotFoundException({
+          success: false,
+          code: 'BOOKING_NOT_FOUND',
+          message: 'Booking bulunamadı',
+        });
+      }
+
+      // 2. AWAITING_PAYMENT durumunda kontrol ve güncelleme yap
+      if (booking.status === 'AWAITING_PAYMENT') {
+        // pre_transactionid tablosunu sorgula
+        const { data: preTransaction, error: preError } = await adminClient
+          .schema('backend')
+          .from('pre_transactionid')
+          .select('success, expires_on')
+          .eq('id', booking.pre_transaction_id)
+          .single();
+
+        if (preError || !preTransaction) {
+          this.logger.error({
+            message: 'pre_transactionid kaydı bulunamadı',
+            transactionId,
+            preTransactionId: booking.pre_transaction_id,
+          });
+          // pre_transaction bulunamasa bile mevcut status'u döndür
+          return {
+            success: true,
+            data: booking,
+          };
+        }
+
+        let newStatus: string | null = null;
+
+        // expires_on kontrolü - geçmiş tarihse EXPIRED
+        if (preTransaction.expires_on) {
+          const expiresOnDate = new Date(preTransaction.expires_on);
+          if (expiresOnDate <= new Date()) {
+            newStatus = 'EXPIRED';
+          }
+        }
+
+        // success kontrolü - false ise FAILED (expires_on kontrolünden öncelikli değil)
+        if (preTransaction.success === false && !newStatus) {
+          newStatus = 'FAILED';
+        }
+
+        // Güncelleme gerekiyorsa yap
+        if (newStatus) {
+          const { data: updatedBooking, error: updateError } = await adminClient
+            .schema('backend')
+            .from('booking')
+            .update({ 
+              status: newStatus, 
+              updated_at: new Date().toISOString() 
+            })
+            .eq('id', booking.id)
+            .select()
+            .single();
+
+          if (updateError) {
+            this.logger.error({
+              message: 'Booking güncelleme hatası',
+              error: updateError.message,
+              transactionId,
+            });
+            // Güncelleme başarısız olsa bile mevcut status'u döndür
+            return {
+              success: true,
+              data: booking,
+            };
+          }
+
+          this.logger.log({
+            message: 'Booking status güncellendi',
+            transactionId,
+            oldStatus: booking.status,
+            newStatus,
+          });
+
+          return {
+            success: true,
+            data: updatedBooking,
+          };
+        }
+      }
+
+      // 3. Diğer statuslarda veya güncelleme gerekmiyorsa mevcut durumu döndür
+      return {
+        success: true,
+        data: booking,
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof HttpException) {
+        throw error;
+      }
+
+      this.logger.error({
+        message: 'Booking durumu alınırken hata',
+        error: error instanceof Error ? error.message : String(error),
+        transactionId,
+      });
+
+      throw new HttpException(
+        {
+          success: false,
+          code: 'BOOKING_STATUS_ERROR',
+          message: 'Booking durumu alınamadı',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 }
