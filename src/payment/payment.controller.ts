@@ -1,12 +1,14 @@
-import { Controller, Post, Get, Body, Param, Res, HttpStatus, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, Res, HttpStatus, UsePipes, ValidationPipe, HttpException } from '@nestjs/common';
 import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { PaymentService } from './payment.service';
 import { PaymentRequestDto } from './dto/payment-request.dto';
+import { PaymentInitiateRequestDto } from './dto/payment-initiate-request.dto';
 import { DirectPaymentRequestDto } from './dto/direct-payment-request.dto';
 import { RefundRequestDto } from './dto/refund-request.dto';
 import { CallbackRequestDto } from './dto/callback-request.dto';
 import { LoggerService } from '../common/logger/logger.service';
+import { SupabaseService } from '../common/services/supabase.service';
 
 @ApiTags('Payment')
 @Controller('payment')
@@ -14,6 +16,7 @@ export class PaymentController {
   constructor(
     private readonly paymentService: PaymentService,
     private readonly logger: LoggerService,
+    private readonly supabase: SupabaseService,
   ) {
     this.logger.setContext('PaymentController');
   }
@@ -25,6 +28,193 @@ export class PaymentController {
   @ApiResponse({ status: 500, description: 'Sunucu hatası' })
   async initiatePayment(@Body() dto: PaymentRequestDto) {
     return this.paymentService.initiate3DSecurePayment(dto);
+  }
+
+  @Post('initiate')
+  @ApiOperation({
+    summary: 'Booking için ödeme başlat (3D Secure)',
+    description: 'AWAITING_PAYMENT durumundaki booking için ödeme başlatır ve status\'u PAYMENT_IN_PROGRESS olarak günceller.',
+  })
+  @ApiResponse({ status: 200, description: 'Ödeme başlatıldı' })
+  @ApiResponse({ status: 400, description: 'Rezervasyon süresi dolmuş veya validation hatası' })
+  @ApiResponse({ status: 404, description: 'Booking bulunamadı' })
+  @ApiResponse({ status: 409, description: 'Bu rezervasyon için ödeme zaten başlatılmış' })
+  @ApiResponse({ status: 500, description: 'Sunucu hatası' })
+  async initiateBookingPayment(@Body() dto: PaymentInitiateRequestDto) {
+    try {
+      const adminClient = this.supabase.getAdminClient();
+
+      // 1. transaction_id ile booking kaydını bul
+      const { data: booking, error: bookingError } = await adminClient
+        .schema('backend')
+        .from('booking')
+        .select('*, pre_transactionid:pre_transaction_id(expires_on)')
+        .eq('transaction_id', dto.transactionId)
+        .single();
+
+      if (bookingError || !booking) {
+        throw new HttpException(
+          {
+            success: false,
+            code: 'BOOKING_NOT_FOUND',
+            message: 'Booking bulunamadı',
+          },
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      // 2. Status kontrolü - AWAITING_PAYMENT değilse uygun hata döndür
+      if (booking.status !== 'AWAITING_PAYMENT') {
+        const statusMessages: Record<string, { code: string; message: string; httpStatus: HttpStatus }> = {
+          'PAYMENT_IN_PROGRESS': {
+            code: 'PAYMENT_ALREADY_INITIATED',
+            message: 'Bu rezervasyon için ödeme zaten başlatılmış',
+            httpStatus: HttpStatus.CONFLICT,
+          },
+          'EXPIRED': {
+            code: 'BOOKING_EXPIRED',
+            message: 'Rezervasyon süresi dolmuş',
+            httpStatus: HttpStatus.BAD_REQUEST,
+          },
+          'FAILED': {
+            code: 'PAYMENT_FAILED',
+            message: 'Bu rezervasyon için ödeme başarısız oldu',
+            httpStatus: HttpStatus.BAD_REQUEST,
+          },
+          'SUCCESS': {
+            code: 'PAYMENT_COMPLETED',
+            message: 'Bu rezervasyon için ödeme zaten tamamlanmış',
+            httpStatus: HttpStatus.CONFLICT,
+          },
+          'CONFIRMED': {
+            code: 'BOOKING_CONFIRMED',
+            message: 'Bu rezervasyon zaten onaylanmış',
+            httpStatus: HttpStatus.CONFLICT,
+          },
+          'COMMIT_FAILED': {
+            code: 'COMMIT_FAILED',
+            message: 'Rezervasyon onaylaması başarısız oldu',
+            httpStatus: HttpStatus.BAD_REQUEST,
+          },
+          'REFUND_PENDING': {
+            code: 'REFUND_PENDING',
+            message: 'Bu rezervasyon için iade işlemi beklemede',
+            httpStatus: HttpStatus.CONFLICT,
+          },
+          'REFUNDED': {
+            code: 'BOOKING_REFUNDED',
+            message: 'Bu rezervasyon için iade yapılmış',
+            httpStatus: HttpStatus.CONFLICT,
+          },
+          'CANCELLED': {
+            code: 'BOOKING_CANCELLED',
+            message: 'Bu rezervasyon iptal edilmiş',
+            httpStatus: HttpStatus.BAD_REQUEST,
+          },
+        };
+
+        const statusInfo = statusMessages[booking.status] || {
+          code: 'INVALID_BOOKING_STATUS',
+          message: 'Rezervasyon durumu ödeme başlatmaya uygun değil',
+          httpStatus: HttpStatus.BAD_REQUEST,
+        };
+
+        throw new HttpException(
+          {
+            success: false,
+            code: statusInfo.code,
+            message: statusInfo.message,
+            currentStatus: booking.status,
+          },
+          statusInfo.httpStatus,
+        );
+      }
+
+      // 3. expires_on kontrolü
+      const expiresOn = booking.pre_transactionid?.expires_on;
+      if (expiresOn) {
+        const expiresOnDate = new Date(expiresOn);
+        if (expiresOnDate <= new Date()) {
+          // Booking status'unu EXPIRED olarak güncelle
+          await adminClient
+            .schema('backend')
+            .from('booking')
+            .update({ status: 'EXPIRED', updated_at: new Date().toISOString() })
+            .eq('id', booking.id);
+
+          throw new HttpException(
+            {
+              success: false,
+              code: 'BOOKING_EXPIRED',
+              message: 'Rezervasyon süresi dolmuş',
+            },
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+      }
+
+      // 4. PaymentRequestDto'ya dönüştür ve ödeme başlat
+      const paymentDto: PaymentRequestDto = {
+        amount: dto.amount,
+        currencyCode: dto.currencyCode,
+        transactionType: dto.transactionType,
+        installmentCount: dto.installmentCount,
+        customerEmail: dto.customerEmail,
+        customerIp: dto.customerIp,
+        companyName: dto.companyName,
+        cardInfo: dto.cardInfo,
+      };
+
+      const paymentResult = await this.paymentService.initiate3DSecurePayment(paymentDto);
+
+      // 5. Ödeme başarılı ise booking status'unu PAYMENT_IN_PROGRESS olarak güncelle
+      if (paymentResult.success) {
+        const { error: updateError } = await adminClient
+          .schema('backend')
+          .from('booking')
+          .update({ status: 'PAYMENT_IN_PROGRESS', updated_at: new Date().toISOString() })
+          .eq('id', booking.id);
+
+        if (updateError) {
+          this.logger.error({
+            message: 'Booking status güncelleme hatası',
+            error: updateError.message,
+            transactionId: dto.transactionId,
+          });
+        } else {
+          this.logger.log({
+            message: 'Booking status güncellendi: PAYMENT_IN_PROGRESS',
+            transactionId: dto.transactionId,
+            orderId: paymentResult.data?.orderId,
+          });
+        }
+      }
+
+      return {
+        success: true,
+        message: 'Ödeme başlatıldı',
+        data: paymentResult.data,
+      };
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      this.logger.error({
+        message: 'Ödeme başlatma hatası',
+        error: error instanceof Error ? error.message : String(error),
+        transactionId: dto.transactionId,
+      });
+
+      throw new HttpException(
+        {
+          success: false,
+          code: 'PAYMENT_INITIATE_ERROR',
+          message: 'Ödeme başlatılamadı',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
   @Post('direct')
