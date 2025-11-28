@@ -155,15 +155,15 @@ export class PaymentController {
         }
       }
 
-      // 4. PaymentRequestDto'ya dönüştür ve ödeme başlat
+      // 4. PaymentRequestDto'ya dönüştür ve ödeme başlat (sabit değerlerle)
       const paymentDto: PaymentRequestDto = {
         amount: dto.amount,
-        currencyCode: dto.currencyCode,
-        transactionType: dto.transactionType,
-        installmentCount: dto.installmentCount,
+        currencyCode: dto.currencyCode || '949',
+        transactionType: 'sales',
+        installmentCount: 0,
         customerEmail: dto.customerEmail,
         customerIp: dto.customerIp,
-        companyName: dto.companyName,
+        companyName: 'IBGROUP',
         cardInfo: dto.cardInfo,
       };
 

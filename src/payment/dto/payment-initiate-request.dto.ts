@@ -1,9 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNumber, IsString, IsEmail, IsIP, IsNotEmpty, IsOptional, Min, Max, MinLength, MaxLength, ValidateNested, IsEnum } from 'class-validator';
+import { IsNumber, IsString, IsEmail, IsIP, IsNotEmpty, IsOptional, Min, Max, ValidateNested, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CardInfoDto } from './card-info.dto';
 import { CurrencyCode } from '../enums/currency-codes.enum';
-import { TransactionType } from '../enums/transaction-types.enum';
 
 export class PaymentInitiateRequestDto {
   @ApiProperty({
@@ -46,29 +45,6 @@ export class PaymentInitiateRequestDto {
   currencyCode?: string;
 
   @ApiProperty({
-    description: 'İşlem tipi',
-    example: 'sales',
-    enum: TransactionType,
-  })
-  @IsString()
-  @IsNotEmpty()
-  @IsEnum(TransactionType)
-  transactionType: string;
-
-  @ApiPropertyOptional({
-    description: 'Taksit sayısı (0 = Peşin)',
-    example: 0,
-    minimum: 0,
-    maximum: 12,
-    default: 0,
-  })
-  @IsNumber()
-  @IsOptional()
-  @Min(0)
-  @Max(12)
-  installmentCount?: number;
-
-  @ApiProperty({
     description: 'Müşteri e-posta adresi',
     example: 'test@example.com',
   })
@@ -83,18 +59,6 @@ export class PaymentInitiateRequestDto {
   @IsIP()
   @IsNotEmpty()
   customerIp: string;
-
-  @ApiProperty({
-    description: 'Şirket adı',
-    example: 'IBGROUP',
-    minLength: 2,
-    maxLength: 100,
-  })
-  @IsString()
-  @IsNotEmpty()
-  @MinLength(2, { message: 'Şirket adı en az 2 karakter olmalıdır' })
-  @MaxLength(100, { message: 'Şirket adı en fazla 100 karakter olmalıdır' })
-  companyName: string;
 
   @ApiProperty({
     description: 'Kart bilgileri',

@@ -80,7 +80,7 @@ export function build3DSecureFormData(params: {
     txntimestamp: new Date().toISOString(),
     refreshtime: '1',
     secure3dhash: hashData,
-    txnamount: amount,
+    txnamount: Math.round(amount),
     txntype: transactionType,
     txncurrencycode: currencyCode,
     txninstallmentcount: installmentCount || '',

@@ -30,8 +30,8 @@ export class VPOSHash {
    * @returns HashedPassword değeri
    */
   static getHashedPassword(provisionPassword: string, terminalId: string): string {
-    // Java koduna göre: provisionPassword + "0" + terminalId
-    const data = provisionPassword + "0" + terminalId;
+    // Garanti dokümantasyonu: SHA1(provisionPassword + "0" + terminalId)
+    const data = provisionPassword + '0' + terminalId;
     return this.sha1(data);
   }
 
@@ -67,10 +67,11 @@ export class VPOSHash {
     
     // 3D Secure için hash sırası: terminalId + orderId + amount + currencyCode + successUrl + errorUrl + type + installmentCount + storeKey + hashedPassword
     // Tüm değerleri string'e çevir (eski kodla uyumluluk için)
+    // Amount mutlaka integer olmalı (kuruş cinsinden)
     const hashString = 
       String(terminalId) + 
       String(orderId) + 
-      String(amount) + 
+      String(Math.round(amount)) + 
       String(currencyCode) + 
       String(successUrl) + 
       String(errorUrl) + 
