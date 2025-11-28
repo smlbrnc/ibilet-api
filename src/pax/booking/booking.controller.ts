@@ -307,12 +307,10 @@ export class BookingController {
   ) {
     try {
       const baseUrl = this.config.get<string>('pax.baseUrl');
-      const endpoint = (
-        this.config.get<string>('pax.endpoints.reservationDetail') || ''
-      ).replace('{reservationNumber}', request.ReservationNumber);
+      const endpoint = this.config.get<string>('pax.endpoints.reservationDetail');
       const ip = req.ip || req.socket.remoteAddress || undefined;
       const userInfo = await this.getUserInfoFromToken(authorization);
-      const result = await this.paxHttp.post(`${baseUrl}${endpoint}`, {}, {
+      const result = await this.paxHttp.post(`${baseUrl}${endpoint}`, request, {
         ip,
         userId: userInfo.userId ?? undefined,
         email: userInfo.email ?? undefined,

@@ -4,7 +4,7 @@ import { IsNotEmpty, IsString } from 'class-validator';
 export class ReservationDetailRequestDto {
   @ApiProperty({
     description: 'Rezervasyon numarası (PNR)',
-    example: 'RC002576',
+    example: 'PX041340',
   })
   @IsNotEmpty()
   @IsString()
