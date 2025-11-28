@@ -69,6 +69,8 @@ export default () => ({
     callbackBaseUrl: process.env.API_URL,
     successUrl: process.env.API_URL ? `${process.env.API_URL}/payment/callback` : undefined,
     errorUrl: process.env.API_URL ? `${process.env.API_URL}/payment/callback` : undefined,
+    // Frontend redirect URL - Ödeme sonrası yönlendirme (mobil ve web için)
+    redirectUrl: process.env.PAYMENT_REDIRECT_URL,
   },
 });
 

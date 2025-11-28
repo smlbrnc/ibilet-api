@@ -1,6 +1,7 @@
 import { Controller, Post, Get, Body, Param, Res, HttpStatus, UsePipes, ValidationPipe, HttpException } from '@nestjs/common';
 import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 import { PaymentService } from './payment.service';
 import { PaymentRequestDto } from './dto/payment-request.dto';
 import { PaymentInitiateRequestDto } from './dto/payment-initiate-request.dto';
@@ -17,6 +18,7 @@ export class PaymentController {
     private readonly paymentService: PaymentService,
     private readonly logger: LoggerService,
     private readonly supabase: SupabaseService,
+    private readonly configService: ConfigService,
   ) {
     this.logger.setContext('PaymentController');
   }
@@ -167,12 +169,18 @@ export class PaymentController {
 
       const paymentResult = await this.paymentService.initiate3DSecurePayment(paymentDto);
 
-      // 5. Ödeme başarılı ise booking status'unu PAYMENT_IN_PROGRESS olarak güncelle
+      // 5. Ödeme başarılı ise booking status'unu PAYMENT_IN_PROGRESS olarak güncelle ve order_id kaydet
       if (paymentResult.success) {
+        const orderId = paymentResult.data?.orderId;
+        
         const { error: updateError } = await adminClient
           .schema('backend')
           .from('booking')
-          .update({ status: 'PAYMENT_IN_PROGRESS', updated_at: new Date().toISOString() })
+          .update({ 
+            status: 'PAYMENT_IN_PROGRESS', 
+            order_id: orderId,
+            updated_at: new Date().toISOString() 
+          })
           .eq('id', booking.id);
 
         if (updateError) {
@@ -185,7 +193,7 @@ export class PaymentController {
           this.logger.log({
             message: 'Booking status güncellendi: PAYMENT_IN_PROGRESS',
             transactionId: dto.transactionId,
-            orderId: paymentResult.data?.orderId,
+            orderId,
           });
         }
       }
@@ -251,11 +259,61 @@ export class PaymentController {
   )
   @ApiOperation({
     summary: 'VPOS callback işlemi (Bankadan dönen sonuç)',
-    description: '3D Secure doğrulaması sonrası bankadan dönen callback işler ve kullanıcıyı sonuç sayfasına yönlendirir.',
+    description: '3D Secure doğrulaması sonrası bankadan dönen callback işler, booking status\'unu günceller ve kullanıcıyı sonuç sayfasına yönlendirir.',
   })
   @ApiResponse({ status: 302, description: 'Redirect to payment result page' })
   async callback(@Body() dto: CallbackRequestDto, @Res() res: Response) {
     const responseData = await this.paymentService.handleCallback(dto);
+
+    // Booking status'unu güncelle (orderId ile)
+    if (responseData.orderId) {
+      try {
+        const adminClient = this.supabase.getAdminClient();
+        const newStatus = responseData.success ? 'SUCCESS' : 'FAILED';
+
+        const { data: booking, error: findError } = await adminClient
+          .schema('backend')
+          .from('booking')
+          .select('id, transaction_id')
+          .eq('order_id', responseData.orderId)
+          .single();
+
+        if (findError || !booking) {
+          this.logger.warn({
+            message: 'Callback: Booking bulunamadı',
+            orderId: responseData.orderId,
+            error: findError?.message,
+          });
+        } else {
+          const { error: updateError } = await adminClient
+            .schema('backend')
+            .from('booking')
+            .update({ status: newStatus, updated_at: new Date().toISOString() })
+            .eq('id', booking.id);
+
+          if (updateError) {
+            this.logger.error({
+              message: 'Callback: Booking güncelleme hatası',
+              orderId: responseData.orderId,
+              error: updateError.message,
+            });
+          } else {
+            this.logger.log({
+              message: `Callback: Booking status güncellendi → ${newStatus}`,
+              orderId: responseData.orderId,
+              transactionId: booking.transaction_id,
+              success: responseData.success,
+            });
+          }
+        }
+      } catch (error) {
+        this.logger.error({
+          message: 'Callback: Booking güncelleme exception',
+          orderId: responseData.orderId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
 
     // URL parametrelerini oluştur
     const params = new URLSearchParams({
@@ -272,8 +330,9 @@ export class PaymentController {
       timestamp: responseData.timestamp || '',
     });
 
-    // Frontend sonuç sayfasına yönlendir
-    const redirectUrl = `/payment-result.html?${params.toString()}`;
+    // Frontend sonuç sayfasına yönlendir (mobil ve web için)
+    const baseRedirectUrl = this.configService.get<string>('payment.redirectUrl');
+    const redirectUrl = `${baseRedirectUrl}?${params.toString()}`;
     this.logger.log(`🔄 Redirect URL: ${redirectUrl}`);
 
     return res.redirect(redirectUrl);
