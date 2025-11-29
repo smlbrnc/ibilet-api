@@ -11,6 +11,7 @@ import { FoursquareModule } from './foursquare/foursquare.module';
 import { AirportModule } from './airport/airport.module';
 import { SupabaseModule } from './common/services/supabase.module';
 import { PaymentModule } from './payment/payment.module';
+import { EmailModule } from './email/email.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -40,6 +41,7 @@ import { AppController } from './app.controller';
     AirportModule,
     SupabaseModule,
     PaymentModule,
+    EmailModule,
   ],
   controllers: [AppController],
   providers: [

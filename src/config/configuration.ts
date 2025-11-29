@@ -43,6 +43,10 @@ export default () => ({
     baseUrl: process.env.FOURSQUARE_BASE_URL,
     apiKey: process.env.FOURSQUARE_API_KEY,
   },
+  resend: {
+    apiKey: process.env.RESEND_API_KEY,
+    fromEmail: process.env.RESEND_FROM_EMAIL || 'İbilet <noreply@mail.ibilet.com>',
+  },
   supabase: {
     url: process.env.NEXT_PUBLIC_SUPABASE_URL,
     anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
