@@ -45,7 +45,13 @@ export default () => ({
   },
   resend: {
     apiKey: process.env.RESEND_API_KEY,
-    fromEmail: process.env.RESEND_FROM_EMAIL || 'İbilet <noreply@mail.ibilet.com>',
+    fromEmail: process.env.RESEND_FROM_EMAIL,
+  },
+  sms: {
+    netgsm: {
+      username: process.env.NETGSM_USERNAME,
+      password: process.env.NETGSM_PASSWORD,
+    },
   },
   supabase: {
     url: process.env.NEXT_PUBLIC_SUPABASE_URL,

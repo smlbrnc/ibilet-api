@@ -12,6 +12,7 @@ import { AirportModule } from './airport/airport.module';
 import { SupabaseModule } from './common/services/supabase.module';
 import { PaymentModule } from './payment/payment.module';
 import { EmailModule } from './email/email.module';
+import { SmsModule } from './sms/sms.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -42,6 +43,7 @@ import { AppController } from './app.controller';
     SupabaseModule,
     PaymentModule,
     EmailModule,
+    SmsModule,
   ],
   controllers: [AppController],
   providers: [
