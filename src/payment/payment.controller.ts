@@ -377,12 +377,17 @@ export class PaymentController {
       }
     }
 
-    // URL parametrelerini oluştur (sadece gerekli alanlar)
+    // URL parametrelerini oluştur (başarı/hata durumuna göre)
     const params = new URLSearchParams({
       status: responseData.success ? 'success' : 'failed',
       transactionId,
       success: String(responseData.success),
-      reservationNumber,
+      ...(responseData.success
+        ? { reservationNumber }
+        : {
+            returnCode: responseData.transaction?.returnCode || '',
+            message: responseData.transaction?.message || '',
+          }),
     });
 
     // Frontend sonuç sayfasına yönlendir (mobil ve web için)
