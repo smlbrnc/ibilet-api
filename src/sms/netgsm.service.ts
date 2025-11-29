@@ -4,7 +4,7 @@ import { SendSmsDto } from './dto/send-sms.dto';
 import { GetBalanceDto } from './dto/get-balance.dto';
 import { LoggerService } from '../common/logger/logger.service';
 import { SupabaseService } from '../common/services/supabase.service';
-import { buildBookingSmsMessage } from './templates/booking-confirmation.template';
+import { buildBookingSmsMessage } from './templates';
 import {
   NETGSM_URLS,
   NETGSM_TIMEOUT,

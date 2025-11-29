@@ -1,5 +1,5 @@
 /**
- * Rezervasyon onay SMS template'i
+ * Uçuş rezervasyonu SMS template'i
  */
 
 interface ContactPhone {
@@ -43,6 +43,15 @@ interface ReservationData {
   travellers: Traveller[];
 }
 
+export interface FlightSmsResult {
+  message: string;
+  phone: string | null;
+  passengerName: string;
+  outboundPnr: string;
+  returnPnr: string | null;
+  reservationNumber: string;
+}
+
 // Tarih formatlama: 30.11.2025 10:00 veya 30.11 10:00
 const formatDate = (dateStr: string, shortFormat = false): string => {
   const date = new Date(dateStr);
@@ -51,48 +60,39 @@ const formatDate = (dateStr: string, shortFormat = false): string => {
   const year = date.getFullYear();
   const hours = date.getHours().toString().padStart(2, '0');
   const minutes = date.getMinutes().toString().padStart(2, '0');
-  
+
   if (shortFormat) {
     return `${day}.${month} ${hours}:${minutes}`;
   }
   return `${day}.${month}.${year} ${hours}:${minutes}`;
 };
 
-// Telefon numarası formatlama: countryCode + phoneNumber
+// Telefon numarası formatlama
 const formatPhone = (traveller: Traveller): string | null => {
   const contactPhone = traveller.address?.contactPhone;
-  
+
   if (contactPhone?.countryCode && contactPhone?.phoneNumber) {
-    // areaCode varsa ekle, yoksa sadece countryCode + phoneNumber
     const areaCode = contactPhone.areaCode || '';
     return `${contactPhone.countryCode}${areaCode}${contactPhone.phoneNumber}`;
   }
-  
-  // Fallback: address.phone
+
   if (traveller.address?.phone) {
     return traveller.address.phone;
   }
-  
+
   return null;
 };
 
 // Ana template fonksiyonu
-export const buildBookingSmsMessage = (reservationDetails: any): { 
-  message: string; 
-  phone: string | null;
-  passengerName: string;
-  outboundPnr: string;
-  returnPnr: string | null;
-  reservationNumber: string;
-} => {
+export const buildFlightBookingSms = (reservationDetails: any): FlightSmsResult => {
   const reservationData: ReservationData = reservationDetails?.body?.reservationData;
-  
+
   if (!reservationData) {
     return { message: '', phone: null, passengerName: '', outboundPnr: '', returnPnr: null, reservationNumber: '' };
   }
 
   const { reservationInfo, services, travellers } = reservationData;
-  
+
   // Leader yolcuyu bul
   const leader = travellers?.find(t => t.isLeader);
   if (!leader) {
@@ -105,7 +105,7 @@ export const buildBookingSmsMessage = (reservationDetails: any): {
 
   // Uçuş servislerini ayır (productType: 3 ve isExtraService: false)
   const flightServices = services?.filter(s => s.productType === 3 && !s.isExtraService) || [];
-  
+
   // Gidiş ve dönüş uçuşlarını grupla
   const outboundFlights = flightServices.filter(s => s.serviceDetails?.flightInfo?.route === 1);
   const returnFlights = flightServices.filter(s => s.serviceDetails?.flightInfo?.route === 2);

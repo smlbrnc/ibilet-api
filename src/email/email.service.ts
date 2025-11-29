@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { SendEmailDto } from './dto/send-email.dto';
 import { LoggerService } from '../common/logger/logger.service';
 import { SupabaseService } from '../common/services/supabase.service';
-import { buildBookingConfirmationEmail } from './templates/booking-confirmation.template';
+import { buildBookingConfirmationEmail } from './templates';
 import { EMAIL_TIMEOUT, DEFAULT_FROM_EMAIL } from './constants/email.constant';
 
 type ResendResponse = {
