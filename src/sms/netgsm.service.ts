@@ -3,6 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { SendSmsDto } from './dto/send-sms.dto';
 import { GetBalanceDto } from './dto/get-balance.dto';
 import { LoggerService } from '../common/logger/logger.service';
+import { SupabaseService } from '../common/services/supabase.service';
+import { buildBookingSmsMessage } from './templates/booking-confirmation.template';
 
 @Injectable()
 export class NetgsmService {
@@ -12,6 +14,7 @@ export class NetgsmService {
   constructor(
     private readonly config: ConfigService,
     private readonly logger: LoggerService,
+    private readonly supabase: SupabaseService,
   ) {
     this.logger.setContext('NetgsmService');
   }
@@ -164,6 +167,116 @@ export class NetgsmService {
       this.logger.error({ message: 'Bakiye sorgulama hatası', error: error.message });
       if (error instanceof InternalServerErrorException) throw error;
       throw new InternalServerErrorException('Bakiye sorgulama başarısız oldu');
+    }
+  }
+
+  /**
+   * Rezervasyon onay SMS'i gönderir ve sonucu veritabanına kaydeder
+   */
+  async sendBookingConfirmation(
+    reservationDetails: any,
+    transactionId?: string,
+  ): Promise<{ success: boolean; message: string; jobId?: string }> {
+    const { message, phone, outboundPnr, returnPnr, reservationNumber } = buildBookingSmsMessage(reservationDetails);
+
+    // Telefon numarası bulunamadı
+    if (!phone) {
+      const errorMsg = 'Telefon numarası bulunamadı';
+      this.logger.warn('Rezervasyon onay SMS gönderilemedi: Leader yolcu telefon numarası bulunamadı');
+      await this.saveSmsLog({ transactionId, reservationNumber, pnrNo: outboundPnr, phone: '-', status: 'FAILED', message: errorMsg });
+      return { success: false, message: errorMsg };
+    }
+
+    // Mesaj oluşturulamadı
+    if (!message) {
+      const errorMsg = 'SMS mesajı oluşturulamadı';
+      this.logger.warn('Rezervasyon onay SMS gönderilemedi: Mesaj oluşturulamadı');
+      await this.saveSmsLog({ transactionId, reservationNumber, pnrNo: outboundPnr, phone, status: 'FAILED', message: errorMsg });
+      return { success: false, message: errorMsg };
+    }
+
+    try {
+      const result = await this.sendSms({
+        no: phone,
+        msg: message,
+        msgheader: 'IBGROUP',
+        encoding: 'TR',
+      });
+
+      this.logger.log({
+        message: 'Rezervasyon onay SMS gönderildi',
+        to: phone,
+        reservationNumber,
+      });
+
+      // Başarılı kaydı veritabanına yaz
+      await this.saveSmsLog({
+        transactionId,
+        reservationNumber,
+        pnrNo: returnPnr ? `${outboundPnr},${returnPnr}` : outboundPnr,
+        phone,
+        status: result.success ? 'SUCCESS' : 'FAILED',
+        message: result.success ? message : result.message,
+        jobId: result.jobId,
+      });
+
+      return result;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      this.logger.error({
+        message: 'Rezervasyon onay SMS gönderme hatası',
+        error: errorMessage,
+        reservationNumber,
+      });
+
+      // Hata kaydını veritabanına yaz
+      await this.saveSmsLog({
+        transactionId,
+        reservationNumber,
+        pnrNo: outboundPnr,
+        phone,
+        status: 'FAILED',
+        message: errorMessage,
+      });
+
+      // SMS hatası rezervasyon işlemini etkilememeli
+      return { success: false, message: errorMessage };
+    }
+  }
+
+  /**
+   * SMS gönderim kaydını veritabanına kaydeder
+   */
+  private async saveSmsLog(data: {
+    transactionId?: string;
+    reservationNumber?: string;
+    pnrNo?: string;
+    phone: string;
+    status: 'SUCCESS' | 'FAILED';
+    message?: string;
+    jobId?: string;
+  }): Promise<void> {
+    try {
+      const adminClient = this.supabase.getAdminClient();
+
+      await adminClient
+        .schema('backend')
+        .from('booking_sms')
+        .insert({
+          transaction_id: data.transactionId || '',
+          reservation_number: data.reservationNumber || null,
+          pnr_no: data.pnrNo || null,
+          phone: data.phone,
+          status: data.status,
+          message: data.message || null,
+          job_id: data.jobId || null,
+        });
+    } catch (error) {
+      this.logger.error({
+        message: 'SMS log kaydetme hatası',
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 }

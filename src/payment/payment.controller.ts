@@ -12,6 +12,7 @@ import { LoggerService } from '../common/logger/logger.service';
 import { SupabaseService } from '../common/services/supabase.service';
 import { PaxHttpService } from '../pax/pax-http.service';
 import { EmailService } from '../email/email.service';
+import { NetgsmService } from '../sms/netgsm.service';
 
 @ApiTags('Payment')
 @Controller('payment')
@@ -23,6 +24,7 @@ export class PaymentController {
     private readonly configService: ConfigService,
     private readonly paxHttp: PaxHttpService,
     private readonly emailService: EmailService,
+    private readonly netgsmService: NetgsmService,
   ) {
     this.logger.setContext('PaymentController');
   }
@@ -413,6 +415,25 @@ export class PaymentController {
                     message: 'Callback: Rezervasyon onay emaili gönderilemedi',
                     transactionId: booking.transaction_id,
                     error: emailError instanceof Error ? emailError.message : String(emailError),
+                  });
+                });
+
+              // CONFIRMED durumunda rezervasyon onay SMS gönder
+              this.netgsmService.sendBookingConfirmation(reservationDetails, booking.transaction_id)
+                .then(result => {
+                  if (result.success) {
+                    this.logger.log({
+                      message: 'Callback: Rezervasyon onay SMS gönderildi',
+                      transactionId: booking.transaction_id,
+                      reservationNumber,
+                    });
+                  }
+                })
+                .catch(smsError => {
+                  this.logger.error({
+                    message: 'Callback: Rezervasyon onay SMS gönderilemedi',
+                    transactionId: booking.transaction_id,
+                    error: smsError instanceof Error ? smsError.message : String(smsError),
                   });
                 });
             }

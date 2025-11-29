@@ -7,9 +7,10 @@ import { PaymentConfigService } from './config/payment-config.service';
 import { SupabaseModule } from '../common/services/supabase.module';
 import { PaxModule } from '../pax/pax.module';
 import { EmailModule } from '../email/email.module';
+import { SmsModule } from '../sms/sms.module';
 
 @Module({
-  imports: [HttpModule, SupabaseModule, forwardRef(() => PaxModule), EmailModule],
+  imports: [HttpModule, SupabaseModule, forwardRef(() => PaxModule), EmailModule, SmsModule],
   controllers: [PaymentController],
   providers: [PaymentService, LoggerService, PaymentConfigService],
   exports: [PaymentService],
