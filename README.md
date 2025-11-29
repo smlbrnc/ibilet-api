@@ -21,20 +21,25 @@ iBilet uçak ve otel rezervasyon sistemi için NestJS tabanlı internal API. Pax
 - **Framework**: NestJS 10.3.0
 - **Language**: TypeScript 5.3
 - **Runtime**: Node.js 20+
-- **Authentication**: JWT (Passport)
+- **Authentication**: Supabase Auth
 - **Validation**: class-validator, class-transformer
 - **Documentation**: Swagger/OpenAPI 7.2
 - **Cache**: In-memory (cache-manager 5.4)
 - **Security**: Helmet 7.1, Rate Limiting (@nestjs/throttler)
 - **Health Check**: @nestjs/terminus
 - **Logging**: Winston 3.11 (daily rotate file)
-- **HTTP Client**: Native Fetch API
+- **HTTP Client**: Native Fetch API, Axios
+- **SMS**: Netgsm API
+- **Email**: Resend API
 
 ## ✨ Özellikler
 
 ### Core Features
 - ✅ **Paximum API Entegrasyonu**: Flight ve hotel operasyonları için tam entegrasyon
-- ✅ **JWT Authentication**: Passport-JWT ile güvenli authentication
+- ✅ **Supabase Authentication**: Supabase Auth ile güvenli authentication
+- ✅ **Garanti VPOS Ödeme**: 3D Secure ve direkt ödeme desteği
+- ✅ **SMS Bildirimleri**: Netgsm entegrasyonu ile SMS gönderimi
+- ✅ **Email Bildirimleri**: Resend entegrasyonu ile email gönderimi
 - ✅ **Global Error Handling**: Standartlaştırılmış hata yönetimi
 - ✅ **Request/Response Interceptors**: Otomatik request tracking ve response normalization
 - ✅ **Rate Limiting**: Global ve endpoint-specific rate limiting
@@ -55,6 +60,7 @@ iBilet uçak ve otel rezervasyon sistemi için NestJS tabanlı internal API. Pax
 - ✅ **Response Caching**:
   - Departure/Arrival: 1 saat
   - Check-in Dates: 30 dakika
+  - Foursquare Places: 30 dakika
 - ✅ **Debug Mode**: Development'ta PAX raw response gösterimi
 
 ## 🏗 Mimari
@@ -65,35 +71,59 @@ iBilet uçak ve otel rezervasyon sistemi için NestJS tabanlı internal API. Pax
 src/
 ├── app.module.ts              # Root module
 ├── main.ts                    # Application entry point
-├── auth/                      # JWT authentication
+├── auth/                      # Supabase authentication
+│   ├── dto/                   # Auth DTO'ları
 │   ├── auth.module.ts
 │   ├── auth.service.ts
-│   ├── jwt-auth.guard.ts
-│   └── jwt.strategy.ts
+│   └── supabase-auth.controller.ts
 ├── common/                    # Shared utilities
-│   ├── decorators/            # Custom decorators (@CurrentUser)
-│   ├── enums/                 # Error codes enum
 │   ├── filters/               # Global exception filter
 │   ├── interceptors/          # Request ID, Response, Debug
 │   ├── logger/                # Winston logger service
+│   ├── services/              # Supabase service
 │   └── utils/                 # Error handler utilities
 ├── config/                    # Configuration management
 │   └── configuration.ts       # Environment-based config
 ├── health/                    # Health check endpoints
-│   ├── health.controller.ts
-│   └── health.module.ts
-└── pax/                       # Paximum API integration
-    ├── pax.module.ts
-    ├── pax.controller.ts      # Main PAX endpoints
-    ├── pax-http.service.ts    # HTTP client with logging
-    ├── token.service.ts       # Token acquisition
-    ├── token-manager.service.ts # Token caching & refresh
-    ├── booking/               # Booking endpoints
-    │   ├── booking.controller.ts
-    │   ├── booking.module.ts
-    │   └── dto/               # Booking DTOs
-    ├── dto/                   # Request/Response DTOs
-    └── enums/                 # PAX enums (PassengerType, ProductType, etc.)
+├── pax/                       # Paximum API integration
+│   ├── pax.module.ts
+│   ├── pax.controller.ts
+│   ├── pax.service.ts         # İş mantığı ve cache
+│   ├── pax-http.service.ts    # HTTP client with logging
+│   ├── token.service.ts       # Token acquisition
+│   ├── token-manager.service.ts # Token caching & refresh
+│   ├── booking/               # Booking endpoints
+│   │   ├── booking.controller.ts
+│   │   ├── booking.service.ts
+│   │   ├── booking.module.ts
+│   │   └── dto/
+│   ├── dto/                   # Request/Response DTOs
+│   └── enums/                 # PAX enums
+├── payment/                   # Garanti VPOS entegrasyonu
+│   ├── constants/             # Sabitler
+│   ├── dto/
+│   ├── utils/
+│   ├── payment.controller.ts
+│   ├── payment.service.ts
+│   └── payment-config.service.ts
+├── sms/                       # Netgsm SMS entegrasyonu
+│   ├── constants/             # Sabitler
+│   ├── dto/
+│   ├── templates/
+│   ├── netgsm.service.ts
+│   └── sms.controller.ts
+├── email/                     # Resend Email entegrasyonu
+│   ├── constants/             # Sabitler
+│   ├── dto/
+│   ├── templates/
+│   ├── email.service.ts
+│   └── email.controller.ts
+├── foursquare/                # Foursquare Places API
+│   ├── constants/             # Sabitler
+│   ├── dto/
+│   ├── foursquare.controller.ts
+│   └── foursquare.service.ts
+└── airport/                   # Havalimanı arama
 ```
 
 ### Global Interceptors
@@ -143,9 +173,21 @@ PAX_AGENCY=PXM25847
 PAX_USER=USR1
 PAX_PASSWORD=!23
 
-# JWT (JSON Web Token) Ayarları
-JWT_SECRET=ibilet-dev-secret-2025-paximum-integration-jwt-key-change-in-production
-JWT_EXPIRES_IN=7d
+# Supabase Ayarları
+SUPABASE_URL=your_supabase_url
+SUPABASE_ANON_KEY=your_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+
+# SMS (Netgsm) Ayarları
+NETGSM_USERNAME=your_username
+NETGSM_PASSWORD=your_password
+
+# Email (Resend) Ayarları
+RESEND_API_KEY=your_api_key
+RESEND_FROM_EMAIL=İbilet <noreply@mail.ibilet.com>
+
+# Foursquare Ayarları
+FOURSQUARE_API_KEY=your_api_key
 
 # CORS (Cross-Origin Resource Sharing) Ayarları
 CORS_ORIGINS=http://localhost:3001,https://app-dev.ibilet.com
@@ -197,6 +239,19 @@ Server başlatıldıktan sonra Swagger dokümantasyonuna şu adresten ulaşabili
 
 ## 🔌 Endpoint'ler
 
+### Auth - Supabase Authentication
+
+**Base Path**: `/auth`
+
+| Method | Endpoint | Açıklama |
+|--------|----------|----------|
+| POST | `/auth/signup` | Email/password ile kayıt |
+| POST | `/auth/signin` | Email/password ile giriş |
+| POST | `/auth/signout` | Çıkış yap |
+| POST | `/auth/refresh` | Token yenile |
+| POST | `/auth/magic-link` | Magic link gönder |
+| GET | `/auth/user` | Kullanıcı bilgileri |
+
 ### PAX API - Paximum Raw Endpoints
 
 **Base Path**: `/`
@@ -229,6 +284,51 @@ Server başlatıldıktan sonra Swagger dokümantasyonuna şu adresten ulaşabili
 | POST | `/booking/cancellation-penalty` | İptal cezası sorgula |
 | POST | `/booking/cancel-reservation` | Rezervasyonu iptal et |
 
+### Payment - Garanti VPOS
+
+**Base Path**: `/payment`
+
+| Method | Endpoint | Açıklama |
+|--------|----------|----------|
+| POST | `/payment` | 3D Secure ödeme başlat |
+| POST | `/payment/direct` | Direkt ödeme/iade |
+| POST | `/payment/refund` | İade işlemi |
+| POST | `/payment/callback` | 3D Secure callback |
+| GET | `/payment/status/:orderId` | İşlem durumu |
+
+### SMS - Netgsm
+
+**Base Path**: `/sms`
+
+| Method | Endpoint | Açıklama |
+|--------|----------|----------|
+| POST | `/sms/send` | SMS gönder |
+| POST | `/sms/balance` | Bakiye sorgula |
+
+### Email - Resend
+
+**Base Path**: `/resend`
+
+| Method | Endpoint | Açıklama |
+|--------|----------|----------|
+| POST | `/resend/send` | Email gönder |
+
+### Foursquare - Places API
+
+**Base Path**: `/places`
+
+| Method | Endpoint | Açıklama | Cache |
+|--------|----------|----------|-------|
+| GET | `/places/nearby` | Yakındaki yerler | 30 dk |
+
+### Airport
+
+**Base Path**: `/airport`
+
+| Method | Endpoint | Açıklama |
+|--------|----------|----------|
+| POST | `/airport/nearest` | En yakın havalimanı |
+
 ### Health Check
 
 | Method | Endpoint | Açıklama |
@@ -258,41 +358,6 @@ Loglar `logs/` dizininde saklanır:
 - ✅ Context tracking (hangi servisten geldiği)
 - ✅ Request/Response tracking
 - ✅ Token masking (güvenlik için)
-
-### Log Seviyeleri
-
-- **ERROR**: Hatalar ve exception'lar
-- **WARN**: Uyarılar
-- **INFO**: Genel bilgi logları (production default)
-- **DEBUG**: Development için detaylı loglar (development default)
-- **VERBOSE**: Çok detaylı loglar
-
-### Örnek Log Çıktısı
-
-**Console (Development):**
-```
-2025-11-22 12:00:00 [info] [PaxHttpService] PAX API REQUEST
-{
-  "requestId": "uuid",
-  "endpoint": "http://service.stage.paximum.com/v2/api/productservice/pricesearch",
-  "method": "POST"
-}
-```
-
-**File (JSON):**
-```json
-{
-  "timestamp": "2025-11-22 12:00:00",
-  "level": "info",
-  "context": "PaxHttpService",
-  "message": "PAX API REQUEST",
-  "requestId": "uuid",
-  "endpoint": "http://service.stage.paximum.com/v2/api/productservice/pricesearch",
-  "method": "POST",
-  "requestBody": { ... },
-  "requestHeaders": { "Authorization": "Bearer eyJhbG...4tY2" }
-}
-```
 
 ### Log Monitoring
 
@@ -324,20 +389,6 @@ tail -f logs/debug-*.log
 }
 ```
 
-#### Development'ta Debug Mode
-
-```json
-{
-  "success": true,
-  "data": { ... },
-  "debug": {
-    "provider": "PAXIMUM",
-    "raw": { /* PAX API'den gelen orjinal response */ }
-  },
-  "requestId": "550e8400-e29b-41d4-a716-446655440000"
-}
-```
-
 #### Hata Response
 
 ```json
@@ -345,45 +396,9 @@ tail -f logs/debug-*.log
   "success": false,
   "code": "PRICE_SEARCH_ERROR",
   "message": "Fiyat arama başarısız",
-  "details": {
-    "paxError": "Invalid date format"
-  },
   "requestId": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
-
-### Error Codes
-
-#### General Errors
-- `INTERNAL_SERVER_ERROR` - Sunucu hatası
-- `BAD_REQUEST` - Geçersiz istek
-- `UNAUTHORIZED` - Yetkisiz erişim
-- `TOKEN_EXPIRED` - Token süresi dolmuş
-- `TOKEN_REFRESH_ERROR` - Token yenileme hatası
-
-#### PAX API Errors
-- `DEPARTURE_SEARCH_ERROR` - Kalkış noktası arama hatası
-- `ARRIVAL_SEARCH_ERROR` - Varış noktası arama hatası
-- `CHECKIN_DATES_ERROR` - Check-in tarihleri hatası
-- `PRICE_SEARCH_ERROR` - Fiyat arama hatası
-- `GET_OFFERS_ERROR` - Teklif getirme hatası
-- `PRODUCT_INFO_ERROR` - Ürün bilgisi hatası
-- `OFFER_DETAILS_ERROR` - Teklif detayları hatası
-- `FARE_RULES_ERROR` - Ücret kuralları hatası
-
-#### Booking Errors
-- `BEGIN_TRANSACTION_ERROR` - Rezervasyon başlatma hatası
-- `ADD_SERVICES_ERROR` - Hizmet ekleme hatası
-- `REMOVE_SERVICES_ERROR` - Hizmet kaldırma hatası
-- `SET_RESERVATION_INFO_ERROR` - Rezervasyon bilgileri hatası
-- `COMMIT_TRANSACTION_ERROR` - Rezervasyon onaylama hatası
-- `RESERVATION_DETAIL_ERROR` - Rezervasyon detay hatası
-- `RESERVATION_LIST_ERROR` - Rezervasyon listesi hatası
-- `CANCELLATION_PENALTY_ERROR` - İptal cezası hatası
-- `CANCEL_RESERVATION_ERROR` - Rezervasyon iptal hatası
-
-#### Rate Limit
-- `TOO_MANY_REQUESTS` - Çok fazla istek
 
 ## 🔒 Security
 
@@ -397,7 +412,6 @@ tail -f logs/debug-*.log
 
 2. **Rate Limiting**: 
    - Global: 100 request / 60 saniye
-   - Endpoint-specific limitler
 
 3. **CORS**: Yapılandırılabilir origin whitelist
 
@@ -407,14 +421,8 @@ tail -f logs/debug-*.log
    - Transform: Otomatik type dönüşümü
 
 5. **Token Masking**: Loglarda token'lar maskelenir
-   ```
-   Authorization: Bearer eyJhbG...4tY2 → Bearer eyJhbG...Xtyd
-   ```
 
-6. **JWT Authentication**: 
-   - Secret key ile imzalı token'lar
-   - Configurable expiry
-   - Passport-JWT strategy
+6. **Supabase Auth**: Güvenli authentication
 
 ## 🔧 Development
 
@@ -451,15 +459,6 @@ npm run lint
 - `.env.development` - Development ortamı
 - `.env.production` - Production ortamı
 - `.env.example` - Template dosya
-
-### Git Ignore
-
-Otomatik ignore edilen dosyalar:
-- `node_modules/`
-- `dist/`
-- `logs/`
-- `.env*` (`.env.example` hariç)
-- `*.log`
 
 ## 📄 Lisans
 
