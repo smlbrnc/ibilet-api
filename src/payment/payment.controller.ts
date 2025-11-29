@@ -295,6 +295,8 @@ export class PaymentController {
           // Her durumda order_detail'e ödeme sonucunu kaydet
           let newStatus = responseData.success ? 'SUCCESS' : 'FAILED';
           let bookingDetail = null;
+          let reservationDetails = null;
+          let commitError = ''; // Commit hata mesajı
 
           // Ödeme başarılı ise commit-transaction çağır
           if (responseData.success) {
@@ -322,26 +324,49 @@ export class PaymentController {
                   transactionId: booking.transaction_id,
                   reservationNumber,
                 });
+
+                // Reservation detail al ve kaydet
+                if (reservationNumber) {
+                  try {
+                    const detailEndpoint = this.configService.get<string>('pax.endpoints.reservationDetail');
+                    const detailResult = await this.paxHttp.post(`${baseUrl}${detailEndpoint}`, {
+                      ReservationNumber: reservationNumber,
+                    });
+                    reservationDetails = detailResult;
+                    this.logger.log({
+                      message: 'Callback: reservation-detail alındı',
+                      reservationNumber,
+                    });
+                  } catch (detailError) {
+                    this.logger.error({
+                      message: 'Callback: reservation-detail hatası',
+                      reservationNumber,
+                      error: detailError instanceof Error ? detailError.message : String(detailError),
+                    });
+                  }
+                }
               } else {
-                newStatus = 'COMMIT_FAILED';
+                newStatus = 'COMMIT_ERROR';
+                commitError = commitResult?.header?.messages?.[0]?.message || 'Commit işlemi başarısız';
                 this.logger.warn({
                   message: 'Callback: commit-transaction başarısız',
                   transactionId: booking.transaction_id,
                   response: commitResult,
                 });
               }
-            } catch (commitError) {
-              newStatus = 'COMMIT_FAILED';
-              bookingDetail = { error: commitError instanceof Error ? commitError.message : String(commitError) };
+            } catch (err) {
+              newStatus = 'COMMIT_ERROR';
+              commitError = err instanceof Error ? err.message : String(err);
+              bookingDetail = { error: commitError };
               this.logger.error({
                 message: 'Callback: commit-transaction hatası',
                 transactionId: booking.transaction_id,
-                error: commitError instanceof Error ? commitError.message : String(commitError),
+                error: commitError,
               });
             }
           }
 
-          // Booking'i güncelle (order_detail ve booking_detail ile birlikte)
+          // Booking'i güncelle (order_detail, booking_detail, booking_number ve reservation_details ile birlikte)
           const { error: updateError } = await adminClient
             .schema('backend')
             .from('booking')
@@ -349,6 +374,8 @@ export class PaymentController {
               status: newStatus,
               order_detail: responseData,
               booking_detail: bookingDetail,
+              booking_number: reservationNumber || null,
+              reservation_details: reservationDetails,
               updated_at: new Date().toISOString(),
             })
             .eq('id', booking.id);
@@ -378,12 +405,25 @@ export class PaymentController {
     }
 
     // URL parametrelerini oluştur (başarı/hata durumuna göre)
+    const isFullySuccessful = responseData.success && reservationNumber;
+    const isCommitError = responseData.success && !reservationNumber;
+    
+    // Status belirleme: success | commiterror | failed
+    let urlStatus = 'failed';
+    if (isFullySuccessful) urlStatus = 'success';
+    else if (isCommitError) urlStatus = 'commiterror';
+
     const params = new URLSearchParams({
-      status: responseData.success ? 'success' : 'failed',
+      status: urlStatus,
       transactionId,
-      success: String(responseData.success),
-      ...(responseData.success
+      success: String(isFullySuccessful),
+      ...(isFullySuccessful
         ? { reservationNumber }
+        : isCommitError
+        ? {
+            returnCode: responseData.transaction?.returnCode || '',
+            reservationNumber: 'Ödeme başarılı ancak rezervasyon oluşturulamadı',
+          }
         : {
             returnCode: responseData.transaction?.returnCode || '',
             message: responseData.transaction?.message || '',

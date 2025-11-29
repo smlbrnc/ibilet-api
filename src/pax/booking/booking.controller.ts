@@ -47,7 +47,8 @@ export class BookingController {
         status: booking.status,
         orderId: booking.order_id,
         orderDetail: booking.order_detail,
-        reservationNumber: booking.booking_detail?.body?.reservationNumber || null,
+        bookingNumber: booking.booking_number,
+        reservationDetails: booking.reservation_details,
         createdAt: booking.created_at,
         updatedAt: booking.updated_at,
       },
@@ -348,25 +349,44 @@ export class BookingController {
   @Post('cancellation-penalty')
   @ApiOperation({ summary: 'İptal cezası sorgula (Cancellation Penalty)' })
   @ApiResponse({ status: 200, description: 'İptal ceza tutarı ve detayları' })
+  @ApiResponse({ status: 404, description: 'Rezervasyon bulunamadı' })
   async getCancellationPenalty(
     @Body() request: CancellationPenaltyRequestDto,
     @Req() req: Request,
     @Headers('authorization') authorization?: string,
   ) {
     try {
+      // booking_number ile eşleşen kayıt var mı kontrol et
+      const adminClient = this.supabase.getAdminClient();
+      const { data: booking, error: bookingError } = await adminClient
+        .schema('backend')
+        .from('booking')
+        .select('id, booking_number')
+        .eq('booking_number', request.reservationNumber)
+        .single();
+
+      if (bookingError || !booking) {
+        throw new NotFoundException({
+          success: false,
+          code: 'RESERVATION_NOT_FOUND',
+          message: 'Rezervasyon bulunamadı',
+        });
+      }
+
       const baseUrl = this.config.get<string>('pax.baseUrl');
-      const endpoint = (
-        this.config.get<string>('pax.endpoints.cancellationPenalty') || ''
-      ).replace('{reservationNumber}', request.reservationNumber);
+      const endpoint = this.config.get<string>('pax.endpoints.cancellationPenalty');
       const ip = req.ip || req.socket.remoteAddress || undefined;
       const userInfo = await this.getUserInfoFromToken(authorization);
-      const result = await this.paxHttp.post(`${baseUrl}${endpoint}`, {}, {
+      const result = await this.paxHttp.post(`${baseUrl}${endpoint}`, request, {
         ip,
         userId: userInfo.userId ?? undefined,
         email: userInfo.email ?? undefined,
       });
       return result.body || result;
     } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
       handlePaxApiError(error, 'CANCELLATION_PENALTY_ERROR', 'İptal cezası sorgulanamadı');
     }
   }
