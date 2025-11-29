@@ -11,6 +11,7 @@ import { CallbackRequestDto } from './dto/callback-request.dto';
 import { LoggerService } from '../common/logger/logger.service';
 import { SupabaseService } from '../common/services/supabase.service';
 import { PaxHttpService } from '../pax/pax-http.service';
+import { EmailService } from '../email/email.service';
 
 @ApiTags('Payment')
 @Controller('payment')
@@ -21,6 +22,7 @@ export class PaymentController {
     private readonly supabase: SupabaseService,
     private readonly configService: ConfigService,
     private readonly paxHttp: PaxHttpService,
+    private readonly emailService: EmailService,
   ) {
     this.logger.setContext('PaymentController');
   }
@@ -393,6 +395,27 @@ export class PaymentController {
               transactionId: booking.transaction_id,
               success: responseData.success,
             });
+
+            // CONFIRMED durumunda rezervasyon onay emaili gönder
+            if (newStatus === 'CONFIRMED' && reservationDetails) {
+              this.emailService.sendBookingConfirmation(reservationDetails, booking.transaction_id)
+                .then(result => {
+                  if (result.success) {
+                    this.logger.log({
+                      message: 'Callback: Rezervasyon onay emaili gönderildi',
+                      transactionId: booking.transaction_id,
+                      reservationNumber,
+                    });
+                  }
+                })
+                .catch(emailError => {
+                  this.logger.error({
+                    message: 'Callback: Rezervasyon onay emaili gönderilemedi',
+                    transactionId: booking.transaction_id,
+                    error: emailError instanceof Error ? emailError.message : String(emailError),
+                  });
+                });
+            }
           }
         }
       } catch (error) {
