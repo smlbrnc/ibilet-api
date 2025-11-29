@@ -1,7 +1,6 @@
 import { Controller, Post, Get, Body, Param, Res, HttpStatus, UsePipes, ValidationPipe, HttpException } from '@nestjs/common';
 import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
-import { ConfigService } from '@nestjs/config';
 import { PaymentService } from './payment.service';
 import { PaymentRequestDto } from './dto/payment-request.dto';
 import { PaymentInitiateRequestDto } from './dto/payment-initiate-request.dto';
@@ -10,9 +9,7 @@ import { RefundRequestDto } from './dto/refund-request.dto';
 import { CallbackRequestDto } from './dto/callback-request.dto';
 import { LoggerService } from '../common/logger/logger.service';
 import { SupabaseService } from '../common/services/supabase.service';
-import { PaxHttpService } from '../pax/pax-http.service';
-import { EmailService } from '../email/email.service';
-import { NetgsmService } from '../sms/netgsm.service';
+import { BOOKING_STATUS_MESSAGES, DEFAULT_STATUS_INFO } from './constants/booking-status.constant';
 
 @ApiTags('Payment')
 @Controller('payment')
@@ -21,10 +18,6 @@ export class PaymentController {
     private readonly paymentService: PaymentService,
     private readonly logger: LoggerService,
     private readonly supabase: SupabaseService,
-    private readonly configService: ConfigService,
-    private readonly paxHttp: PaxHttpService,
-    private readonly emailService: EmailService,
-    private readonly netgsmService: NetgsmService,
   ) {
     this.logger.setContext('PaymentController');
   }
@@ -62,106 +55,36 @@ export class PaymentController {
 
       if (bookingError || !booking) {
         throw new HttpException(
-          {
-            success: false,
-            code: 'BOOKING_NOT_FOUND',
-            message: 'Booking bulunamadı',
-          },
+          { success: false, code: 'BOOKING_NOT_FOUND', message: 'Booking bulunamadı' },
           HttpStatus.NOT_FOUND,
         );
       }
 
-      // 2. Status kontrolü - AWAITING_PAYMENT değilse uygun hata döndür
+      // 2. Status kontrolü
       if (booking.status !== 'AWAITING_PAYMENT') {
-        const statusMessages: Record<string, { code: string; message: string; httpStatus: HttpStatus }> = {
-          'PAYMENT_IN_PROGRESS': {
-            code: 'PAYMENT_ALREADY_INITIATED',
-            message: 'Bu rezervasyon için ödeme zaten başlatılmış',
-            httpStatus: HttpStatus.CONFLICT,
-          },
-          'EXPIRED': {
-            code: 'BOOKING_EXPIRED',
-            message: 'Rezervasyon süresi dolmuş',
-            httpStatus: HttpStatus.BAD_REQUEST,
-          },
-          'FAILED': {
-            code: 'PAYMENT_FAILED',
-            message: 'Bu rezervasyon için ödeme başarısız oldu',
-            httpStatus: HttpStatus.BAD_REQUEST,
-          },
-          'SUCCESS': {
-            code: 'PAYMENT_COMPLETED',
-            message: 'Bu rezervasyon için ödeme zaten tamamlanmış',
-            httpStatus: HttpStatus.CONFLICT,
-          },
-          'CONFIRMED': {
-            code: 'BOOKING_CONFIRMED',
-            message: 'Bu rezervasyon zaten onaylanmış',
-            httpStatus: HttpStatus.CONFLICT,
-          },
-          'COMMIT_FAILED': {
-            code: 'COMMIT_FAILED',
-            message: 'Rezervasyon onaylaması başarısız oldu',
-            httpStatus: HttpStatus.BAD_REQUEST,
-          },
-          'REFUND_PENDING': {
-            code: 'REFUND_PENDING',
-            message: 'Bu rezervasyon için iade işlemi beklemede',
-            httpStatus: HttpStatus.CONFLICT,
-          },
-          'REFUNDED': {
-            code: 'BOOKING_REFUNDED',
-            message: 'Bu rezervasyon için iade yapılmış',
-            httpStatus: HttpStatus.CONFLICT,
-          },
-          'CANCELLED': {
-            code: 'BOOKING_CANCELLED',
-            message: 'Bu rezervasyon iptal edilmiş',
-            httpStatus: HttpStatus.BAD_REQUEST,
-          },
-        };
-
-        const statusInfo = statusMessages[booking.status] || {
-          code: 'INVALID_BOOKING_STATUS',
-          message: 'Rezervasyon durumu ödeme başlatmaya uygun değil',
-          httpStatus: HttpStatus.BAD_REQUEST,
-        };
-
+        const statusInfo = BOOKING_STATUS_MESSAGES[booking.status] || DEFAULT_STATUS_INFO;
         throw new HttpException(
-          {
-            success: false,
-            code: statusInfo.code,
-            message: statusInfo.message,
-            currentStatus: booking.status,
-          },
+          { success: false, code: statusInfo.code, message: statusInfo.message, currentStatus: booking.status },
           statusInfo.httpStatus,
         );
       }
 
       // 3. expires_on kontrolü
       const expiresOn = booking.pre_transactionid?.expires_on;
-      if (expiresOn) {
-        const expiresOnDate = new Date(expiresOn);
-        if (expiresOnDate <= new Date()) {
-          // Booking status'unu EXPIRED olarak güncelle
-          await adminClient
-            .schema('backend')
-            .from('booking')
-            .update({ status: 'EXPIRED', updated_at: new Date().toISOString() })
-            .eq('id', booking.id);
+      if (expiresOn && new Date(expiresOn) <= new Date()) {
+        await adminClient
+          .schema('backend')
+          .from('booking')
+          .update({ status: 'EXPIRED', updated_at: new Date().toISOString() })
+          .eq('id', booking.id);
 
-          throw new HttpException(
-            {
-              success: false,
-              code: 'BOOKING_EXPIRED',
-              message: 'Rezervasyon süresi dolmuş',
-            },
-            HttpStatus.BAD_REQUEST,
-          );
-        }
+        throw new HttpException(
+          { success: false, code: 'BOOKING_EXPIRED', message: 'Rezervasyon süresi dolmuş' },
+          HttpStatus.BAD_REQUEST,
+        );
       }
 
-      // 4. PaymentRequestDto'ya dönüştür ve ödeme başlat (sabit değerlerle)
+      // 4. Ödeme başlat
       const paymentDto: PaymentRequestDto = {
         amount: dto.amount,
         currencyCode: dto.currencyCode || '949',
@@ -175,44 +98,26 @@ export class PaymentController {
 
       const paymentResult = await this.paymentService.initiate3DSecurePayment(paymentDto);
 
-      // 5. Ödeme başarılı ise booking status'unu PAYMENT_IN_PROGRESS olarak güncelle ve order_id kaydet
+      // 5. Başarılı ise booking güncelle
       if (paymentResult.success) {
         const orderId = paymentResult.data?.orderId;
-        
+
         const { error: updateError } = await adminClient
           .schema('backend')
           .from('booking')
-          .update({ 
-            status: 'PAYMENT_IN_PROGRESS', 
-            order_id: orderId,
-            updated_at: new Date().toISOString() 
-          })
+          .update({ status: 'PAYMENT_IN_PROGRESS', order_id: orderId, updated_at: new Date().toISOString() })
           .eq('id', booking.id);
 
         if (updateError) {
-          this.logger.error({
-            message: 'Booking status güncelleme hatası',
-            error: updateError.message,
-            transactionId: dto.transactionId,
-          });
+          this.logger.error({ message: 'Booking status güncelleme hatası', error: updateError.message, transactionId: dto.transactionId });
         } else {
-          this.logger.log({
-            message: 'Booking status güncellendi: PAYMENT_IN_PROGRESS',
-            transactionId: dto.transactionId,
-            orderId,
-          });
+          this.logger.log({ message: 'Booking status güncellendi: PAYMENT_IN_PROGRESS', transactionId: dto.transactionId, orderId });
         }
       }
 
-      return {
-        success: true,
-        message: 'Ödeme başlatıldı',
-        data: paymentResult.data,
-      };
+      return { success: true, message: 'Ödeme başlatıldı', data: paymentResult.data };
     } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
+      if (error instanceof HttpException) throw error;
 
       this.logger.error({
         message: 'Ödeme başlatma hatası',
@@ -221,11 +126,7 @@ export class PaymentController {
       });
 
       throw new HttpException(
-        {
-          success: false,
-          code: 'PAYMENT_INITIATE_ERROR',
-          message: 'Ödeme başlatılamadı',
-        },
+        { success: false, code: 'PAYMENT_INITIATE_ERROR', message: 'Ödeme başlatılamadı' },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -256,230 +157,15 @@ export class PaymentController {
   }
 
   @Post('callback')
-  @UsePipes(
-    new ValidationPipe({
-      transform: true,
-      whitelist: false, // Callback için tüm alanları kabul et
-      forbidNonWhitelisted: false, // Ekstra alanları reddetme
-    }),
-  )
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: false, forbidNonWhitelisted: false }))
   @ApiOperation({
     summary: 'VPOS callback işlemi (Bankadan dönen sonuç)',
     description: '3D Secure doğrulaması sonrası bankadan dönen callback işler, booking status\'unu günceller ve kullanıcıyı sonuç sayfasına yönlendirir.',
   })
   @ApiResponse({ status: 302, description: 'Redirect to payment result page' })
   async callback(@Body() dto: CallbackRequestDto, @Res() res: Response) {
-    const responseData = await this.paymentService.handleCallback(dto);
-
-    // URL parametreleri için değişkenler
-    let transactionId = '';
-    let reservationNumber = '';
-
-    // Booking güncelle (orderId ile)
-    if (responseData.orderId) {
-      try {
-        const adminClient = this.supabase.getAdminClient();
-
-        const { data: booking, error: findError } = await adminClient
-          .schema('backend')
-          .from('booking')
-          .select('id, transaction_id')
-          .eq('order_id', responseData.orderId)
-          .single();
-
-        if (findError || !booking) {
-          this.logger.warn({
-            message: 'Callback: Booking bulunamadı',
-            orderId: responseData.orderId,
-            error: findError?.message,
-          });
-        } else {
-          transactionId = booking.transaction_id;
-
-          // Her durumda order_detail'e ödeme sonucunu kaydet
-          let newStatus = responseData.success ? 'SUCCESS' : 'FAILED';
-          let bookingDetail = null;
-          let reservationDetails = null;
-          let commitError = ''; // Commit hata mesajı
-
-          // Ödeme başarılı ise commit-transaction çağır
-          if (responseData.success) {
-            try {
-              this.logger.log({
-                message: 'Callback: commit-transaction başlatılıyor',
-                transactionId: booking.transaction_id,
-              });
-
-              const baseUrl = this.configService.get<string>('pax.baseUrl');
-              const endpoint = this.configService.get<string>('pax.endpoints.commitTransaction');
-              
-              const commitResult = await this.paxHttp.post(`${baseUrl}${endpoint}`, {
-                transactionId: booking.transaction_id,
-              });
-
-              bookingDetail = commitResult;
-
-              // Commit başarılı mı kontrol et
-              if (commitResult?.header?.success === true) {
-                newStatus = 'CONFIRMED';
-                reservationNumber = commitResult?.body?.reservationNumber || '';
-                this.logger.log({
-                  message: 'Callback: commit-transaction başarılı',
-                  transactionId: booking.transaction_id,
-                  reservationNumber,
-                });
-
-                // Reservation detail al ve kaydet
-                if (reservationNumber) {
-                  try {
-                    const detailEndpoint = this.configService.get<string>('pax.endpoints.reservationDetail');
-                    const detailResult = await this.paxHttp.post(`${baseUrl}${detailEndpoint}`, {
-                      ReservationNumber: reservationNumber,
-                    });
-                    reservationDetails = detailResult;
-                    this.logger.log({
-                      message: 'Callback: reservation-detail alındı',
-                      reservationNumber,
-                    });
-                  } catch (detailError) {
-                    this.logger.error({
-                      message: 'Callback: reservation-detail hatası',
-                      reservationNumber,
-                      error: detailError instanceof Error ? detailError.message : String(detailError),
-                    });
-                  }
-                }
-              } else {
-                newStatus = 'COMMIT_ERROR';
-                commitError = commitResult?.header?.messages?.[0]?.message || 'Commit işlemi başarısız';
-                this.logger.warn({
-                  message: 'Callback: commit-transaction başarısız',
-                  transactionId: booking.transaction_id,
-                  response: commitResult,
-                });
-              }
-            } catch (err) {
-              newStatus = 'COMMIT_ERROR';
-              commitError = err instanceof Error ? err.message : String(err);
-              bookingDetail = { error: commitError };
-              this.logger.error({
-                message: 'Callback: commit-transaction hatası',
-                transactionId: booking.transaction_id,
-                error: commitError,
-              });
-            }
-          }
-
-          // Booking'i güncelle (order_detail, booking_detail, booking_number ve reservation_details ile birlikte)
-          const { error: updateError } = await adminClient
-            .schema('backend')
-            .from('booking')
-            .update({
-              status: newStatus,
-              order_detail: responseData,
-              booking_detail: bookingDetail,
-              booking_number: reservationNumber || null,
-              reservation_details: reservationDetails,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', booking.id);
-
-          if (updateError) {
-            this.logger.error({
-              message: 'Callback: Booking güncelleme hatası',
-              orderId: responseData.orderId,
-              error: updateError.message,
-            });
-          } else {
-            this.logger.log({
-              message: `Callback: Booking güncellendi → ${newStatus}`,
-              orderId: responseData.orderId,
-              transactionId: booking.transaction_id,
-              success: responseData.success,
-            });
-
-            // CONFIRMED durumunda rezervasyon onay emaili gönder
-            if (newStatus === 'CONFIRMED' && reservationDetails) {
-              this.emailService.sendBookingConfirmation(reservationDetails, booking.transaction_id)
-                .then(result => {
-                  if (result.success) {
-                    this.logger.log({
-                      message: 'Callback: Rezervasyon onay emaili gönderildi',
-                      transactionId: booking.transaction_id,
-                      reservationNumber,
-                    });
-                  }
-                })
-                .catch(emailError => {
-                  this.logger.error({
-                    message: 'Callback: Rezervasyon onay emaili gönderilemedi',
-                    transactionId: booking.transaction_id,
-                    error: emailError instanceof Error ? emailError.message : String(emailError),
-                  });
-                });
-
-              // CONFIRMED durumunda rezervasyon onay SMS gönder
-              this.netgsmService.sendBookingConfirmation(reservationDetails, booking.transaction_id)
-                .then(result => {
-                  if (result.success) {
-                    this.logger.log({
-                      message: 'Callback: Rezervasyon onay SMS gönderildi',
-                      transactionId: booking.transaction_id,
-                      reservationNumber,
-                    });
-                  }
-                })
-                .catch(smsError => {
-                  this.logger.error({
-                    message: 'Callback: Rezervasyon onay SMS gönderilemedi',
-                    transactionId: booking.transaction_id,
-                    error: smsError instanceof Error ? smsError.message : String(smsError),
-                  });
-                });
-            }
-          }
-        }
-      } catch (error) {
-        this.logger.error({
-          message: 'Callback: Booking güncelleme exception',
-          orderId: responseData.orderId,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
-
-    // URL parametrelerini oluştur (başarı/hata durumuna göre)
-    const isFullySuccessful = responseData.success && reservationNumber;
-    const isCommitError = responseData.success && !reservationNumber;
-    
-    // Status belirleme: success | commiterror | failed
-    let urlStatus = 'failed';
-    if (isFullySuccessful) urlStatus = 'success';
-    else if (isCommitError) urlStatus = 'commiterror';
-
-    const params = new URLSearchParams({
-      status: urlStatus,
-      transactionId,
-      success: String(isFullySuccessful),
-      ...(isFullySuccessful
-        ? { reservationNumber }
-        : isCommitError
-        ? {
-            returnCode: responseData.transaction?.returnCode || '',
-            reservationNumber: 'Ödeme başarılı ancak rezervasyon oluşturulamadı',
-          }
-        : {
-            returnCode: responseData.transaction?.returnCode || '',
-            message: responseData.transaction?.message || '',
-          }),
-    });
-
-    // Frontend sonuç sayfasına yönlendir (mobil ve web için)
-    const baseRedirectUrl = this.configService.get<string>('payment.redirectUrl');
-    const redirectUrl = `${baseRedirectUrl}?${params.toString()}`;
-    this.logger.log(`🔄 Redirect URL: ${redirectUrl}`);
-
-    return res.redirect(redirectUrl);
+    const result = await this.paymentService.processCallbackWithBooking(dto);
+    return res.redirect(result.redirectUrl);
   }
 
   @Get('status/:orderId')
@@ -496,4 +182,3 @@ export class PaymentController {
     return this.paymentService.getTransactionStatus(orderId);
   }
 }
-

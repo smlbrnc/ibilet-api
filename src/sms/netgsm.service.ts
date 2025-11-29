@@ -5,12 +5,24 @@ import { GetBalanceDto } from './dto/get-balance.dto';
 import { LoggerService } from '../common/logger/logger.service';
 import { SupabaseService } from '../common/services/supabase.service';
 import { buildBookingSmsMessage } from './templates/booking-confirmation.template';
+import {
+  NETGSM_URLS,
+  NETGSM_TIMEOUT,
+  SMS_SUCCESS_MESSAGES,
+  SMS_ERROR_MESSAGES,
+  BALANCE_ERROR_MESSAGES,
+  SMS_SUCCESS_CODES,
+} from './constants/netgsm.constant';
+
+interface SmsResult {
+  success: boolean;
+  code: string;
+  message: string;
+  jobId?: string;
+}
 
 @Injectable()
 export class NetgsmService {
-  private readonly baseUrl = 'https://api.netgsm.com.tr/sms/send/get';
-  private readonly balanceUrl = 'https://api.netgsm.com.tr/balance';
-
   constructor(
     private readonly config: ConfigService,
     private readonly logger: LoggerService,
@@ -19,16 +31,40 @@ export class NetgsmService {
     this.logger.setContext('NetgsmService');
   }
 
-  private getSuccessMessage(code: string): string {
-    const messages: Record<string, string> = {
-      '00': 'SMS başarıyla gönderildi',
-      '01': 'SMS başarıyla gönderildi (tarih düzeltildi)',
-      '02': 'SMS başarıyla gönderildi (bitiş tarihi düzeltildi)',
-    };
-    return messages[code] || 'SMS başarıyla gönderildi';
+  /**
+   * Netgsm credentials al ve doğrula
+   */
+  private getCredentials(): { username: string; password: string } {
+    const username = this.config.get<string>('sms.netgsm.username');
+    const password = this.config.get<string>('sms.netgsm.password');
+
+    if (!username || !password) {
+      this.logger.error('Netgsm credentials not configured');
+      throw new InternalServerErrorException('SMS servisi yapılandırılmamış');
+    }
+
+    return { username, password };
   }
 
-  private parseResponse(response: string): { success: boolean; code: string; message: string; jobId?: string } {
+  /**
+   * Timeout ile fetch işlemi
+   */
+  private async fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), NETGSM_TIMEOUT);
+
+    try {
+      const response = await fetch(url, { ...options, signal: controller.signal });
+      return response;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  /**
+   * SMS yanıtını parse et
+   */
+  private parseResponse(response: string): SmsResult {
     const trimmed = response.trim();
 
     // Sadece JobID (uzun sayısal değer)
@@ -39,38 +75,26 @@ export class NetgsmService {
     // "00 JobID" formatı
     const match = trimmed.match(/^(00|01|02)\s+(\d{20,})$/);
     if (match) {
-      return { success: true, code: match[1], message: this.getSuccessMessage(match[1]), jobId: match[2] };
+      return { success: true, code: match[1], message: SMS_SUCCESS_MESSAGES[match[1]], jobId: match[2] };
     }
 
     // Tek başına başarı kodları
-    if (['00', '01', '02'].includes(trimmed)) {
-      return { success: true, code: trimmed, message: this.getSuccessMessage(trimmed) };
+    if (SMS_SUCCESS_CODES.includes(trimmed)) {
+      return { success: true, code: trimmed, message: SMS_SUCCESS_MESSAGES[trimmed] };
     }
 
     // Hata kodları
-    const errors: Record<string, string> = {
-      '20': 'Mesaj metni problemi veya karakter sınırı aşımı',
-      '30': 'Geçersiz kullanıcı adı/şifre veya API erişim izni yok',
-      '40': 'Mesaj başlığı sistemde tanımlı değil',
-      '50': 'İYS kontrollü gönderim yapılamıyor',
-      '70': 'Hatalı sorgulama - parametre hatası',
-      '80': 'Gönderim sınır aşımı',
-    };
-
-    return { success: false, code: trimmed, message: errors[trimmed] || `Bilinmeyen hata: ${trimmed}` };
+    return { success: false, code: trimmed, message: SMS_ERROR_MESSAGES[trimmed] || `Bilinmeyen hata: ${trimmed}` };
   }
 
+  /**
+   * SMS gönder
+   */
   async sendSms(dto: SendSmsDto) {
     const startTime = Date.now();
 
     try {
-      const username = this.config.get<string>('sms.netgsm.username');
-      const password = this.config.get<string>('sms.netgsm.password');
-
-      if (!username || !password) {
-        this.logger.error('Netgsm credentials not configured');
-        throw new InternalServerErrorException('SMS servisi yapılandırılmamış');
-      }
+      const { username, password } = this.getCredentials();
 
       this.logger.log({ message: 'SMS gönderiliyor', to: dto.no });
 
@@ -82,16 +106,11 @@ export class NetgsmService {
       if (dto.msgheader) formData.append('msgheader', dto.msgheader);
       if (dto.encoding) formData.append('dil', dto.encoding);
 
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000);
-
-      const response = await fetch(this.baseUrl, {
+      const response = await this.fetchWithTimeout(NETGSM_URLS.SMS, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: formData.toString(),
-        signal: controller.signal,
       });
-      clearTimeout(timeout);
 
       const responseText = await response.text();
       const result = this.parseResponse(responseText);
@@ -118,27 +137,20 @@ export class NetgsmService {
     }
   }
 
+  /**
+   * Bakiye sorgula
+   */
   async getBalance(dto: GetBalanceDto) {
     const startTime = Date.now();
 
     try {
-      const username = this.config.get<string>('sms.netgsm.username');
-      const password = this.config.get<string>('sms.netgsm.password');
+      const { username, password } = this.getCredentials();
 
-      if (!username || !password) {
-        throw new InternalServerErrorException('SMS servisi yapılandırılmamış');
-      }
-
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000);
-
-      const response = await fetch(this.balanceUrl, {
+      const response = await this.fetchWithTimeout(NETGSM_URLS.BALANCE, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usercode: username, password: password, stip: dto.stip }),
-        signal: controller.signal,
+        body: JSON.stringify({ usercode: username, password, stip: dto.stip }),
       });
-      clearTimeout(timeout);
 
       const data = await response.json();
       const duration = Date.now() - startTime;
@@ -146,19 +158,14 @@ export class NetgsmService {
       // Hata kontrolü
       if (data.error || (data.code && data.code !== '00')) {
         const code = data.error || data.code;
-        const errors: Record<string, string> = {
-          '30': 'Geçersiz kullanıcı adı/şifre',
-          '60': 'Paket/kampanya bulunamadı',
-          '70': 'Parametre hatası',
-        };
-        throw new InternalServerErrorException(errors[code] || `Hata: ${code}`);
+        throw new InternalServerErrorException(BALANCE_ERROR_MESSAGES[code] || `Hata: ${code}`);
       }
 
       this.logger.log({ message: 'Bakiye sorgulandı', stip: dto.stip, duration: `${duration}ms` });
 
       return {
         success: true,
-        data: data,
+        data,
         stip: dto.stip,
         provider: 'netgsm',
         timestamp: new Date().toISOString(),
@@ -171,7 +178,7 @@ export class NetgsmService {
   }
 
   /**
-   * Rezervasyon onay SMS'i gönderir ve sonucu veritabanına kaydeder
+   * Rezervasyon onay SMS'i gönder
    */
   async sendBookingConfirmation(
     reservationDetails: any,
@@ -179,7 +186,7 @@ export class NetgsmService {
   ): Promise<{ success: boolean; message: string; jobId?: string }> {
     const { message, phone, outboundPnr, returnPnr, reservationNumber } = buildBookingSmsMessage(reservationDetails);
 
-    // Telefon numarası bulunamadı
+    // Telefon numarası kontrolü
     if (!phone) {
       const errorMsg = 'Telefon numarası bulunamadı';
       this.logger.warn('Rezervasyon onay SMS gönderilemedi: Leader yolcu telefon numarası bulunamadı');
@@ -187,7 +194,7 @@ export class NetgsmService {
       return { success: false, message: errorMsg };
     }
 
-    // Mesaj oluşturulamadı
+    // Mesaj kontrolü
     if (!message) {
       const errorMsg = 'SMS mesajı oluşturulamadı';
       this.logger.warn('Rezervasyon onay SMS gönderilemedi: Mesaj oluşturulamadı');
@@ -196,20 +203,10 @@ export class NetgsmService {
     }
 
     try {
-      const result = await this.sendSms({
-        no: phone,
-        msg: message,
-        msgheader: 'IBGROUP',
-        encoding: 'TR',
-      });
+      const result = await this.sendSms({ no: phone, msg: message, msgheader: 'IBGROUP', encoding: 'TR' });
 
-      this.logger.log({
-        message: 'Rezervasyon onay SMS gönderildi',
-        to: phone,
-        reservationNumber,
-      });
+      this.logger.log({ message: 'Rezervasyon onay SMS gönderildi', to: phone, reservationNumber });
 
-      // Başarılı kaydı veritabanına yaz
       await this.saveSmsLog({
         transactionId,
         reservationNumber,
@@ -224,29 +221,16 @@ export class NetgsmService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
 
-      this.logger.error({
-        message: 'Rezervasyon onay SMS gönderme hatası',
-        error: errorMessage,
-        reservationNumber,
-      });
+      this.logger.error({ message: 'Rezervasyon onay SMS gönderme hatası', error: errorMessage, reservationNumber });
 
-      // Hata kaydını veritabanına yaz
-      await this.saveSmsLog({
-        transactionId,
-        reservationNumber,
-        pnrNo: outboundPnr,
-        phone,
-        status: 'FAILED',
-        message: errorMessage,
-      });
+      await this.saveSmsLog({ transactionId, reservationNumber, pnrNo: outboundPnr, phone, status: 'FAILED', message: errorMessage });
 
-      // SMS hatası rezervasyon işlemini etkilememeli
       return { success: false, message: errorMessage };
     }
   }
 
   /**
-   * SMS gönderim kaydını veritabanına kaydeder
+   * SMS log kaydet
    */
   private async saveSmsLog(data: {
     transactionId?: string;
@@ -260,24 +244,17 @@ export class NetgsmService {
     try {
       const adminClient = this.supabase.getAdminClient();
 
-      await adminClient
-        .schema('backend')
-        .from('booking_sms')
-        .insert({
-          transaction_id: data.transactionId || '',
-          reservation_number: data.reservationNumber || null,
-          pnr_no: data.pnrNo || null,
-          phone: data.phone,
-          status: data.status,
-          message: data.message || null,
-          job_id: data.jobId || null,
-        });
-    } catch (error) {
-      this.logger.error({
-        message: 'SMS log kaydetme hatası',
-        error: error instanceof Error ? error.message : String(error),
+      await adminClient.schema('backend').from('booking_sms').insert({
+        transaction_id: data.transactionId || '',
+        reservation_number: data.reservationNumber || null,
+        pnr_no: data.pnrNo || null,
+        phone: data.phone,
+        status: data.status,
+        message: data.message || null,
+        job_id: data.jobId || null,
       });
+    } catch (error) {
+      this.logger.error({ message: 'SMS log kaydetme hatası', error: error instanceof Error ? error.message : String(error) });
     }
   }
 }
-

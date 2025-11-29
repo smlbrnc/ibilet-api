@@ -4,6 +4,7 @@ import { SendEmailDto } from './dto/send-email.dto';
 import { LoggerService } from '../common/logger/logger.service';
 import { SupabaseService } from '../common/services/supabase.service';
 import { buildBookingConfirmationEmail } from './templates/booking-confirmation.template';
+import { EMAIL_TIMEOUT, DEFAULT_FROM_EMAIL } from './constants/email.constant';
 
 type ResendResponse = {
   data?: { id?: string };
@@ -21,25 +22,44 @@ export class EmailService {
     private readonly supabase: SupabaseService,
   ) {
     this.logger.setContext('EmailService');
-    const apiKey = this.config.get<string>('resend.apiKey');
-    
-    if (!apiKey) {
-      this.logger.warn('Resend API key bulunamadı');
-      this.resend = null;
-    } else {
-      try {
-        const { Resend } = require('resend');
-        this.resend = new Resend(apiKey);
-      } catch {
-        this.logger.warn('Resend paketi yüklü değil');
-        this.resend = null;
-      }
-    }
-
-    this.fromEmail = this.config.get<string>('resend.fromEmail') || 'İbilet <noreply@mail.ibilet.com>';
+    this.resend = this.initializeResend();
+    this.fromEmail = this.config.get<string>('resend.fromEmail') || DEFAULT_FROM_EMAIL;
   }
 
-  async sendEmail(sendEmailDto: SendEmailDto) {
+  /**
+   * Resend client'ı initialize et
+   */
+  private initializeResend(): any {
+    const apiKey = this.config.get<string>('resend.apiKey');
+
+    if (!apiKey) {
+      this.logger.warn('Resend API key bulunamadı');
+      return null;
+    }
+
+    try {
+      const { Resend } = require('resend');
+      return new Resend(apiKey);
+    } catch {
+      this.logger.warn('Resend paketi yüklü değil');
+      return null;
+    }
+  }
+
+  /**
+   * Timeout ile promise çalıştır
+   */
+  private async withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Email gönderme zaman aşımı')), ms),
+    );
+    return Promise.race([promise, timeout]);
+  }
+
+  /**
+   * Email gönder
+   */
+  async sendEmail(dto: SendEmailDto) {
     const startTime = Date.now();
 
     try {
@@ -47,31 +67,26 @@ export class EmailService {
         throw new InternalServerErrorException('Email servisi yapılandırılmamış');
       }
 
-      if (!sendEmailDto.to || !sendEmailDto.subject || !sendEmailDto.html) {
+      if (!dto.to || !dto.subject || !dto.html) {
         throw new BadRequestException('Eksik email alanları');
       }
 
       const emailPromise = this.resend.emails.send({
         from: this.fromEmail,
-        to: [sendEmailDto.to],
-        subject: sendEmailDto.subject,
-        html: sendEmailDto.html,
+        to: [dto.to],
+        subject: dto.subject,
+        html: dto.html,
       });
 
-      // 10 saniye timeout
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Email gönderme zaman aşımı')), 10000);
-      });
-
-      const { data, error }: ResendResponse = await Promise.race([emailPromise, timeoutPromise]) as ResendResponse;
+      const { data, error }: ResendResponse = await this.withTimeout(emailPromise, EMAIL_TIMEOUT);
 
       if (error) {
-        this.logger.error({ message: 'Resend API hatası', to: sendEmailDto.to, error: error.message });
+        this.logger.error({ message: 'Resend API hatası', to: dto.to, error: error.message });
         throw new InternalServerErrorException(`Email gönderilemedi: ${error.message}`);
       }
 
       const duration = Date.now() - startTime;
-      this.logger.log({ message: 'Email gönderildi', to: sendEmailDto.to, duration: `${duration}ms` });
+      this.logger.log({ message: 'Email gönderildi', to: dto.to, duration: `${duration}ms` });
 
       return {
         success: true,
@@ -81,7 +96,7 @@ export class EmailService {
       };
     } catch (error) {
       const duration = Date.now() - startTime;
-      this.logger.error({ message: 'Email gönderme hatası', to: sendEmailDto.to, error: error.message, duration: `${duration}ms` });
+      this.logger.error({ message: 'Email gönderme hatası', to: dto.to, error: error.message, duration: `${duration}ms` });
 
       if (error instanceof BadRequestException || error instanceof InternalServerErrorException) {
         throw error;
@@ -92,26 +107,22 @@ export class EmailService {
   }
 
   /**
-   * Rezervasyon onay emaili gönderir ve sonucu veritabanına kaydeder
-   * @param reservationDetails reservation_details verisi
-   * @param transactionId Transaction ID
-   * @returns Email gönderim sonucu
+   * Rezervasyon onay emaili gönder
    */
   async sendBookingConfirmation(
     reservationDetails: any,
     transactionId?: string,
   ): Promise<{ success: boolean; message: string; emailId?: string }> {
     const reservationData = reservationDetails?.body?.reservationData;
-    const reservationInfo = reservationData?.reservationInfo;
-    const reservationNumber = reservationInfo?.bookingNumber || '';
-    
+    const reservationNumber = reservationData?.reservationInfo?.bookingNumber || '';
+
     // İlk uçuş servisinden PNR al
     const flightServices = reservationData?.services?.filter((s: any) => s.productType === 3 && !s.isExtraService) || [];
     const pnrNo = flightServices[0]?.pnrNo || '';
 
     const { html, subject, toEmail } = buildBookingConfirmationEmail(reservationDetails);
 
-    // Email adresi bulunamadı
+    // Validasyonlar
     if (!toEmail) {
       const message = 'Email adresi bulunamadı';
       this.logger.warn('Rezervasyon onay emaili gönderilemedi: Leader yolcu email adresi bulunamadı');
@@ -119,7 +130,6 @@ export class EmailService {
       return { success: false, message };
     }
 
-    // Template oluşturulamadı
     if (!html || !subject) {
       const message = 'Email template oluşturulamadı';
       this.logger.warn('Rezervasyon onay emaili gönderilemedi: Template oluşturulamadı');
@@ -129,14 +139,9 @@ export class EmailService {
 
     try {
       const result = await this.sendEmail({ to: toEmail, subject, html });
-      
-      this.logger.log({ 
-        message: 'Rezervasyon onay emaili gönderildi', 
-        to: toEmail,
-        bookingNumber: reservationNumber,
-      });
 
-      // Başarılı kaydı veritabanına yaz
+      this.logger.log({ message: 'Rezervasyon onay emaili gönderildi', to: toEmail, bookingNumber: reservationNumber });
+
       await this.saveEmailLog({
         transactionId,
         reservationNumber,
@@ -150,30 +155,17 @@ export class EmailService {
       return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      
-      this.logger.error({ 
-        message: 'Rezervasyon onay emaili gönderme hatası', 
-        error: errorMessage,
-        bookingNumber: reservationNumber,
-      });
 
-      // Hata kaydını veritabanına yaz
-      await this.saveEmailLog({
-        transactionId,
-        reservationNumber,
-        pnrNo,
-        email: toEmail,
-        status: 'FAILED',
-        message: errorMessage,
-      });
-      
-      // Email hatası rezervasyon işlemini etkilememeli
+      this.logger.error({ message: 'Rezervasyon onay emaili gönderme hatası', error: errorMessage, bookingNumber: reservationNumber });
+
+      await this.saveEmailLog({ transactionId, reservationNumber, pnrNo, email: toEmail, status: 'FAILED', message: errorMessage });
+
       return { success: false, message: errorMessage };
     }
   }
 
   /**
-   * Email gönderim kaydını veritabanına kaydeder
+   * Email log kaydet
    */
   private async saveEmailLog(data: {
     transactionId?: string;
@@ -186,25 +178,18 @@ export class EmailService {
   }): Promise<void> {
     try {
       const adminClient = this.supabase.getAdminClient();
-      
-      await adminClient
-        .schema('backend')
-        .from('booking_email')
-        .insert({
-          transaction_id: data.transactionId || '',
-          reservation_number: data.reservationNumber || null,
-          pnr_no: data.pnrNo || null,
-          email: data.email,
-          status: data.status,
-          message: data.message || null,
-          email_id: data.emailId || null,
-        });
-    } catch (error) {
-      this.logger.error({
-        message: 'Email log kaydetme hatası',
-        error: error instanceof Error ? error.message : String(error),
+
+      await adminClient.schema('backend').from('booking_email').insert({
+        transaction_id: data.transactionId || '',
+        reservation_number: data.reservationNumber || null,
+        pnr_no: data.pnrNo || null,
+        email: data.email,
+        status: data.status,
+        message: data.message || null,
+        email_id: data.emailId || null,
       });
+    } catch (error) {
+      this.logger.error({ message: 'Email log kaydetme hatası', error: error instanceof Error ? error.message : String(error) });
     }
   }
 }
-

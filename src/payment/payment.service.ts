@@ -1,8 +1,13 @@
 import { Injectable, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
+import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 import { LoggerService } from '../common/logger/logger.service';
 import { PaymentConfigService } from './config/payment-config.service';
+import { SupabaseService } from '../common/services/supabase.service';
+import { PaxHttpService } from '../pax/pax-http.service';
+import { EmailService } from '../email/email.service';
+import { NetgsmService } from '../sms/netgsm.service';
 import { PaymentRequestDto } from './dto/payment-request.dto';
 import { DirectPaymentRequestDto } from './dto/direct-payment-request.dto';
 import { RefundRequestDto } from './dto/refund-request.dto';
@@ -13,6 +18,11 @@ import { getHashData as getDirectHash } from './utils/vpos-hash-direct.util';
 import { build3DSecureFormData, buildDirectPaymentXml, parseXmlResponse } from './utils/vpos-xml-builder.util';
 import { format3DSecurePaymentResponse, formatDirectPaymentResponse, format3DSecureCallbackResponse } from './utils/vpos-response-parser.util';
 
+export interface CallbackResult {
+  redirectUrl: string;
+  success: boolean;
+}
+
 @Injectable()
 export class PaymentService {
   private readonly logger: LoggerService;
@@ -21,6 +31,11 @@ export class PaymentService {
     private readonly httpService: HttpService,
     private readonly loggerService: LoggerService,
     private readonly paymentConfig: PaymentConfigService,
+    private readonly configService: ConfigService,
+    private readonly supabase: SupabaseService,
+    private readonly paxHttp: PaxHttpService,
+    private readonly emailService: EmailService,
+    private readonly netgsmService: NetgsmService,
   ) {
     this.logger = loggerService;
     this.logger.setContext('PaymentService');
@@ -379,6 +394,200 @@ export class PaymentService {
 
       throw new InternalServerErrorException('İşlem durumu sorgulanamadı');
     }
+  }
+
+  /**
+   * Callback işleme ve booking güncelleme (tüm iş mantığı burada)
+   */
+  async processCallbackWithBooking(dto: CallbackRequestDto): Promise<CallbackResult> {
+    const responseData = await this.handleCallback(dto);
+
+    let transactionId = '';
+    let reservationNumber = '';
+
+    if (responseData.orderId) {
+      try {
+        const adminClient = this.supabase.getAdminClient();
+
+        const { data: booking, error: findError } = await adminClient
+          .schema('backend')
+          .from('booking')
+          .select('id, transaction_id')
+          .eq('order_id', responseData.orderId)
+          .single();
+
+        if (findError || !booking) {
+          this.logger.warn({
+            message: 'Callback: Booking bulunamadı',
+            orderId: responseData.orderId,
+            error: findError?.message,
+          });
+        } else {
+          transactionId = booking.transaction_id;
+
+          let newStatus = responseData.success ? 'SUCCESS' : 'FAILED';
+          let bookingDetail = null;
+          let reservationDetails = null;
+
+          // Ödeme başarılı ise commit-transaction çağır
+          if (responseData.success) {
+            const commitResult = await this.commitTransaction(booking.transaction_id);
+            bookingDetail = commitResult.bookingDetail;
+            newStatus = commitResult.status;
+            reservationNumber = commitResult.reservationNumber;
+
+            // Reservation detail al
+            if (reservationNumber) {
+              reservationDetails = await this.getReservationDetails(reservationNumber);
+            }
+          }
+
+          // Booking'i güncelle
+          const { error: updateError } = await adminClient
+            .schema('backend')
+            .from('booking')
+            .update({
+              status: newStatus,
+              order_detail: responseData,
+              booking_detail: bookingDetail,
+              booking_number: reservationNumber || null,
+              reservation_details: reservationDetails,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', booking.id);
+
+          if (updateError) {
+            this.logger.error({
+              message: 'Callback: Booking güncelleme hatası',
+              orderId: responseData.orderId,
+              error: updateError.message,
+            });
+          } else {
+            this.logger.log({
+              message: `Callback: Booking güncellendi → ${newStatus}`,
+              orderId: responseData.orderId,
+              transactionId: booking.transaction_id,
+              success: responseData.success,
+            });
+
+            // CONFIRMED durumunda bildirim gönder (paralel)
+            if (newStatus === 'CONFIRMED' && reservationDetails) {
+              this.sendNotifications(reservationDetails, booking.transaction_id, reservationNumber);
+            }
+          }
+        }
+      } catch (error) {
+        this.logger.error({
+          message: 'Callback: Booking güncelleme exception',
+          orderId: responseData.orderId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    // Redirect URL oluştur
+    const redirectUrl = this.buildRedirectUrl(responseData, transactionId, reservationNumber);
+    this.logger.log(`🔄 Redirect URL: ${redirectUrl}`);
+
+    return { redirectUrl, success: responseData.success && !!reservationNumber };
+  }
+
+  /**
+   * Commit transaction işlemi
+   */
+  private async commitTransaction(transactionId: string): Promise<{
+    status: string;
+    reservationNumber: string;
+    bookingDetail: any;
+  }> {
+    try {
+      this.logger.log({ message: 'Callback: commit-transaction başlatılıyor', transactionId });
+
+      const baseUrl = this.configService.get<string>('pax.baseUrl');
+      const endpoint = this.configService.get<string>('pax.endpoints.commitTransaction');
+
+      const commitResult = await this.paxHttp.post(`${baseUrl}${endpoint}`, { transactionId });
+
+      if (commitResult?.header?.success === true) {
+        const reservationNumber = commitResult?.body?.reservationNumber || '';
+        this.logger.log({ message: 'Callback: commit-transaction başarılı', transactionId, reservationNumber });
+        return { status: 'CONFIRMED', reservationNumber, bookingDetail: commitResult };
+      }
+
+      const commitError = commitResult?.header?.messages?.[0]?.message || 'Commit işlemi başarısız';
+      this.logger.warn({ message: 'Callback: commit-transaction başarısız', transactionId, response: commitResult });
+      return { status: 'COMMIT_ERROR', reservationNumber: '', bookingDetail: commitResult };
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      this.logger.error({ message: 'Callback: commit-transaction hatası', transactionId, error: errorMessage });
+      return { status: 'COMMIT_ERROR', reservationNumber: '', bookingDetail: { error: errorMessage } };
+    }
+  }
+
+  /**
+   * Rezervasyon detaylarını al
+   */
+  private async getReservationDetails(reservationNumber: string): Promise<any> {
+    try {
+      const baseUrl = this.configService.get<string>('pax.baseUrl');
+      const detailEndpoint = this.configService.get<string>('pax.endpoints.reservationDetail');
+      const result = await this.paxHttp.post(`${baseUrl}${detailEndpoint}`, { ReservationNumber: reservationNumber });
+      this.logger.log({ message: 'Callback: reservation-detail alındı', reservationNumber });
+      return result;
+    } catch (error) {
+      this.logger.error({
+        message: 'Callback: reservation-detail hatası',
+        reservationNumber,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Email ve SMS bildirimlerini paralel gönder
+   */
+  private sendNotifications(reservationDetails: any, transactionId: string, reservationNumber: string): void {
+    Promise.allSettled([
+      this.emailService.sendBookingConfirmation(reservationDetails, transactionId),
+      this.netgsmService.sendBookingConfirmation(reservationDetails, transactionId),
+    ]).then((results) => {
+      results.forEach((result, index) => {
+        const type = index === 0 ? 'email' : 'SMS';
+        if (result.status === 'fulfilled' && result.value.success) {
+          this.logger.log({ message: `Callback: Rezervasyon onay ${type} gönderildi`, transactionId, reservationNumber });
+        } else {
+          const error = result.status === 'rejected' ? result.reason : result.value?.message;
+          this.logger.error({ message: `Callback: Rezervasyon onay ${type} gönderilemedi`, transactionId, error });
+        }
+      });
+    });
+  }
+
+  /**
+   * Redirect URL oluştur
+   */
+  private buildRedirectUrl(responseData: any, transactionId: string, reservationNumber: string): string {
+    const isFullySuccessful = responseData.success && reservationNumber;
+    const isCommitError = responseData.success && !reservationNumber;
+
+    let urlStatus = 'failed';
+    if (isFullySuccessful) urlStatus = 'success';
+    else if (isCommitError) urlStatus = 'commiterror';
+
+    const params = new URLSearchParams({
+      status: urlStatus,
+      transactionId,
+      success: String(isFullySuccessful),
+      ...(isFullySuccessful
+        ? { reservationNumber }
+        : isCommitError
+          ? { returnCode: responseData.transaction?.returnCode || '', reservationNumber: 'Ödeme başarılı ancak rezervasyon oluşturulamadı' }
+          : { returnCode: responseData.transaction?.returnCode || '', message: responseData.transaction?.message || '' }),
+    });
+
+    const baseRedirectUrl = this.configService.get<string>('payment.redirectUrl');
+    return `${baseRedirectUrl}?${params.toString()}`;
   }
 }
 

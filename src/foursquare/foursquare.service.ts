@@ -1,9 +1,22 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, Inject, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import { firstValueFrom } from 'rxjs';
+import { randomUUID } from 'crypto';
 import { LoggerService } from '../common/logger/logger.service';
 import { NearbyPlaceDto } from './dto/nearby-place.dto';
+import { NearbyGroupedResponseDto } from './dto/nearby-response.dto';
+import {
+  FOURSQUARE_API_VERSION,
+  FOURSQUARE_DEFAULT_BASE_URL,
+  DEFAULT_RADIUS,
+  DEFAULT_LIMIT,
+  DEFAULT_SORT,
+  WALKING_DISTANCE_COUNT,
+  NEARBY_CACHE_TTL,
+} from './constants/foursquare.constant';
 
 interface FsqCategory {
   fsq_category_id: string;
@@ -11,11 +24,11 @@ interface FsqCategory {
 }
 
 interface FsqPlace {
-  fsq_place_id: string; // API'de fsq_place_id olarak geliyor
+  fsq_place_id: string;
   name: string;
   distance: number;
-  latitude: number; // API'de direkt latitude olarak geliyor
-  longitude: number; // API'de direkt longitude olarak geliyor
+  latitude: number;
+  longitude: number;
   categories?: FsqCategory[];
   location?: {
     formatted_address?: string;
@@ -25,11 +38,20 @@ interface FsqPlace {
   popularity?: number;
   rating?: number;
   price?: number;
-  price_level?: number; // API'de price_level olarak gelebilir
+  price_level?: number;
 }
 
 interface FsqNearbyResponse {
   results: FsqPlace[];
+}
+
+export interface NearbyParams {
+  lat: number;
+  lng: number;
+  radius?: number;
+  categories?: string;
+  limit?: number;
+  sort?: string;
 }
 
 @Injectable()
@@ -41,9 +63,9 @@ export class FoursquareService {
     private readonly http: HttpService,
     private readonly config: ConfigService,
     private readonly logger: LoggerService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {
-    this.baseUrl = this.config.get<string>('foursquare.baseUrl') || 'https://places-api.foursquare.com';
-    // API key'i al ve trim et (boşlukları temizle)
+    this.baseUrl = this.config.get<string>('foursquare.baseUrl') || FOURSQUARE_DEFAULT_BASE_URL;
     const rawApiKey = this.config.get<string>('foursquare.apiKey') || '';
     this.apiKey = rawApiKey.trim();
 
@@ -53,50 +75,66 @@ export class FoursquareService {
       this.logger.error('FOURSQUARE_API_KEY tanımlı değil');
       throw new Error('FOURSQUARE_API_KEY tanımlı değil');
     }
-
   }
 
   /**
-   * Foursquare category ID'sini (hex string) number'a çevir
-   * Hex string'in son 4-5 karakterini alarak daha anlamlı bir number üretir
+   * Category ID'yi number'a çevir
    */
   private parseCategoryId(categoryId: string): number | null {
     try {
-      // Hex string'den sadece sayısal karakterleri al
       const cleanId = categoryId.replace(/[^0-9a-fA-F]/g, '');
       if (!cleanId) return null;
-      
-      // Son 5 karakteri al ve number'a çevir (daha anlamlı bir ID için)
-      const lastChars = cleanId.slice(-5);
-      const num = parseInt(lastChars, 16);
+      const num = parseInt(cleanId.slice(-5), 16);
       return isNaN(num) ? null : num;
     } catch {
       return null;
     }
   }
 
-  async getNearbyPlaces(params: {
-    lat: number;
-    lng: number;
-    radius?: number;
-    categories?: string;
-    limit?: number;
-    sort?: string;
-  }): Promise<NearbyPlaceDto[]> {
-    const { lat, lng, radius = 2000, categories, limit = 12, sort = 'POPULARITY' } = params;
+  /**
+   * Yakındaki yerleri gruplandırılmış olarak getir (cache'li)
+   */
+  async getNearbyPlacesGrouped(params: NearbyParams): Promise<NearbyGroupedResponseDto> {
+    const cacheKey = `foursquare:nearby:${JSON.stringify(params)}`;
+    const cached = await this.cacheManager.get<NearbyGroupedResponseDto>(cacheKey);
+
+    if (cached) return cached;
+
+    const places = await this.fetchNearbyPlaces(params);
+
+    // Mesafeye göre sırala
+    const sortedPlaces = places.sort((a, b) => a.distance - b.distance);
+
+    // Grupla: ilk 5 yürüme mesafesi, geri kalanı simge yapılar
+    const response: NearbyGroupedResponseDto = {
+      success: true,
+      data: {
+        walkingDistance: sortedPlaces.slice(0, WALKING_DISTANCE_COUNT),
+        nearbyLandmarks: sortedPlaces.slice(WALKING_DISTANCE_COUNT),
+      },
+      requestId: randomUUID(),
+    };
+
+    await this.cacheManager.set(cacheKey, response, NEARBY_CACHE_TTL);
+    return response;
+  }
+
+  /**
+   * Foursquare API'den yakındaki yerleri getir
+   */
+  private async fetchNearbyPlaces(params: NearbyParams): Promise<NearbyPlaceDto[]> {
+    const { lat, lng, radius = DEFAULT_RADIUS, categories, limit = DEFAULT_LIMIT, sort = DEFAULT_SORT } = params;
 
     try {
       const url = `${this.baseUrl}/places/search`;
-      
-      this.logger.debug(
-        `Foursquare nearby isteği: ${url} - lat:${lat}, lng:${lng}, radius:${radius}, categories:${categories || 'yok'}, limit:${limit}, sort:${sort}`,
-      );
+
+      this.logger.debug(`Foursquare nearby isteği: ${url} - lat:${lat}, lng:${lng}, radius:${radius}`);
 
       const response$ = this.http.get<FsqNearbyResponse>(url, {
         headers: {
           Accept: 'application/json',
-          Authorization: `Bearer ${this.apiKey}`, // Bearer Token formatı
-          'X-Places-Api-Version': '2025-06-17', // Version header'ı zorunlu
+          Authorization: `Bearer ${this.apiKey}`,
+          'X-Places-Api-Version': FOURSQUARE_API_VERSION,
         },
         params: {
           ll: `${lat},${lng}`,
@@ -110,23 +148,19 @@ export class FoursquareService {
       const { data } = await firstValueFrom(response$);
 
       if (!data?.results) {
-        const dataInfo = data
-          ? `Data var ama results yok. Keys: ${Object.keys(data).join(', ')}`
-          : 'Data yok';
-        this.logger.warn(`Foursquare API boş sonuç döndü veya results yok - ${dataInfo}`);
+        this.logger.warn('Foursquare API boş sonuç döndü');
         return [];
       }
 
-      const places = data.results
-        .filter((p) => p.latitude && p.longitude) // API'de direkt latitude/longitude var
+      return data.results
+        .filter((p) => p.latitude && p.longitude)
         .map<NearbyPlaceDto>((place) => {
           const firstCategory = place.categories?.[0] ?? null;
-
           return {
-            id: place.fsq_place_id, // API'de fsq_place_id olarak geliyor
+            id: place.fsq_place_id,
             name: place.name,
-            lat: place.latitude, // API'de direkt latitude
-            lng: place.longitude, // API'de direkt longitude
+            lat: place.latitude,
+            lng: place.longitude,
             distance: place.distance ?? 0,
             categoryId: firstCategory?.fsq_category_id ? this.parseCategoryId(firstCategory.fsq_category_id) : null,
             categoryName: firstCategory?.name ?? null,
@@ -138,14 +172,9 @@ export class FoursquareService {
             priceLevel: place.price ?? place.price_level ?? null,
           };
         });
-
-      return places;
     } catch (err: any) {
-      // Axios error'ı detaylı logla
       if (err.response) {
-        this.logger.error(
-          `Foursquare API hatası [${err.response.status}]: ${JSON.stringify(err.response.data)}`,
-        );
+        this.logger.error(`Foursquare API hatası [${err.response.status}]: ${JSON.stringify(err.response.data)}`);
       } else {
         this.logger.error('Foursquare nearby isteği başarısız', err.stack || err.message);
       }
@@ -153,4 +182,3 @@ export class FoursquareService {
     }
   }
 }
-

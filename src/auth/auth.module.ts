@@ -1,29 +1,13 @@
 import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
-import { PassportModule } from '@nestjs/passport';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { AuthService } from './auth.service';
-import { JwtStrategy } from './jwt.strategy';
 import { SupabaseAuthController } from './supabase-auth.controller';
+import { AuthService } from './auth.service';
 import { LoggerService } from '../common/logger/logger.service';
+import { SupabaseModule } from '../common/services/supabase.module';
 
 @Module({
-  imports: [
-    PassportModule,
-    JwtModule.registerAsync({
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('jwt.secret'),
-        signOptions: {
-          expiresIn: configService.get<string>('jwt.expiresIn'),
-        },
-      }),
-      inject: [ConfigService],
-    }),
-  ],
+  imports: [SupabaseModule],
   controllers: [SupabaseAuthController],
-  providers: [AuthService, JwtStrategy, LoggerService],
+  providers: [AuthService, LoggerService],
   exports: [AuthService],
 })
 export class AuthModule {}
-

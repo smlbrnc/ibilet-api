@@ -1,10 +1,7 @@
-import { Controller, Post, Body, Req, Headers, Inject, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Body, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
 import { Request } from 'express';
-import { TokenManagerService } from './token-manager.service';
-import { PaxHttpService } from './pax-http.service';
+import { PaxService, PaxRequestOptions } from './pax.service';
 import { DepartureRequestDto } from './dto/departure-request.dto';
 import { ArrivalRequestDto } from './dto/arrival-request.dto';
 import { CheckinDatesRequestDto } from './dto/checkin-dates-request.dto';
@@ -14,53 +11,15 @@ import { GetOffersRequestDto } from './dto/get-offers-request.dto';
 import { GetOfferDetailsRequestDto } from './dto/get-offer-details-request.dto';
 import { ProductInfoRequestDto } from './dto/product-info-request.dto';
 import { FareRulesRequestDto } from './dto/fare-rules-request.dto';
-import { ConfigService } from '@nestjs/config';
 import { handlePaxApiError } from '../common/utils/error-handler.util';
 
 @ApiTags('API')
 @Controller('')
 export class PaxController {
-  constructor(
-    private readonly tokenManagerService: TokenManagerService,
-    private readonly paxHttp: PaxHttpService,
-    private readonly config: ConfigService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
-  ) {}
+  constructor(private readonly paxService: PaxService) {}
 
-  private async getUserInfoFromToken(
-    authorization?: string,
-  ): Promise<{ userId: string | null; email: string | null }> {
-    // Simplified - Supabase integration removed for now
-    return { userId: null, email: null };
-  }
-
-  private async executePaxRequest<T>(
-    endpointKey: string,
-    request: T,
-    errorCode: string,
-    errorMessage: string,
-    req?: Request,
-    authorization?: string,
-  ): Promise<any> {
-    try {
-      const baseUrl = this.config.get<string>('pax.baseUrl');
-      const endpoint = this.config.get<string>(`pax.endpoints.${endpointKey}`);
-
-      const ip = req?.ip || req?.socket?.remoteAddress || undefined;
-      const userInfo =
-        req && authorization
-          ? await this.getUserInfoFromToken(authorization)
-          : { userId: null, email: null };
-
-      const result = await this.paxHttp.post(`${baseUrl}${endpoint}`, request, {
-        ip,
-        userId: userInfo.userId ?? undefined,
-        email: userInfo.email ?? undefined,
-      });
-      return result.body || result;
-    } catch (error) {
-      handlePaxApiError(error, errorCode, errorMessage);
-    }
+  private getRequestOptions(req: Request): PaxRequestOptions {
+    return { ip: req.ip || req.socket.remoteAddress || undefined };
   }
 
   @Post('token')
@@ -68,11 +27,7 @@ export class PaxController {
   @ApiResponse({ status: 200, description: 'Token yenilendi' })
   async refreshToken() {
     try {
-      const token = await this.tokenManagerService.getValidToken();
-      return {
-        message: 'Token başarıyla yenilendi',
-        hasToken: !!token,
-      };
+      return await this.paxService.refreshToken();
     } catch (error) {
       handlePaxApiError(error, 'TOKEN_REFRESH_ERROR', 'Token yenileme başarısız');
     }
@@ -81,97 +36,51 @@ export class PaxController {
   @Post('departure')
   @ApiOperation({ summary: 'Kalkış noktası arama' })
   @ApiResponse({ status: 200, description: 'Kalkış noktaları' })
-  async getDeparture(
-    @Body() request: DepartureRequestDto,
-    @Req() req: Request,
-    @Headers('authorization') authorization?: string,
-  ) {
-    const cacheKey = `pax:departure:${JSON.stringify(request)}`;
-    const cached = await this.cacheManager.get(cacheKey);
-    if (cached) return cached;
-
-    const result = await this.executePaxRequest(
-      'departure',
-      request,
-      'DEPARTURE_SEARCH_ERROR',
-      'Kalkış noktası arama başarısız',
-      req,
-      authorization,
-    );
-    await this.cacheManager.set(cacheKey, result, 3600 * 1000);
-    return result;
+  async getDeparture(@Body() request: DepartureRequestDto, @Req() req: Request) {
+    try {
+      return await this.paxService.getDeparture(request, this.getRequestOptions(req));
+    } catch (error) {
+      handlePaxApiError(error, 'DEPARTURE_SEARCH_ERROR', 'Kalkış noktası arama başarısız');
+    }
   }
 
   @Post('arrival')
   @ApiOperation({ summary: 'Varış noktası / Otel konaklama yeri arama' })
   @ApiResponse({ status: 200, description: 'Varış noktaları / Otel listesi' })
-  async getArrival(
-    @Body() request: ArrivalRequestDto,
-    @Req() req: Request,
-    @Headers('authorization') authorization?: string,
-  ) {
-    const cacheKey = `pax:arrival:${JSON.stringify(request)}`;
-    const cached = await this.cacheManager.get(cacheKey);
-    if (cached) return cached;
-
-    const result = await this.executePaxRequest(
-      'arrival',
-      request,
-      'ARRIVAL_SEARCH_ERROR',
-      'Varış noktası arama başarısız',
-      req,
-      authorization,
-    );
-    await this.cacheManager.set(cacheKey, result, 3600 * 1000);
-    return result;
+  async getArrival(@Body() request: ArrivalRequestDto, @Req() req: Request) {
+    try {
+      return await this.paxService.getArrival(request, this.getRequestOptions(req));
+    } catch (error) {
+      handlePaxApiError(error, 'ARRIVAL_SEARCH_ERROR', 'Varış noktası arama başarısız');
+    }
   }
 
   @Post('checkin-dates')
   @ApiOperation({ summary: 'Check-in tarihleri' })
   @ApiResponse({ status: 200, description: 'Check-in tarihleri' })
-  async getCheckinDates(
-    @Body() request: CheckinDatesRequestDto,
-    @Req() req: Request,
-    @Headers('authorization') authorization?: string,
-  ) {
-    const cacheKey = `pax:checkin-dates:${JSON.stringify(request)}`;
-    const cached = await this.cacheManager.get(cacheKey);
-    if (cached) return cached;
-
-    const result = await this.executePaxRequest(
-      'checkinDates',
-      request,
-      'CHECKIN_DATES_ERROR',
-      'Check-in tarihleri alınamadı',
-      req,
-      authorization,
-    );
-    await this.cacheManager.set(cacheKey, result, 1800 * 1000);
-    return result;
+  async getCheckinDates(@Body() request: CheckinDatesRequestDto, @Req() req: Request) {
+    try {
+      return await this.paxService.getCheckinDates(request, this.getRequestOptions(req));
+    } catch (error) {
+      handlePaxApiError(error, 'CHECKIN_DATES_ERROR', 'Check-in tarihleri alınamadı');
+    }
   }
 
   @Post('price-search')
   @ApiOperation({ summary: 'Fiyat arama (Uçak/Otel)' })
   @ApiResponse({ status: 200, description: 'Fiyat sonuçları' })
-  async priceSearch(
-    @Body() request: FlightPriceSearchDto | HotelPriceSearchDto,
-    @Req() req: Request,
-    @Headers('authorization') authorization?: string,
-  ) {
-    return this.executePaxRequest(
-      'priceSearch',
-      request,
-      'PRICE_SEARCH_ERROR',
-      'Fiyat arama başarısız',
-      req,
-      authorization,
-    );
+  async priceSearch(@Body() request: FlightPriceSearchDto | HotelPriceSearchDto, @Req() req: Request) {
+    try {
+      return await this.paxService.priceSearch(request, this.getRequestOptions(req));
+    } catch (error) {
+      handlePaxApiError(error, 'PRICE_SEARCH_ERROR', 'Fiyat arama başarısız');
+    }
   }
 
   @Post('get-offers')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Teklifleri getir (Get Offers)',
-    description: 'Uçak veya Otel tekliflerini getirmek için kullanılır. productType değerine göre farklı parametreler kullanılır.'
+    description: 'Uçak veya Otel tekliflerini getirmek için kullanılır. productType değerine göre farklı parametreler kullanılır.',
   })
   @ApiResponse({ status: 200, description: 'Teklif detayları' })
   @ApiBody({
@@ -179,21 +88,16 @@ export class PaxController {
     examples: {
       ucak: {
         summary: 'Uçak için örnek (productType: 3)',
-        description: 'Uçak teklifleri için offerIds array olarak gönderilir',
         value: {
           productType: 3,
           searchId: '52143f58-1fa2-4689-a8c6-59ffc1ff04e8',
-          offerIds: [
-            'F0BQUFwNnZvTUZkNV96VDdER19hcFdaTXh3PT0',
-            'F1BQUFwNnZvTUZkNV96VDdER19hcFdaTXh3PT1'
-          ],
+          offerIds: ['F0BQUFwNnZvTUZkNV96VDdER19hcFdaTXh3PT0'],
           currency: 'TRY',
-          culture: 'en-US'
-        }
+          culture: 'en-US',
+        },
       },
       otel: {
         summary: 'Otel için örnek (productType: 2)',
-        description: 'Otel teklifleri için offerId string olarak gönderilir ve ek parametreler gerekir',
         value: {
           productType: 2,
           searchId: 'f43dcb3a-0214-4d17-8838-7540c815245d',
@@ -201,99 +105,49 @@ export class PaxController {
           productId: '105841',
           currency: 'EUR',
           culture: 'tr-TR',
-          getRoomInfo: true
-        }
-      }
-    }
+          getRoomInfo: true,
+        },
+      },
+    },
   })
-  async getOffers(
-    @Body() request: GetOffersRequestDto,
-    @Req() req: Request,
-    @Headers('authorization') authorization?: string,
-  ) {
-    return this.executePaxRequest(
-      'getOffers',
-      request,
-      'GET_OFFERS_ERROR',
-      'Teklif detayları alınamadı',
-      req,
-      authorization,
-    );
+  async getOffers(@Body() request: GetOffersRequestDto, @Req() req: Request) {
+    try {
+      return await this.paxService.getOffers(request, this.getRequestOptions(req));
+    } catch (error) {
+      handlePaxApiError(error, 'GET_OFFERS_ERROR', 'Teklif detayları alınamadı');
+    }
   }
 
   @Post('get-offer-details')
   @ApiOperation({ summary: 'Teklif detayları ve ürün bilgisi getir (Get Offer Details)' })
   @ApiResponse({ status: 200, description: 'Detaylı teklif ve ürün bilgileri' })
-  async getOfferDetails(
-    @Body() request: GetOfferDetailsRequestDto,
-    @Req() req: Request,
-    @Headers('authorization') authorization?: string,
-  ) {
-    // getProductInfo parametresini otomatik olarak true ekle
-    const requestWithProductInfo = {
-      ...request,
-      getProductInfo: true,
-    };
-
-    return this.executePaxRequest(
-      'offerDetails',
-      requestWithProductInfo,
-      'GET_OFFER_DETAILS_ERROR',
-      'Teklif detayları ve ürün bilgisi alınamadı',
-      req,
-      authorization,
-    );
+  async getOfferDetails(@Body() request: GetOfferDetailsRequestDto, @Req() req: Request) {
+    try {
+      return await this.paxService.getOfferDetails(request, this.getRequestOptions(req));
+    } catch (error) {
+      handlePaxApiError(error, 'GET_OFFER_DETAILS_ERROR', 'Teklif detayları ve ürün bilgisi alınamadı');
+    }
   }
 
   @Post('product-info')
   @ApiOperation({ summary: 'Ürün bilgisi getir (Product Info)' })
   @ApiResponse({ status: 200, description: 'Ürün detayları' })
-  async getProductInfo(
-    @Body() request: ProductInfoRequestDto,
-    @Req() req: Request,
-    @Headers('authorization') authorization?: string,
-  ) {
-    return this.executePaxRequest(
-      'productInfo',
-      request,
-      'PRODUCT_INFO_ERROR',
-      'Ürün bilgisi alınamadı',
-      req,
-      authorization,
-    );
+  async getProductInfo(@Body() request: ProductInfoRequestDto, @Req() req: Request) {
+    try {
+      return await this.paxService.getProductInfo(request, this.getRequestOptions(req));
+    } catch (error) {
+      handlePaxApiError(error, 'PRODUCT_INFO_ERROR', 'Ürün bilgisi alınamadı');
+    }
   }
 
   @Post('fare-rules')
   @ApiOperation({ summary: 'Uçuş ücret kurallarını getir (Fare Rules)' })
   @ApiResponse({ status: 200, description: 'Ücret kuralları detayları' })
-  async getFareRules(
-    @Body() request: FareRulesRequestDto,
-    @Req() req: Request,
-    @Headers('authorization') authorization?: string,
-  ) {
-    if (!request.transactionId && !request.reservationNumber) {
-      throw new BadRequestException('transactionId veya reservationNumber zorunludur');
-    }
-
+  async getFareRules(@Body() request: FareRulesRequestDto, @Req() req: Request) {
     try {
-      const baseUrl = this.config.get<string>('pax.baseUrl');
-      const endpoint = this.config.get<string>('pax.endpoints.fareRules');
-      const ip = req?.ip || req?.socket?.remoteAddress || undefined;
-      const userInfo =
-        req && authorization
-          ? await this.getUserInfoFromToken(authorization)
-          : { userId: null, email: null };
-
-      const result = await this.paxHttp.post(`${baseUrl}${endpoint}`, request, {
-        ip,
-        userId: userInfo.userId ?? undefined,
-        email: userInfo.email ?? undefined,
-      });
-
-      return result;
+      return await this.paxService.getFareRules(request, this.getRequestOptions(req));
     } catch (error) {
       handlePaxApiError(error, 'FARE_RULES_ERROR', 'Ücret kuralları alınamadı');
     }
   }
 }
-
