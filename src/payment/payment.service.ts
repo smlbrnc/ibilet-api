@@ -8,6 +8,7 @@ import { SupabaseService } from '../common/services/supabase.service';
 import { PaxHttpService } from '../pax/pax-http.service';
 import { EmailService } from '../email/email.service';
 import { NetgsmService } from '../sms/netgsm.service';
+import { PdfService } from '../pdf/pdf.service';
 import { PaymentRequestDto } from './dto/payment-request.dto';
 import { DirectPaymentRequestDto } from './dto/direct-payment-request.dto';
 import { RefundRequestDto } from './dto/refund-request.dto';
@@ -25,19 +26,17 @@ export interface CallbackResult {
 
 @Injectable()
 export class PaymentService {
-  private readonly logger: LoggerService;
-
   constructor(
     private readonly httpService: HttpService,
-    private readonly loggerService: LoggerService,
+    private readonly logger: LoggerService,
     private readonly paymentConfig: PaymentConfigService,
     private readonly configService: ConfigService,
     private readonly supabase: SupabaseService,
     private readonly paxHttp: PaxHttpService,
     private readonly emailService: EmailService,
     private readonly netgsmService: NetgsmService,
+    private readonly pdfService: PdfService,
   ) {
-    this.logger = loggerService;
     this.logger.setContext('PaymentService');
   }
 
@@ -234,108 +233,15 @@ export class PaymentService {
    * İade işlemi
    */
   async processRefund(dto: RefundRequestDto) {
-    try {
-      this.logger.log("=== VPOS REFUND REQUEST (3D'siz) ===");
-      this.logger.debug(JSON.stringify({ body: dto }));
-
-      // Hash hesapla (refund için - cardNumber YOK)
-      const hashParams = {
-        userPassword: this.paymentConfig.getTerminalUserId() === 'GARANTI' ? 'GARANTI' : this.paymentConfig.getProvisionPassword(),
-        terminalId: this.paymentConfig.getTerminalId(),
-        orderId: dto.orderId,
-        amount: dto.refundAmount,
-        currencyCode: dto.currencyCode || '949',
-      };
-
-      const hashData = getDirectHash(hashParams);
-
-      // XML isteği oluştur
-      const xmlRequest = buildDirectPaymentXml({
-        orderId: dto.orderId,
-        hashData,
-        paymentConfig: this.paymentConfig.getConfig(),
-        amount: dto.refundAmount,
-        transactionType: 'refund',
-        currencyCode: dto.currencyCode || '949',
-        customerEmail: dto.customerEmail,
-        customerIp: dto.customerIp,
-        cardInfo: null,
-        isRefund: true,
-        provUserID: 'PROVRFN',
-      });
-
-      this.logger.log('=== XML REFUND REQUEST ===');
-      this.logger.debug(xmlRequest);
-
-      // Garanti VPOS API'ye istek gönder
-      const response = await firstValueFrom(
-        this.httpService.post(getVposUrl(), xmlRequest, {
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded; charset=ISO-8859-9',
-          },
-          timeout: 30000,
-        }),
-      );
-
-      // XML yanıtını parse et
-      const parsedResponse = await parseXmlResponse(response.data);
-
-      this.logger.log('=== VPOS REFUND RESPONSE ===');
-      this.logger.debug(JSON.stringify(parsedResponse, null, 2));
-
-      const gvpsResponse = parsedResponse.GVPSResponse;
-      const transaction = gvpsResponse.Transaction;
-
-      // Yanıt verilerini formatla
-      const responseData = formatDirectPaymentResponse({
-        transaction,
-        orderId: dto.orderId,
-        transactionType: 'refund',
-        amount: dto.refundAmount,
-        currencyCode: dto.currencyCode || '949',
-        customerEmail: dto.customerEmail,
-        customerIp: dto.customerIp,
-        cardInfo: null,
-        isRefund: true,
-      });
-
-      this.logger.log('=== REFUND RESULT ===');
-      this.logger.log(JSON.stringify({
-        orderId: dto.orderId,
-        refundAmount: dto.refundAmount,
-        success: responseData.success,
-        returnCode: responseData.transaction.returnCode,
-      }));
-
-      if (responseData.success) {
-        return {
-          success: true,
-          message: 'İade işlemi başarıyla tamamlandı',
-          data: responseData,
-        };
-      } else {
-        throw new BadRequestException({
-          message: responseData.transaction.message,
-          data: responseData,
-        });
-      }
-    } catch (error) {
-      this.logger.error(JSON.stringify({
-        error: error.message,
-        stack: error.stack,
-        response: error.response?.data,
-      }));
-
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-
-      throw new InternalServerErrorException({
-        message: 'İade işlemi gerçekleştirilemedi',
-        error: error.message,
-        details: error.response?.data,
-      });
-    }
+    // processDirectPayment'ı refund modu ile çağır
+    return this.processDirectPayment({
+      orderId: dto.orderId,
+      amount: dto.refundAmount,
+      transactionType: 'refund',
+      currencyCode: dto.currencyCode || '949',
+      customerEmail: dto.customerEmail,
+      customerIp: dto.customerIp,
+    });
   }
 
   /**
@@ -470,9 +376,15 @@ export class PaymentService {
               success: responseData.success,
             });
 
-            // CONFIRMED durumunda bildirim gönder (paralel)
+            // CONFIRMED durumunda bildirim gönder (PDF ile birlikte)
             if (newStatus === 'CONFIRMED' && reservationDetails) {
-              this.sendNotifications(reservationDetails, booking.transaction_id, reservationNumber);
+              this.sendNotifications(reservationDetails, booking.transaction_id, reservationNumber, booking.id).catch((error) => {
+                this.logger.error({
+                  message: 'Callback: Bildirim gönderme hatası',
+                  transactionId: booking.transaction_id,
+                  error: error instanceof Error ? error.message : String(error),
+                });
+              });
             }
           }
         }
@@ -545,23 +457,84 @@ export class PaymentService {
   }
 
   /**
-   * Email ve SMS bildirimlerini paralel gönder
+   * Email ve SMS bildirimlerini gönder (PDF ile birlikte)
    */
-  private sendNotifications(reservationDetails: any, transactionId: string, reservationNumber: string): void {
-    Promise.allSettled([
-      this.emailService.sendBookingConfirmation(reservationDetails, transactionId),
-      this.netgsmService.sendBookingConfirmation(reservationDetails, transactionId),
-    ]).then((results) => {
-      results.forEach((result, index) => {
-        const type = index === 0 ? 'email' : 'SMS';
-        if (result.status === 'fulfilled' && result.value.success) {
-          this.logger.log({ message: `Callback: Rezervasyon onay ${type} gönderildi`, transactionId, reservationNumber });
-        } else {
-          const error = result.status === 'rejected' ? result.reason : result.value?.message;
-          this.logger.error({ message: `Callback: Rezervasyon onay ${type} gönderilemedi`, transactionId, error });
+  private async sendNotifications(
+    reservationDetails: any,
+    transactionId: string,
+    reservationNumber: string,
+    bookingId?: string,
+  ): Promise<void> {
+    try {
+      // PDF oluştur (await)
+      let pdfBuffer: Buffer | undefined;
+      let pdfFilename: string | undefined;
+
+      try {
+        const pdfResult = await this.pdfService.generateBookingPdf(reservationDetails, reservationNumber);
+        pdfBuffer = pdfResult.buffer;
+        pdfFilename = `booking-${reservationNumber}.pdf`;
+
+        // PDF'i dosya sistemine kaydet
+        await this.pdfService.savePdfToFileSystem(pdfResult.buffer, pdfResult.filePath);
+
+        // PDF yolunu booking tablosuna kaydet
+        if (bookingId) {
+          const adminClient = this.supabase.getAdminClient();
+          await adminClient
+            .schema('backend')
+            .from('booking')
+            .update({ pdf_path: pdfResult.filePath, updated_at: new Date().toISOString() })
+            .eq('id', bookingId);
         }
-      });
-    });
+
+        this.logger.log({ message: 'Callback: PDF oluşturuldu', transactionId, reservationNumber });
+      } catch (pdfError) {
+        const pdfErrorMessage = pdfError instanceof Error ? pdfError.message : String(pdfError);
+        this.logger.error({ message: 'Callback: PDF oluşturma hatası', transactionId, error: pdfErrorMessage });
+        // PDF hatası email gönderimini engellemez
+      }
+
+      // Email gönder (PDF attachment ile, await)
+      const emailPromise = this.emailService
+        .sendBookingConfirmation(reservationDetails, transactionId, pdfBuffer, pdfFilename)
+        .then((result) => {
+          if (result.success) {
+            this.logger.log({ message: 'Callback: Rezervasyon onay emaili gönderildi', transactionId, reservationNumber });
+          } else {
+            this.logger.error({ message: 'Callback: Rezervasyon onay emaili gönderilemedi', transactionId, error: result.message });
+          }
+          return result;
+        })
+        .catch((error) => {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          this.logger.error({ message: 'Callback: Rezervasyon onay emaili gönderme hatası', transactionId, error: errorMessage });
+          return { success: false, message: errorMessage };
+        });
+
+      // SMS gönder (paralel)
+      const smsPromise = this.netgsmService
+        .sendBookingConfirmation(reservationDetails, transactionId)
+        .then((result) => {
+          if (result.success) {
+            this.logger.log({ message: 'Callback: Rezervasyon onay SMS gönderildi', transactionId, reservationNumber });
+          } else {
+            this.logger.error({ message: 'Callback: Rezervasyon onay SMS gönderilemedi', transactionId, error: result.message });
+          }
+          return result;
+        })
+        .catch((error) => {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          this.logger.error({ message: 'Callback: Rezervasyon onay SMS gönderme hatası', transactionId, error: errorMessage });
+          return { success: false, message: errorMessage };
+        });
+
+      // Email ve SMS'i paralel bekle
+      await Promise.allSettled([emailPromise, smsPromise]);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error({ message: 'Callback: Bildirim gönderme hatası', transactionId, error: errorMessage });
+    }
   }
 
   /**

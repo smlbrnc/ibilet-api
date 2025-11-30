@@ -42,3 +42,7 @@ lerna-debug.log*
 *.swo
 *~
 
+# Storage
+storage/pdfs/*.pdf
+!storage/pdfs/.gitkeep
+

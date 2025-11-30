@@ -1,91 +1,10 @@
-import * as crypto from 'crypto';
-
 /**
- * Garanti VPOS Hash Hesaplama Utility - 3D Secure İLE (3D_PAY)
- * SHA1 ve SHA512 algoritmaları kullanarak hash değerleri hesaplar
+ * Garanti VPOS Hash Hesaplama - 3D Secure İLE (3D_PAY)
  */
-export class VPOSHash {
-  /**
-   * SHA1 hash hesaplama (ISO-8859-9 charset ile)
-   * @param data - Hash'lenecek veri
-   * @returns SHA1 hash değeri (büyük harf)
-   */
-  static sha1(data: string): string {
-    return crypto.createHash('sha1').update(data, 'latin1').digest('hex').toUpperCase();
-  }
 
-  /**
-   * SHA512 hash hesaplama (ISO-8859-9 charset ile)
-   * @param data - Hash'lenecek veri
-   * @returns SHA512 hash değeri (büyük harf)
-   */
-  static sha512(data: string): string {
-    return crypto.createHash('sha512').update(data, 'latin1').digest('hex').toUpperCase();
-  }
+import { sha512, getHashedPassword } from './hash-common.util';
 
-  /**
-   * HashedPassword hesaplama (Garanti dokümanına göre)
-   * @param provisionPassword - Provizyon şifresi
-   * @param terminalId - Terminal ID
-   * @returns HashedPassword değeri
-   */
-  static getHashedPassword(provisionPassword: string, terminalId: string): string {
-    // Garanti dokümantasyonu: SHA1(provisionPassword + "0" + terminalId)
-    const data = provisionPassword + '0' + terminalId;
-    return this.sha1(data);
-  }
-
-  /**
-   * 3D Secure ile hash değeri hesaplama (Garanti'nin beklediği format)
-   */
-  static getHashData(params: {
-    terminalId: string;
-    orderId: string;
-    amount: number;
-    currencyCode: string;
-    successUrl: string;
-    errorUrl: string;
-    type: string;
-    installmentCount: number | string;
-    storeKey: string;
-    provisionPassword: string;
-  }): string {
-    const {
-      terminalId,
-      orderId,
-      amount,
-      currencyCode,
-      successUrl,
-      errorUrl,
-      type,
-      installmentCount,
-      storeKey,
-      provisionPassword,
-    } = params;
-
-    const hashedPassword = this.getHashedPassword(provisionPassword, terminalId);
-    
-    // 3D Secure için hash sırası: terminalId + orderId + amount + currencyCode + successUrl + errorUrl + type + installmentCount + storeKey + hashedPassword
-    // Tüm değerleri string'e çevir (eski kodla uyumluluk için)
-    // Amount mutlaka integer olmalı (kuruş cinsinden)
-    const hashString = 
-      String(terminalId) + 
-      String(orderId) + 
-      String(Math.round(amount)) + 
-      String(currencyCode) + 
-      String(successUrl) + 
-      String(errorUrl) + 
-      String(type) + 
-      String(installmentCount) + 
-      String(storeKey) + 
-      String(hashedPassword);
-    
-    return this.sha512(hashString);
-  }
-}
-
-// Export function for easier use
-export function getHashData(params: {
+interface Hash3DSecureParams {
   terminalId: string;
   orderId: string;
   amount: number;
@@ -96,7 +15,28 @@ export function getHashData(params: {
   installmentCount: number | string;
   storeKey: string;
   provisionPassword: string;
-}): string {
-  return VPOSHash.getHashData(params);
 }
 
+/**
+ * 3D Secure ile hash değeri hesaplama
+ */
+export function getHashData(params: Hash3DSecureParams): string {
+  const { terminalId, orderId, amount, currencyCode, successUrl, errorUrl, type, installmentCount, storeKey, provisionPassword } = params;
+
+  const hashedPassword = getHashedPassword(provisionPassword, terminalId);
+
+  // Hash sırası: terminalId + orderId + amount + currencyCode + successUrl + errorUrl + type + installmentCount + storeKey + hashedPassword
+  const hashString =
+    String(terminalId) +
+    String(orderId) +
+    String(Math.round(amount)) +
+    String(currencyCode) +
+    String(successUrl) +
+    String(errorUrl) +
+    String(type) +
+    String(installmentCount) +
+    String(storeKey) +
+    String(hashedPassword);
+
+  return sha512(hashString);
+}

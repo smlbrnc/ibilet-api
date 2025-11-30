@@ -71,12 +71,35 @@ export class EmailService {
         throw new BadRequestException('Eksik email alanları');
       }
 
-      const emailPromise = this.resend.emails.send({
+      // Attachments'ı formatla
+      const attachments = dto.attachments?.map((att) => {
+        // Buffer ise base64'e çevir
+        let content: string;
+        if (Buffer.isBuffer(att.content)) {
+          content = att.content.toString('base64');
+        } else {
+          content = att.content;
+        }
+
+        return {
+          filename: att.filename,
+          content: content,
+          type: att.contentType || 'application/pdf',
+        };
+      });
+
+      const emailData: any = {
         from: this.fromEmail,
         to: [dto.to],
         subject: dto.subject,
         html: dto.html,
-      });
+      };
+
+      if (attachments && attachments.length > 0) {
+        emailData.attachments = attachments;
+      }
+
+      const emailPromise = this.resend.emails.send(emailData);
 
       const { data, error }: ResendResponse = await this.withTimeout(emailPromise, EMAIL_TIMEOUT);
 
@@ -112,6 +135,8 @@ export class EmailService {
   async sendBookingConfirmation(
     reservationDetails: any,
     transactionId?: string,
+    pdfBuffer?: Buffer,
+    pdfFilename?: string,
   ): Promise<{ success: boolean; message: string; emailId?: string }> {
     const reservationData = reservationDetails?.body?.reservationData;
     const reservationNumber = reservationData?.reservationInfo?.bookingNumber || '';
@@ -138,9 +163,25 @@ export class EmailService {
     }
 
     try {
-      const result = await this.sendEmail({ to: toEmail, subject, html });
+      // PDF attachment varsa ekle
+      const attachments = pdfBuffer && pdfFilename
+        ? [
+            {
+              content: pdfBuffer,
+              filename: pdfFilename,
+              contentType: 'application/pdf',
+            },
+          ]
+        : undefined;
 
-      this.logger.log({ message: 'Rezervasyon onay emaili gönderildi', to: toEmail, bookingNumber: reservationNumber });
+      const result = await this.sendEmail({ to: toEmail, subject, html, attachments });
+
+      this.logger.log({
+        message: 'Rezervasyon onay emaili gönderildi',
+        to: toEmail,
+        bookingNumber: reservationNumber,
+        hasAttachment: !!pdfBuffer,
+      });
 
       await this.saveEmailLog({
         transactionId,

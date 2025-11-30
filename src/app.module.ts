@@ -13,6 +13,7 @@ import { SupabaseModule } from './common/services/supabase.module';
 import { PaymentModule } from './payment/payment.module';
 import { EmailModule } from './email/email.module';
 import { SmsModule } from './sms/sms.module';
+import { PdfModule } from './pdf/pdf.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -44,6 +45,7 @@ import { AppController } from './app.controller';
     PaymentModule,
     EmailModule,
     SmsModule,
+    PdfModule,
   ],
   controllers: [AppController],
   providers: [
