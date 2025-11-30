@@ -14,6 +14,9 @@ import { PaymentModule } from './payment/payment.module';
 import { EmailModule } from './email/email.module';
 import { SmsModule } from './sms/sms.module';
 import { PdfModule } from './pdf/pdf.module';
+import { CmsModule } from './cms/cms.module';
+import { ContactModule } from './contact/contact.module';
+import { UserModule } from './user/user.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -46,6 +49,9 @@ import { AppController } from './app.controller';
     EmailModule,
     SmsModule,
     PdfModule,
+    CmsModule,
+    ContactModule,
+    UserModule,
   ],
   controllers: [AppController],
   providers: [
