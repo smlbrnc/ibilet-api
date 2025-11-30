@@ -10,8 +10,9 @@ Tüm işlemler API üzerinden yapılır, frontend'e Supabase kurulumu gerekmez.
 3. [CMS Endpoint'leri (Public)](#cms-endpointleri-public)
 4. [İletişim Formu](#iletişim-formu)
 5. [User Endpoint'leri (Protected)](#user-endpointleri-protected)
-6. [Hata Yönetimi](#hata-yönetimi)
-7. [Next.js Entegrasyon Örneği](#nextjs-entegrasyon-örneği)
+6. [PDF Endpoint'leri](#pdf-endpointleri)
+7. [Hata Yönetimi](#hata-yönetimi)
+8. [Next.js Entegrasyon Örneği](#nextjs-entegrasyon-örneği)
 
 ---
 
@@ -79,10 +80,26 @@ POST /auth/signup
   "email": "user@example.com",
   "password": "password123",
   "metadata": {
-    "full_name": "Ahmet Yılmaz"
+    "full_name": "Ahmet Yılmaz",
+    "phone": "+905551234567",
+    "date_of_birth": "1990-01-15",
+    "gender": "male",
+    "nationality": "TR",
+    "tc_kimlik_no": "12345678901"
   }
 }
 ```
+
+| Alan | Tip | Zorunlu | Açıklama |
+|------|-----|---------|----------|
+| email | string | ✅ | Email adresi |
+| password | string | ✅ | Şifre (min 6 karakter) |
+| metadata.full_name | string | ❌ | Ad soyad |
+| metadata.phone | string | ❌ | Telefon |
+| metadata.date_of_birth | string | ❌ | Doğum tarihi (YYYY-MM-DD) |
+| metadata.gender | string | ❌ | Cinsiyet (male/female) |
+| metadata.nationality | string | ❌ | Uyruk kodu (TR, DE, US...) |
+| metadata.tc_kimlik_no | string | ❌ | TC Kimlik No |
 
 **Response:**
 
@@ -195,6 +212,72 @@ POST /auth/magic-link
 }
 ```
 
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Magic link gönderildi"
+}
+```
+
+### Şifre Sıfırlama
+
+```http
+POST /auth/reset-password
+```
+
+**Request Body:**
+
+```json
+{
+  "email": "user@example.com",
+  "redirectTo": "https://yoursite.com/reset-password"
+}
+```
+
+| Alan | Tip | Zorunlu | Açıklama |
+|------|-----|---------|----------|
+| email | string | ✅ | Email adresi |
+| redirectTo | string | ❌ | Sıfırlama sonrası yönlendirilecek URL |
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Şifre sıfırlama linki email adresinize gönderildi"
+}
+```
+
+### Şifre Güncelle
+
+```http
+POST /auth/update-password
+Authorization: Bearer {access_token}
+```
+
+**Request Body:**
+
+```json
+{
+  "password": "newPassword123"
+}
+```
+
+| Alan | Tip | Zorunlu | Açıklama |
+|------|-----|---------|----------|
+| password | string | ✅ | Yeni şifre (min 6 karakter) |
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Şifreniz başarıyla güncellendi"
+}
+```
+
 ### Kullanıcı Bilgisi
 
 ```http
@@ -215,6 +298,30 @@ Authorization: Bearer {access_token}
     }
   }
 }
+```
+
+### Email Onay (Callback Handler)
+
+```http
+GET /auth/confirm?token_hash={hash}&type={type}&redirect_to={url}
+```
+
+| Parametre | Tip | Zorunlu | Açıklama |
+|-----------|-----|---------|----------|
+| token_hash | string | ✅ | Supabase token hash |
+| type | string | ✅ | Onay tipi (signup, recovery, invite, email) |
+| redirect_to | string | ❌ | Yönlendirilecek frontend URL |
+
+Bu endpoint, Supabase email onay linklerini işler ve frontend'e yönlendirir.
+
+**Başarılı Yönlendirme:**
+```
+{FRONTEND_URL}/auth/callback?access_token={token}&refresh_token={token}&type={type}
+```
+
+**Hatalı Yönlendirme:**
+```
+{FRONTEND_URL}/auth/callback?error={code}&error_description={message}
 ```
 
 ---
@@ -905,6 +1012,34 @@ Authorization: Bearer {access_token}
 
 ---
 
+## PDF Endpoint'leri
+
+### Rezervasyon PDF İndir
+
+```http
+GET /pdf/reservation/:reservationNumber
+```
+
+| Parametre | Tip | Açıklama |
+|-----------|-----|----------|
+| reservationNumber | string | Rezervasyon numarası (örn: PX041346) |
+
+**Response:** PDF dosyası (application/pdf)
+
+### Booking ID ile PDF İndir
+
+```http
+GET /pdf/booking/:bookingId
+```
+
+| Parametre | Tip | Açıklama |
+|-----------|-----|----------|
+| bookingId | string | Booking UUID |
+
+**Response:** PDF dosyası (application/pdf)
+
+---
+
 ## Hata Yönetimi
 
 ### HTTP Status Kodları
@@ -913,6 +1048,7 @@ Authorization: Bearer {access_token}
 |-----|----------|
 | 200 | Başarılı |
 | 201 | Oluşturuldu |
+| 302 | Yönlendirme (auth/confirm için) |
 | 400 | Geçersiz istek |
 | 401 | Yetkisiz erişim |
 | 404 | Bulunamadı |
@@ -921,21 +1057,51 @@ Authorization: Bearer {access_token}
 
 ### Hata Kodları
 
+#### Auth Hataları
+
 | Kod | Açıklama |
 |-----|----------|
 | `SIGNUP_ERROR` | Kayıt hatası |
 | `SIGNIN_ERROR` | Giriş hatası |
 | `SIGNOUT_ERROR` | Çıkış hatası |
 | `REFRESH_ERROR` | Token yenileme hatası |
+| `RESET_PASSWORD_ERROR` | Şifre sıfırlama hatası |
+| `UPDATE_PASSWORD_ERROR` | Şifre güncelleme hatası |
+| `MAGIC_LINK_ERROR` | Magic link hatası |
+| `VERIFICATION_ERROR` | Email doğrulama hatası |
+| `GET_USER_ERROR` | Kullanıcı bilgisi hatası |
 | `UNAUTHORIZED` | Yetkisiz erişim |
+| `INVALID_TOKEN` | Geçersiz token |
+
+#### User Hataları
+
+| Kod | Açıklama |
+|-----|----------|
 | `PROFILE_ERROR` | Profil işlem hatası |
 | `FAVORITES_ERROR` | Favori işlem hatası |
 | `TRAVELLERS_ERROR` | Yolcu işlem hatası |
+| `TRAVELLER_NOT_FOUND` | Yolcu bulunamadı |
 | `NOTIFICATIONS_ERROR` | Bildirim işlem hatası |
 | `TRANSACTIONS_ERROR` | İşlem hatası |
+| `TRANSACTION_NOT_FOUND` | İşlem bulunamadı |
+| `USER_DISCOUNTS_ERROR` | İndirim işlem hatası |
 | `DISCOUNT_INVALID` | Geçersiz indirim kodu |
+| `EMAIL_REQUIRED` | Email gerekli |
+| `CHECK_EMAIL_ERROR` | Email kontrol hatası |
+
+#### CMS Hataları
+
+| Kod | Açıklama |
+|-----|----------|
+| `BLOGS_ERROR` | Blog listesi hatası |
 | `BLOG_NOT_FOUND` | Blog bulunamadı |
+| `CAMPAIGNS_ERROR` | Kampanya listesi hatası |
 | `CAMPAIGN_NOT_FOUND` | Kampanya bulunamadı |
+| `DISCOUNTS_ERROR` | İndirim listesi hatası |
+| `DISCOUNT_INVALID` | Geçersiz indirim kodu |
+| `DISCOUNT_EXPIRED` | İndirim kodu süresi dolmuş |
+| `TREND_HOTELS_ERROR` | Trend oteller hatası |
+| `TREND_FLIGHTS_ERROR` | Trend uçuşlar hatası |
 
 ---
 
@@ -1022,6 +1188,25 @@ class ApiClient {
     return this.request('/auth/user');
   }
 
+  async resetPassword(email: string, redirectTo?: string) {
+    return this.request('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ email, redirectTo }),
+    });
+  }
+
+  async updatePassword(password: string) {
+    return this.request('/auth/update-password', {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    });
+  }
+
+  // User
+  async checkEmail(email: string) {
+    return this.request(`/user/check?email=${encodeURIComponent(email)}`);
+  }
+
   // CMS
   async getBlogs(params?: { category?: string; limit?: number; offset?: number }) {
     const query = new URLSearchParams(params as any).toString();
@@ -1065,7 +1250,7 @@ class ApiClient {
     });
   }
 
-  // User
+  // User Profile
   async getProfile() {
     return this.request('/user/profile');
   }
@@ -1077,6 +1262,7 @@ class ApiClient {
     });
   }
 
+  // Favorites
   async getFavorites(type?: string) {
     return this.request(`/user/favorites${type ? `?type=${type}` : ''}`);
   }
@@ -1092,8 +1278,13 @@ class ApiClient {
     return this.request(`/user/favorites/${id}`, { method: 'DELETE' });
   }
 
+  // Travellers
   async getTravellers() {
     return this.request('/user/travellers');
+  }
+
+  async getTraveller(id: string) {
+    return this.request(`/user/travellers/${id}`);
   }
 
   async addTraveller(data: Record<string, any>) {
@@ -1114,6 +1305,7 @@ class ApiClient {
     return this.request(`/user/travellers/${id}`, { method: 'DELETE' });
   }
 
+  // Notifications
   async getNotifications(params?: { unreadOnly?: boolean; limit?: number }) {
     const query = new URLSearchParams({
       ...(params?.unreadOnly && { unread_only: 'true' }),
@@ -1130,13 +1322,28 @@ class ApiClient {
     return this.request('/user/notifications/read-all', { method: 'PUT' });
   }
 
+  // Transactions
   async getTransactions(params?: { limit?: number; offset?: number }) {
     const query = new URLSearchParams(params as any).toString();
     return this.request(`/user/transactions${query ? `?${query}` : ''}`);
   }
 
+  async getTransaction(id: string) {
+    return this.request(`/user/transactions/${id}`);
+  }
+
+  // User Discounts
   async getUserDiscounts(activeOnly = true) {
     return this.request(`/user/discounts?active_only=${activeOnly}`);
+  }
+
+  async validateUserDiscount(code: string) {
+    return this.request(`/user/discounts/validate/${code}`);
+  }
+
+  // PDF
+  async downloadReservationPdf(reservationNumber: string) {
+    window.open(`${this.baseUrl}/pdf/reservation/${reservationNumber}`, '_blank');
   }
 }
 
@@ -1170,6 +1377,8 @@ interface AuthContextType {
   signin: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, metadata?: Record<string, any>) => Promise<void>;
   signout: () => Promise<void>;
+  resetPassword: (email: string, redirectTo?: string) => Promise<void>;
+  updatePassword: (password: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -1242,8 +1451,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const resetPassword = async (email: string, redirectTo?: string) => {
+    await api.resetPassword(email, redirectTo);
+  };
+
+  const updatePassword = async (password: string) => {
+    await api.updatePassword(password);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, session, loading, signin, signup, signout }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      session, 
+      loading, 
+      signin, 
+      signup, 
+      signout,
+      resetPassword,
+      updatePassword
+    }}>
       {children}
     </AuthContext.Provider>
   );
@@ -1258,151 +1484,58 @@ export function useAuth() {
 }
 ```
 
-### Kullanım Örnekleri
-
-#### Sign In Form
+### Auth Callback Handler - `app/auth/callback/page.tsx`
 
 ```typescript
 'use client';
 
-import { useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
-
-export function SignInForm() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const { signin } = useAuth();
-  const router = useRouter();
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-
-    try {
-      await signin(email, password);
-      router.push('/');
-    } catch (err: any) {
-      setError(err.message || 'Giriş başarısız');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit}>
-      <input
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder="Email"
-        required
-      />
-      <input
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        placeholder="Şifre"
-        required
-      />
-      {error && <p className="error">{error}</p>}
-      <button type="submit" disabled={loading}>
-        {loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
-      </button>
-    </form>
-  );
-}
-```
-
-#### Protected Page
-
-```typescript
-'use client';
-
-import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-
-export default function ProfilePage() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
-    }
-  }, [user, loading, router]);
-
-  if (loading) {
-    return <div>Yükleniyor...</div>;
-  }
-
-  if (!user) {
-    return null;
-  }
-
-  return (
-    <div>
-      <h1>Profilim</h1>
-      <p>Email: {user.email}</p>
-    </div>
-  );
-}
-```
-
-#### Trend Hotels Component
-
-```typescript
-'use client';
-
-import { useEffect, useState } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 
-interface TrendHotel {
-  id: string;
-  name: string;
-  location: string;
-  image_url: string;
-  price_from: number;
-  currency: string;
-  star_rating: number;
-}
-
-export function TrendHotels() {
-  const [hotels, setHotels] = useState<TrendHotel[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function AuthCallbackPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   useEffect(() => {
-    api.getTrendHotels(6).then((response) => {
-      if (response.success && response.data) {
-        setHotels(response.data);
-      }
-      setLoading(false);
-    });
-  }, []);
+    const accessToken = searchParams.get('access_token');
+    const refreshToken = searchParams.get('refresh_token');
+    const type = searchParams.get('type');
+    const error = searchParams.get('error');
+    const errorDescription = searchParams.get('error_description');
 
-  if (loading) {
-    return <div>Yükleniyor...</div>;
-  }
+    if (error) {
+      // Hata durumu - login sayfasına yönlendir
+      router.push(`/login?error=${encodeURIComponent(errorDescription || error)}`);
+      return;
+    }
+
+    if (accessToken && refreshToken) {
+      // Başarılı - session'ı kaydet
+      const session = {
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        expires_in: 3600,
+      };
+      
+      localStorage.setItem('session', JSON.stringify(session));
+      api.setToken(accessToken);
+
+      // Type'a göre yönlendir
+      if (type === 'recovery') {
+        router.push('/reset-password'); // Şifre sıfırlama sayfası
+      } else {
+        router.push('/'); // Ana sayfa
+      }
+    } else {
+      router.push('/login');
+    }
+  }, [searchParams, router]);
 
   return (
-    <section>
-      <h2>Popüler Oteller</h2>
-      <div className="grid grid-cols-3 gap-4">
-        {hotels.map((hotel) => (
-          <div key={hotel.id} className="card">
-            <img src={hotel.image_url} alt={hotel.name} />
-            <h3>{hotel.name}</h3>
-            <p>{hotel.location}</p>
-            <span>{'⭐'.repeat(hotel.star_rating)}</span>
-            <p>{hotel.price_from} {hotel.currency}'den başlayan</p>
-          </div>
-        ))}
-      </div>
-    </section>
+    <div className="flex items-center justify-center min-h-screen">
+      <p>Yönlendiriliyorsunuz...</p>
+    </div>
   );
 }
 ```
@@ -1419,6 +1552,8 @@ export function TrendHotels() {
 | POST | `/auth/signin` | Giriş yap |
 | POST | `/auth/refresh` | Token yenile |
 | POST | `/auth/magic-link` | Magic link gönder |
+| POST | `/auth/reset-password` | Şifre sıfırlama emaili |
+| GET | `/auth/confirm` | Email onay callback |
 | GET | `/cms/blogs` | Blog listesi |
 | GET | `/cms/blogs/:slug` | Blog detayı |
 | GET | `/cms/campaigns` | Kampanya listesi |
@@ -1429,12 +1564,15 @@ export function TrendHotels() {
 | GET | `/cms/trends/flights` | Trend uçuşlar |
 | POST | `/contact` | İletişim formu |
 | GET | `/user/check` | Email kayıtlı mı kontrol |
+| GET | `/pdf/reservation/:reservationNumber` | Rezervasyon PDF |
+| GET | `/pdf/booking/:bookingId` | Booking PDF |
 
 ### Protected Endpoint'ler (Auth Gerektirir)
 
 | Method | Endpoint | Açıklama |
 |--------|----------|----------|
 | POST | `/auth/signout` | Çıkış yap |
+| POST | `/auth/update-password` | Şifre güncelle |
 | GET | `/auth/user` | Kullanıcı bilgisi |
 | GET | `/user/profile` | Profil getir |
 | PUT | `/user/profile` | Profil güncelle |
@@ -1453,4 +1591,3 @@ export function TrendHotels() {
 | GET | `/user/transactions/:id` | İşlem detayı |
 | GET | `/user/discounts` | Kullanıcı indirimleri |
 | GET | `/user/discounts/validate/:code` | Kullanıcı indirimi doğrula |
-

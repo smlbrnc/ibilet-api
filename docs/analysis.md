@@ -22,7 +22,10 @@ iBilet Internal Core API, NestJS framework'ü kullanılarak geliştirilmiş bir 
 - **Paximum API Entegrasyonu**: Uçak ve otel rezervasyon operasyonları
 - **Ödeme İşlemleri**: Garanti VPOS entegrasyonu ile 3D Secure ödeme
 - **Kimlik Doğrulama**: Supabase Auth tabanlı authentication
+- **Kullanıcı Yönetimi**: Profil, favoriler, yolcular, bildirimler
+- **CMS**: Blog, kampanya, indirim kodları, trend içerikler
 - **Bildirim Servisleri**: SMS (Netgsm) ve Email (Resend) entegrasyonları
+- **PDF Oluşturma**: Rezervasyon PDF'leri
 - **Yardımcı Servisler**: Havalimanı arama, Foursquare Places API entegrasyonu
 
 ### Teknoloji Stack
@@ -35,6 +38,7 @@ iBilet Internal Core API, NestJS framework'ü kullanılarak geliştirilmiş bir 
 - **HTTP Client**: Native Fetch API (Pax), Axios (Payment, Foursquare)
 - **Validation**: class-validator, class-transformer
 - **Documentation**: Swagger/OpenAPI
+- **PDF Generation**: PDFKit
 
 ---
 
@@ -49,16 +53,38 @@ src/
 ├── config/                    # Konfigürasyon yönetimi
 │   └── configuration.ts       # Environment-based config loader
 ├── common/                    # Paylaşılan utilities
+│   ├── decorators/            # Custom decorators (CurrentUser)
+│   ├── enums/                 # Global error codes
 │   ├── filters/               # Global exception filter
 │   ├── interceptors/          # Request ID, Response, Debug interceptors
 │   ├── logger/                # Winston logger service
 │   ├── services/              # Supabase service
 │   └── utils/                 # Error handler utilities
 ├── auth/                      # Supabase Authentication modülü
+│   ├── constants/             # Auth hata mesajları ve sabitler
 │   ├── dto/                   # Auth DTO'ları
+│   ├── enums/                 # Auth enum'ları
+│   ├── auth.controller.ts
 │   ├── auth.module.ts
-│   ├── auth.service.ts
-│   └── supabase-auth.controller.ts
+│   └── auth.service.ts
+├── user/                      # Kullanıcı yönetimi modülü
+│   ├── constants/             # User hata mesajları
+│   ├── dto/                   # User DTO'ları
+│   ├── enums/                 # User enum'ları
+│   ├── user.controller.ts
+│   ├── user.module.ts
+│   └── user.service.ts
+├── cms/                       # CMS modülü (Blog, Kampanya, İndirim, Trend)
+│   ├── constants/             # CMS hata mesajları
+│   ├── enums/                 # CMS enum'ları
+│   ├── cms.controller.ts
+│   ├── cms.module.ts
+│   └── cms.service.ts
+├── contact/                   # İletişim formu modülü
+│   ├── dto/
+│   ├── contact.controller.ts
+│   ├── contact.module.ts
+│   └── contact.service.ts
 ├── pax/                       # Paximum API entegrasyonu
 │   ├── booking/               # Booking işlemleri
 │   │   ├── dto/
@@ -74,13 +100,19 @@ src/
 │   ├── token.service.ts
 │   └── token-manager.service.ts
 ├── payment/                   # Garanti VPOS ödeme entegrasyonu
+│   ├── config/
 │   ├── constants/
 │   ├── dto/
+│   ├── enums/
 │   ├── utils/
 │   ├── payment.controller.ts
 │   ├── payment.module.ts
-│   ├── payment.service.ts
-│   └── payment-config.service.ts
+│   └── payment.service.ts
+├── pdf/                       # PDF oluşturma modülü
+│   ├── templates/
+│   ├── pdf.controller.ts
+│   ├── pdf.module.ts
+│   └── pdf.service.ts
 ├── sms/                       # Netgsm SMS entegrasyonu
 │   ├── constants/
 │   ├── dto/
@@ -96,6 +128,10 @@ src/
 │   ├── email.module.ts
 │   └── email.service.ts
 ├── airport/                   # Havalimanı arama servisi
+│   ├── dto/
+│   ├── airport.controller.ts
+│   ├── airport.module.ts
+│   └── airport.service.ts
 ├── foursquare/                # Foursquare Places API
 │   ├── constants/
 │   ├── dto/
@@ -103,6 +139,8 @@ src/
 │   ├── foursquare.module.ts
 │   └── foursquare.service.ts
 └── health/                    # Health check endpoints
+    ├── health.controller.ts
+    └── health.module.ts
 ```
 
 ### Global Middleware Pipeline
@@ -134,8 +172,12 @@ Request → Helmet (Security Headers)
 
 **İçe Aktarılan Modüller**:
 - `AuthModule` - Supabase authentication
+- `UserModule` - Kullanıcı yönetimi
+- `CmsModule` - CMS içerikleri
+- `ContactModule` - İletişim formu
 - `PaxModule` - Paximum API entegrasyonu
 - `PaymentModule` - Ödeme işlemleri
+- `PdfModule` - PDF oluşturma
 - `SmsModule` - SMS bildirimleri
 - `EmailModule` - Email bildirimleri
 - `HealthModule` - Health check
@@ -158,7 +200,26 @@ Request → Helmet (Security Headers)
 
 **Dosya**: `src/auth/auth.module.ts`
 
-**Controller**: `SupabaseAuthController`
+**Yapı**:
+```
+auth/
+├── constants/
+│   └── auth.constant.ts       # AUTH_ERROR_MESSAGES, AUTH_SUCCESS_MESSAGES
+├── dto/
+│   ├── index.ts
+│   ├── magic-link.dto.ts
+│   ├── refresh-token.dto.ts
+│   ├── reset-password.dto.ts  # ResetPasswordDto, UpdatePasswordDto
+│   ├── signin.dto.ts
+│   └── signup.dto.ts
+├── enums/
+│   └── auth.enum.ts           # AuthProvider, EmailVerificationType, AuthErrorCode
+├── auth.controller.ts
+├── auth.module.ts
+└── auth.service.ts
+```
+
+**Controller**: `AuthController`
 
 **Endpoint'ler**:
 
@@ -167,27 +228,154 @@ Request → Helmet (Security Headers)
 | POST | `/auth/signup` | Email/password ile kayıt | ❌ |
 | POST | `/auth/signin` | Email/password ile giriş | ❌ |
 | POST | `/auth/signout` | Çıkış yap | ✅ |
-| POST | `/auth/refresh` | Token yenile | ✅ |
+| POST | `/auth/refresh` | Token yenile | ❌ |
 | POST | `/auth/magic-link` | Magic link gönder | ❌ |
+| POST | `/auth/reset-password` | Şifre sıfırlama emaili gönder | ❌ |
+| POST | `/auth/update-password` | Şifreyi güncelle | ✅ |
 | GET | `/auth/user` | Kullanıcı bilgileri | ✅ |
+| GET | `/auth/confirm` | Email onay callback | ❌ |
 
 **Servisler**:
 - `AuthService` - Supabase Auth işlemleri
 - `SupabaseService` - Supabase client wrapper
 
-**DTO'lar**:
-- `SignupDto` - Kayıt için validasyon
-- `SigninDto` - Giriş için validasyon
-- `RefreshTokenDto` - Token yenileme için validasyon
-- `MagicLinkDto` - Magic link için validasyon
-
 **Özellikler**:
 - Supabase Auth entegrasyonu
 - Magic link desteği
 - Global signout (scope: 'global')
+- Şifre sıfırlama ve güncelleme
+- Email token doğrulama (signup, recovery, invite)
+- Metadata'dan user_profiles tablosuna otomatik kayıt
 - class-validator ile DTO validasyonu
 
-### 3. PAX Module
+### 3. User Module
+
+**Dosya**: `src/user/user.module.ts`
+
+**Yapı**:
+```
+user/
+├── constants/
+│   └── user.constant.ts       # USER_ERROR_MESSAGES, USER_SUCCESS_MESSAGES
+├── dto/
+│   ├── index.ts
+│   ├── create-favorite.dto.ts
+│   ├── create-traveller.dto.ts
+│   ├── update-profile.dto.ts
+│   └── update-traveller.dto.ts
+├── enums/
+│   └── user.enum.ts           # Gender, FavoriteType, TravellerType, NotificationType, etc.
+├── user.controller.ts
+├── user.module.ts
+└── user.service.ts
+```
+
+**Controller**: `UserController`
+
+**Endpoint'ler**:
+
+| Method | Endpoint | Açıklama | Auth |
+|--------|----------|----------|------|
+| GET | `/user/check` | Email kayıtlı mı kontrol | ❌ |
+| GET | `/user/profile` | Profil getir | ✅ |
+| PUT | `/user/profile` | Profil güncelle | ✅ |
+| GET | `/user/favorites` | Favorileri listele | ✅ |
+| POST | `/user/favorites` | Favori ekle | ✅ |
+| DELETE | `/user/favorites/:id` | Favori sil | ✅ |
+| GET | `/user/travellers` | Yolcuları listele | ✅ |
+| GET | `/user/travellers/:id` | Yolcu detayı | ✅ |
+| POST | `/user/travellers` | Yolcu ekle | ✅ |
+| PUT | `/user/travellers/:id` | Yolcu güncelle | ✅ |
+| DELETE | `/user/travellers/:id` | Yolcu sil | ✅ |
+| GET | `/user/notifications` | Bildirimleri listele | ✅ |
+| PUT | `/user/notifications/:id/read` | Bildirimi okundu işaretle | ✅ |
+| PUT | `/user/notifications/read-all` | Tümünü okundu işaretle | ✅ |
+| GET | `/user/transactions` | Ödeme geçmişi | ✅ |
+| GET | `/user/transactions/:id` | İşlem detayı | ✅ |
+| GET | `/user/discounts` | Kullanıcı indirimleri | ✅ |
+| GET | `/user/discounts/validate/:code` | İndirim doğrula | ✅ |
+
+**Servisler**:
+- `UserService` - Kullanıcı işlemleri
+
+**Supabase Tabloları**:
+- `user_profiles` - Kullanıcı profilleri
+- `user_favorites` - Favoriler
+- `user_travellers` - Kayıtlı yolcular
+- `notifications` - Bildirimler
+- `user_transaction` - Ödeme geçmişi
+- `user_discount` - Kullanıcıya özel indirimler
+
+### 4. CMS Module
+
+**Dosya**: `src/cms/cms.module.ts`
+
+**Yapı**:
+```
+cms/
+├── constants/
+│   └── cms.constant.ts        # CMS_ERROR_MESSAGES, CMS_DEFAULT_LIMITS
+├── enums/
+│   └── cms.enum.ts            # CampaignType, DiscountType, DiscountAppliesTo, BlogCategory
+├── cms.controller.ts
+├── cms.module.ts
+└── cms.service.ts
+```
+
+**Controller**: `CmsController`
+
+**Endpoint'ler**:
+
+| Method | Endpoint | Açıklama | Auth |
+|--------|----------|----------|------|
+| GET | `/cms/blogs` | Blog listesi | ❌ |
+| GET | `/cms/blogs/:slug` | Blog detayı | ❌ |
+| GET | `/cms/campaigns` | Kampanya listesi | ❌ |
+| GET | `/cms/campaigns/:slug` | Kampanya detayı | ❌ |
+| GET | `/cms/discounts` | Aktif indirimler | ❌ |
+| GET | `/cms/discounts/validate/:code` | İndirim kodu doğrula | ❌ |
+| GET | `/cms/trends/hotels` | Trend oteller | ❌ |
+| GET | `/cms/trends/flights` | Trend uçuşlar | ❌ |
+
+**Servisler**:
+- `CmsService` - CMS içerik işlemleri
+
+**Supabase Tabloları**:
+- `blogs` - Blog yazıları
+- `campaigns` - Kampanyalar
+- `discount` - Genel indirim kodları
+- `trend_hotel` - Trend oteller
+- `trend_flight` - Trend uçuşlar
+
+### 5. Contact Module
+
+**Dosya**: `src/contact/contact.module.ts`
+
+**Yapı**:
+```
+contact/
+├── dto/
+│   └── create-contact.dto.ts  # ContactCategory enum, CreateContactDto
+├── contact.controller.ts
+├── contact.module.ts
+└── contact.service.ts
+```
+
+**Controller**: `ContactController`
+
+**Endpoint'ler**:
+
+| Method | Endpoint | Açıklama | Auth |
+|--------|----------|----------|------|
+| POST | `/contact` | İletişim formu gönder | ❌ |
+
+**Servisler**:
+- `ContactService` - İletişim formu işlemleri
+
+**Supabase Tabloları**:
+- `contact` - İletişim formları
+
+### 6. PAX Module
 
 **Dosya**: `src/pax/pax.module.ts`
 
@@ -243,9 +431,34 @@ Request → Helmet (Security Headers)
 - `set-reservation-info` endpoint'i Supabase'e transaction kaydı yapar
 - Transaction ID ve expiresOn bilgileri `backend.pre_transactionid` tablosuna kaydedilir
 
-### 4. Payment Module
+### 7. Payment Module
 
 **Dosya**: `src/payment/payment.module.ts`
+
+**Yapı**:
+```
+payment/
+├── config/
+│   └── payment-config.service.ts
+├── constants/
+│   └── booking-status.constant.ts
+├── dto/
+├── enums/
+│   ├── currency-codes.enum.ts
+│   ├── error-codes.enum.ts
+│   └── transaction-types.enum.ts
+├── utils/
+│   ├── hash-common.util.ts
+│   ├── vpos-errors.util.ts
+│   ├── vpos-hash-direct.util.ts
+│   ├── vpos-hash.util.ts
+│   ├── vpos-helpers.util.ts
+│   ├── vpos-response-parser.util.ts
+│   └── vpos-xml-builder.util.ts
+├── payment.controller.ts
+├── payment.module.ts
+└── payment.service.ts
+```
 
 **Controller**: `PaymentController`
 
@@ -263,9 +476,6 @@ Request → Helmet (Security Headers)
 - `PaymentService` - Ödeme işlem mantığı, callback işleme, bildirim gönderme
 - `PaymentConfigService` - Garanti VPOS konfigürasyonu
 
-**Sabitler** (`constants/booking-status.constant.ts`):
-- `BOOKING_STATUS_MESSAGES` - Rezervasyon durum mesajları
-
 **Özellikler**:
 - 3D Secure ödeme akışı
 - Direkt ödeme (sales/refund)
@@ -274,7 +484,42 @@ Request → Helmet (Security Headers)
 - Callback sonrası otomatik SMS ve Email bildirimi (paralel)
 - Rezervasyon commit işlemi
 
-### 5. SMS Module
+### 8. PDF Module
+
+**Dosya**: `src/pdf/pdf.module.ts`
+
+**Yapı**:
+```
+pdf/
+├── templates/
+│   ├── common.ts
+│   ├── flight-booking.pdf.template.ts
+│   ├── hotel-booking.pdf.template.ts
+│   └── index.ts
+├── pdf.controller.ts
+├── pdf.module.ts
+└── pdf.service.ts
+```
+
+**Controller**: `PdfController`
+
+**Endpoint'ler**:
+
+| Method | Endpoint | Açıklama |
+|--------|----------|----------|
+| GET | `/pdf/reservation/:reservationNumber` | Rezervasyon numarası ile PDF |
+| GET | `/pdf/booking/:bookingId` | Booking ID ile PDF |
+
+**Servisler**:
+- `PdfService` - PDF oluşturma işlemleri
+
+**Özellikler**:
+- PDFKit ile PDF oluşturma
+- Uçuş ve otel rezervasyon template'leri
+- Supabase'den booking verisi çekme
+- Dinamik PDF içerik oluşturma
+
+### 9. SMS Module
 
 **Dosya**: `src/sms/sms.module.ts`
 
@@ -304,7 +549,7 @@ Request → Helmet (Security Headers)
 - Rezervasyon onay SMS'i (`sendBookingConfirmation`)
 - SMS log kaydetme (Supabase)
 
-### 6. Email Module
+### 10. Email Module
 
 **Dosya**: `src/email/email.module.ts`
 
@@ -329,7 +574,7 @@ Request → Helmet (Security Headers)
 - Email log kaydetme (Supabase)
 - Timeout ile güvenli gönderim
 
-### 7. Airport Module
+### 11. Airport Module
 
 **Dosya**: `src/airport/airport.module.ts`
 
@@ -350,7 +595,7 @@ Request → Helmet (Security Headers)
 - Tip filtreleme (large_airport, medium_airport, vb.)
 - In-memory cache (module init'te yüklenir)
 
-### 8. Foursquare Module
+### 12. Foursquare Module
 
 **Dosya**: `src/foursquare/foursquare.module.ts`
 
@@ -382,7 +627,7 @@ Request → Helmet (Security Headers)
 - Mesafeye göre gruplama (walkingDistance, nearbyLandmarks)
 - 30 dakika cache (service katmanında)
 
-### 9. Health Module
+### 13. Health Module
 
 **Dosya**: `src/health/health.module.ts`
 
@@ -403,6 +648,49 @@ Request → Helmet (Security Headers)
 ---
 
 ## Servis Katmanı
+
+### AuthService
+
+**Dosya**: `src/auth/auth.service.ts`
+
+**Sorumluluklar**:
+- Supabase Auth işlemleri
+- Kayıt, giriş, çıkış
+- Token yenileme
+- Magic link gönderme
+- Şifre sıfırlama ve güncelleme
+- Email token doğrulama
+- Metadata'dan user_profiles'a kayıt
+
+### UserService
+
+**Dosya**: `src/user/user.service.ts`
+
+**Sorumluluklar**:
+- Profil CRUD işlemleri
+- Favori CRUD işlemleri
+- Yolcu CRUD işlemleri
+- Bildirim işlemleri
+- İşlem geçmişi
+- Kullanıcı indirim kodları
+- Email kayıt kontrolü
+
+### CmsService
+
+**Dosya**: `src/cms/cms.service.ts`
+
+**Sorumluluklar**:
+- Blog içerikleri
+- Kampanya yönetimi
+- İndirim kodu doğrulama
+- Trend içerikler (otel, uçuş)
+
+### ContactService
+
+**Dosya**: `src/contact/contact.service.ts`
+
+**Sorumluluklar**:
+- İletişim formu kayıtları
 
 ### PaxService
 
@@ -464,15 +752,14 @@ Request → Helmet (Security Headers)
 - `processCallbackWithBooking(dto)` - Callback işleme + rezervasyon commit
 - `sendNotifications()` - SMS ve Email gönderimi (paralel)
 
-### AuthService
+### PdfService
 
-**Dosya**: `src/auth/auth.service.ts`
+**Dosya**: `src/pdf/pdf.service.ts`
 
 **Sorumluluklar**:
-- Supabase Auth işlemleri
-- Kayıt, giriş, çıkış
-- Token yenileme
-- Magic link gönderme
+- PDF oluşturma
+- Booking verisi çekme
+- Template rendering
 
 ### NetgsmService
 
@@ -618,6 +905,34 @@ Redirect to /payment-result.html
    → SMS + Email (paralel)
 ```
 
+### Auth Flow
+
+```
+1. Signup
+   POST /auth/signup
+   → Supabase Auth signup
+   → user_profiles tablosuna metadata kaydı
+   → Email onay linki gönderilir
+
+2. Email Confirmation
+   User clicks email link
+   → GET /auth/confirm (backend)
+   → Token doğrulama
+   → Frontend'e yönlendirme (access_token ile)
+
+3. Signin
+   POST /auth/signin
+   → Session (access_token, refresh_token)
+
+4. Password Reset
+   POST /auth/reset-password
+   → Email gönderilir
+   User clicks email link
+   → Frontend'e yönlendirme
+   POST /auth/update-password
+   → Şifre güncellenir
+```
+
 ---
 
 ## Hata Yönetimi
@@ -638,6 +953,13 @@ Redirect to /payment-result.html
   "requestId": "uuid"
 }
 ```
+
+### Modül Bazlı Error Constants
+
+- `src/auth/constants/auth.constant.ts` - Auth hataları
+- `src/user/constants/user.constant.ts` - User hataları
+- `src/cms/constants/cms.constant.ts` - CMS hataları
+- `src/payment/constants/booking-status.constant.ts` - Payment hataları
 
 ---
 
@@ -677,13 +999,48 @@ Redirect to /payment-result.html
 
 ---
 
+## Supabase Tabloları
+
+### Backend Schema
+
+- `backend.booking` - Rezervasyon kayıtları
+- `backend.pre_transactionid` - Ödeme öncesi transaction kayıtları
+- `backend.booking_email` - Email logları
+- `backend.booking_sms` - SMS logları
+
+### Public Schema
+
+**Admin Yönetimli (Herkes okuyabilir)**:
+- `blogs` - Blog yazıları
+- `campaigns` - Kampanyalar
+- `discount` - Genel indirim kodları
+- `trend_hotel` - Trend oteller
+- `trend_flight` - Trend uçuşlar
+
+**Herkes Yazabilir**:
+- `contact` - İletişim formları
+
+**Kullanıcıya Özel (RLS)**:
+- `user_profiles` - Kullanıcı profilleri
+- `user_favorites` - Favoriler
+- `user_travellers` - Kayıtlı yolcular
+- `notifications` - Bildirimler
+- `user_transaction` - Ödeme geçmişi
+- `user_discount` - Kullanıcıya özel indirimler
+
+---
+
 ## Sonuç
 
 iBilet Internal Core API, NestJS framework'ü kullanılarak geliştirilmiş, modüler yapıda bir backend servisidir. Ana özellikleri:
 
 - ✅ Paximum API entegrasyonu (uçak/otel)
 - ✅ Garanti VPOS ödeme entegrasyonu (3D Secure + Direct)
-- ✅ Supabase Auth entegrasyonu
+- ✅ Supabase Auth entegrasyonu (şifre sıfırlama, email onay dahil)
+- ✅ Kullanıcı yönetimi (profil, favoriler, yolcular, bildirimler)
+- ✅ CMS (blog, kampanya, indirim, trend içerikler)
+- ✅ İletişim formu
+- ✅ PDF oluşturma
 - ✅ Netgsm SMS entegrasyonu
 - ✅ Resend Email entegrasyonu
 - ✅ Foursquare Places API entegrasyonu
