@@ -495,9 +495,45 @@ POST /contact
 
 ---
 
-## User Endpoint'leri (Protected)
+## User Endpoint'leri
 
-Bu endpoint'ler için `Authorization: Bearer {access_token}` header'ı gereklidir.
+### Email Kontrolü (Public)
+
+Bu endpoint auth gerektirmez. Kayıt formunda email'in daha önce kullanılıp kullanılmadığını kontrol etmek için kullanılır.
+
+```http
+GET /user/check?email=user@example.com
+```
+
+**Response (Email kayıtlı):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "exists": true,
+    "email": "user@example.com"
+  }
+}
+```
+
+**Response (Email kayıtlı değil):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "exists": false,
+    "email": "newuser@example.com"
+  }
+}
+```
+
+---
+
+### Protected Endpoint'ler
+
+Aşağıdaki endpoint'ler için `Authorization: Bearer {access_token}` header'ı gereklidir.
 
 ### Profil
 
@@ -1392,6 +1428,7 @@ export function TrendHotels() {
 | GET | `/cms/trends/hotels` | Trend oteller |
 | GET | `/cms/trends/flights` | Trend uçuşlar |
 | POST | `/contact` | İletişim formu |
+| GET | `/user/check` | Email kayıtlı mı kontrol |
 
 ### Protected Endpoint'ler (Auth Gerektirir)
 

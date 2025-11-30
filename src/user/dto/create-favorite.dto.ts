@@ -1,11 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsString, IsNotEmpty, IsOptional, IsEnum, IsObject } from 'class-validator';
-
-export enum FavoriteType {
-  FLIGHT = 'flight',
-  HOTEL = 'hotel',
-  DESTINATION = 'destination',
-}
+import { FavoriteType } from '../enums/user.enum';
 
 export class CreateFavoriteDto {
   @ApiProperty({ enum: FavoriteType, example: 'flight', description: 'Favori tipi' })

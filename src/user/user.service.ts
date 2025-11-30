@@ -31,6 +31,40 @@ export class UserService {
     return user.id;
   }
 
+  // ==================== EMAIL CHECK (PUBLIC) ====================
+
+  async checkEmail(email: string) {
+    try {
+      if (!email) {
+        this.throwError('EMAIL_REQUIRED', 'Email adresi gereklidir', HttpStatus.BAD_REQUEST);
+      }
+
+      // user_profiles tablosunda email kontrolü
+      const { data, error } = await this.supabase.getAdminClient()
+        .from('user_profiles')
+        .select('id')
+        .eq('email', email.toLowerCase())
+        .maybeSingle();
+
+      if (error) {
+        this.logger.error({ message: 'Email kontrol hatası', error: error.message });
+        this.throwError('CHECK_EMAIL_ERROR', 'Email kontrolü yapılamadı', HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+
+      return { 
+        success: true, 
+        data: { 
+          exists: !!data,
+          email: email.toLowerCase()
+        } 
+      };
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      this.logger.error({ message: 'Email kontrol hatası', error: error.message });
+      this.throwError('CHECK_EMAIL_ERROR', 'Email kontrolü yapılamadı', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
   // ==================== PROFILE ====================
 
   async getProfile(token: string) {

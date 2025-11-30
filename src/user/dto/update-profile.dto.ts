@@ -1,11 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsString, IsOptional, IsEnum, IsBoolean, IsDateString } from 'class-validator';
-
-export enum Gender {
-  MALE = 'male',
-  FEMALE = 'female',
-  OTHER = 'other',
-}
+import { Gender } from '../enums/user.enum';
 
 export class UpdateProfileDto {
   @ApiPropertyOptional({ example: 'Ahmet Yılmaz', description: 'Ad Soyad' })

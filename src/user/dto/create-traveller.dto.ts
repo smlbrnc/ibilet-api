@@ -1,23 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsString, IsNotEmpty, IsOptional, IsEnum, IsBoolean, IsDateString, IsEmail } from 'class-validator';
-
-export enum TravellerType {
-  ADULT = 'adult',
-  CHILD = 'child',
-  INFANT = 'infant',
-}
-
-export enum TravellerTitle {
-  MR = 'mr',
-  MRS = 'mrs',
-  MS = 'ms',
-  MISS = 'miss',
-}
-
-export enum TravellerGender {
-  MALE = 'male',
-  FEMALE = 'female',
-}
+import { TravellerType, TravellerTitle, TravellerGender } from '../enums/user.enum';
 
 export class CreateTravellerDto {
   @ApiProperty({ enum: TravellerType, example: 'adult', description: 'Yolcu tipi' })

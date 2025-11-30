@@ -13,6 +13,17 @@ export class UserController {
     return authorization?.replace('Bearer ', '') || '';
   }
 
+  // ==================== EMAIL CHECK (PUBLIC) ====================
+
+  @Get('check')
+  @ApiOperation({ summary: 'Email adresi kayıtlı mı kontrol et (Public)' })
+  @ApiQuery({ name: 'email', required: true, description: 'Kontrol edilecek email adresi' })
+  @ApiResponse({ status: 200, description: 'Email kontrol sonucu' })
+  @ApiResponse({ status: 400, description: 'Geçersiz istek' })
+  async checkEmail(@Query('email') email: string) {
+    return this.userService.checkEmail(email);
+  }
+
   // ==================== PROFILE ====================
 
   @Get('profile')

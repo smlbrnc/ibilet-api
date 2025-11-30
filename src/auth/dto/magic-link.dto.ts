@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsOptional, IsUrl } from 'class-validator';
+import { IsEmail, IsOptional, Matches } from 'class-validator';
 
 export class MagicLinkDto {
   @ApiProperty({ example: 'user@example.com', description: 'Email adresi' })
@@ -8,7 +8,7 @@ export class MagicLinkDto {
 
   @ApiPropertyOptional({ example: 'https://app.example.com/callback', description: 'Redirect URL' })
   @IsOptional()
-  @IsUrl({}, { message: 'Geçerli bir URL giriniz' })
+  @Matches(/^https?:\/\/.+/, { message: 'Geçerli bir URL giriniz' })
   redirectTo?: string;
 }
 
