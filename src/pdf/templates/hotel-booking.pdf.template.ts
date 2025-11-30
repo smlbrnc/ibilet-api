@@ -5,7 +5,7 @@
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const PDFDocument = require('pdfkit');
 
-import { ReservationData, formatDateShort, formatPrice, getTravellerTypeText } from './common';
+import { ReservationData, formatDateShort, formatPrice, getTravellerTypeText, FONTS } from './common';
 
 interface HotelInfo {
   name: string;
@@ -44,25 +44,29 @@ export const buildHotelBookingPdf = (reservationDetails: any): InstanceType<type
   // PDF oluştur
   const doc = new PDFDocument({ size: 'A4', margin: 50 });
 
+  // Roboto fontlarını kaydet (Türkçe karakter desteği)
+  doc.registerFont('Roboto', FONTS.regular);
+  doc.registerFont('Roboto-Bold', FONTS.bold);
+
   // Başlık
-  doc.fontSize(24).font('Helvetica-Bold').text('iBilet', { align: 'center' });
+  doc.fontSize(24).font('Roboto-Bold').text('iBilet', { align: 'center' });
   doc.moveDown(0.5);
-  doc.fontSize(18).font('Helvetica').text('Otel Rezervasyon Onayı', { align: 'center' });
+  doc.fontSize(18).font('Roboto').text('Otel Rezervasyon Onayı', { align: 'center' });
   doc.moveDown(1);
 
   // Rezervasyon Bilgileri
-  doc.fontSize(14).font('Helvetica-Bold').text('Rezervasyon Bilgileri');
+  doc.fontSize(14).font('Roboto-Bold').text('Rezervasyon Bilgileri');
   doc.moveDown(0.3);
-  doc.fontSize(12).font('Helvetica');
+  doc.fontSize(12).font('Roboto');
   doc.text(`Rezervasyon No: ${reservationInfo?.bookingNumber || '-'}`);
   doc.text(`Voucher No: ${voucherNo}`);
   doc.moveDown(0.5);
 
   // Otel Bilgileri
   if (hotelInfo) {
-    doc.fontSize(14).font('Helvetica-Bold').text('Otel Bilgileri');
+    doc.fontSize(14).font('Roboto-Bold').text('Otel Bilgileri');
     doc.moveDown(0.3);
-    doc.fontSize(12).font('Helvetica');
+    doc.fontSize(12).font('Roboto');
     doc.text(`Otel: ${hotelInfo.name || '-'}`);
     if (hotelInfo.address) doc.text(`Adres: ${hotelInfo.address}`);
     if (hotelInfo.city?.name) doc.text(`Şehir: ${hotelInfo.city.name}`);
@@ -75,9 +79,9 @@ export const buildHotelBookingPdf = (reservationDetails: any): InstanceType<type
 
   // Yolcu Bilgileri
   if (travellers?.length > 0) {
-    doc.fontSize(14).font('Helvetica-Bold').text('Misafir Bilgileri');
+    doc.fontSize(14).font('Roboto-Bold').text('Misafir Bilgileri');
     doc.moveDown(0.3);
-    doc.fontSize(12).font('Helvetica');
+    doc.fontSize(12).font('Roboto');
     travellers.forEach((t, i) => {
       doc.text(`${i + 1}. ${t.name} ${t.surname} (${getTravellerTypeText(t.type)})`);
       if (t.isLeader && t.address?.email) {
@@ -88,13 +92,13 @@ export const buildHotelBookingPdf = (reservationDetails: any): InstanceType<type
   }
 
   // Fiyat Bilgisi
-  doc.fontSize(14).font('Helvetica-Bold').text('Fiyat Bilgisi');
+  doc.fontSize(14).font('Roboto-Bold').text('Fiyat Bilgisi');
   doc.moveDown(0.3);
-  doc.fontSize(16).font('Helvetica-Bold').text(`Toplam: ${formatPrice(reservationInfo?.totalPrice?.amount, reservationInfo?.totalPrice?.currency)}`);
+  doc.fontSize(16).font('Roboto-Bold').text(`Toplam: ${formatPrice(reservationInfo?.totalPrice?.amount, reservationInfo?.totalPrice?.currency)}`);
 
   // Alt bilgi
   doc.moveDown(2);
-  doc.fontSize(10).font('Helvetica').fillColor('gray');
+  doc.fontSize(10).font('Roboto').fillColor('gray');
   doc.text('Bu belge elektronik ortamda oluşturulmuştur.', { align: 'center' });
   doc.text(`Oluşturulma Tarihi: ${new Date().toLocaleString('tr-TR')}`, { align: 'center' });
 

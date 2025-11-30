@@ -2,6 +2,19 @@
  * PDF template'leri için ortak tipler ve yardımcı fonksiyonlar
  */
 
+import * as path from 'path';
+
+// ============================================================================
+// FONT PATHS (Türkçe karakter desteği için Roboto)
+// ============================================================================
+
+const FONTS_DIR = path.join(process.cwd(), 'storage', 'fonts');
+
+export const FONTS = {
+  regular: path.join(FONTS_DIR, 'Roboto-Regular.ttf'),
+  bold: path.join(FONTS_DIR, 'Roboto-Bold.ttf'),
+};
+
 // ============================================================================
 // INTERFACES
 // ============================================================================
@@ -73,4 +86,3 @@ export const getTravellerTypeText = (type: number): string => {
     default: return 'Yolcu';
   }
 };
-
