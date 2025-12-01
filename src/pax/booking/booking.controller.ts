@@ -1,5 +1,5 @@
 import { Controller, Post, Get, Body, Req, Headers, Param, HttpException, HttpStatus } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 import { Request } from 'express';
 import { BookingService, PaxRequestOptions } from './booking.service';
 import { BeginTransactionRequestDto } from './dto/begin-transaction-request.dto';
@@ -13,6 +13,7 @@ import { CancellationPenaltyRequestDto } from './dto/cancellation-penalty-reques
 import { CancelReservationRequestDto } from './dto/cancel-reservation-request.dto';
 import { handlePaxApiError } from '../../common/utils/error-handler.util';
 import { LoggerService } from '../../common/logger/logger.service';
+import { SupabaseService } from '../../common/services/supabase.service';
 
 @ApiTags('Booking')
 @Controller('booking')
@@ -20,15 +21,45 @@ export class BookingController {
   constructor(
     private readonly bookingService: BookingService,
     private readonly logger: LoggerService,
+    private readonly supabase: SupabaseService,
   ) {
     this.logger.setContext('BookingController');
   }
 
   /**
-   * Request'ten options oluştur
+   * Request'ten options oluştur (sadece IP)
    */
   private getRequestOptions(req: Request): PaxRequestOptions {
     return { ip: req.ip || req.socket.remoteAddress || undefined };
+  }
+
+  /**
+   * Token'dan user ID çıkar
+   */
+  private async getUserIdFromToken(authorization?: string): Promise<string | undefined> {
+    if (!authorization) return undefined;
+    
+    const token = authorization.replace('Bearer ', '');
+    if (!token) return undefined;
+
+    try {
+      const { data: { user }, error } = await this.supabase.getAnonClient().auth.getUser(token);
+      if (error || !user) return undefined;
+      return user.id;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Request'ten options oluştur (IP + User ID)
+   */
+  private async getRequestOptionsWithUser(req: Request, authorization?: string): Promise<PaxRequestOptions> {
+    const userId = await this.getUserIdFromToken(authorization);
+    return {
+      ip: req.ip || req.socket.remoteAddress || undefined,
+      userId,
+    };
   }
 
   @Post('begin-transaction')
@@ -65,11 +96,17 @@ export class BookingController {
   }
 
   @Post('set-reservation-info')
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Rezervasyon bilgilerini ayarla (Set Reservation Info)' })
   @ApiResponse({ status: 200, description: 'Rezervasyon bilgileri kaydedildi' })
-  async setReservationInfo(@Body() request: SetReservationInfoRequestDto, @Req() req: Request) {
+  async setReservationInfo(
+    @Body() request: SetReservationInfoRequestDto,
+    @Req() req: Request,
+    @Headers('authorization') authorization?: string,
+  ) {
     try {
-      return await this.bookingService.setReservationInfo(request, this.getRequestOptions(req));
+      const options = await this.getRequestOptionsWithUser(req, authorization);
+      return await this.bookingService.setReservationInfo(request, options);
     } catch (error) {
       handlePaxApiError(error, 'SET_RESERVATION_INFO_ERROR', 'Rezervasyon bilgileri kaydedilemedi');
     }

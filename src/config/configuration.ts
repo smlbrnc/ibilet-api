@@ -82,5 +82,19 @@ export default () => ({
     // Frontend redirect URL - Ödeme sonrası yönlendirme (mobil ve web için)
     redirectUrl: process.env.PAYMENT_REDIRECT_URL,
   },
+  yolcu360: {
+    baseUrl:
+      process.env.NODE_ENV === 'production'
+        ? process.env.YOLCU360_URL
+        : process.env.YOLCU360_TEST_URL,
+    apiKey:
+      process.env.NODE_ENV === 'production'
+        ? process.env.YOLCU360_KEY
+        : process.env.YOLCU360_TEST_KEY,
+    apiSecret:
+      process.env.NODE_ENV === 'production'
+        ? process.env.YOLCU360_SECRET
+        : process.env.YOLCU360_TEST_SECRET,
+  },
 });
 

@@ -393,6 +393,67 @@ export class UserService {
     }
   }
 
+  // ==================== BOOKINGS ====================
+
+  async getBookings(token: string, options?: { status?: string; limit?: number; offset?: number }) {
+    try {
+      const userId = await this.getUserIdFromToken(token);
+
+      let query = this.supabase.getAdminClient()
+        .schema('backend')
+        .from('booking')
+        .select('id, transaction_id, status, booking_number, order_id, created_at, updated_at, reservation_details, pdf_path')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (options?.status) {
+        query = query.eq('status', options.status);
+      }
+      if (options?.limit) {
+        query = query.limit(options.limit);
+      }
+      if (options?.offset) {
+        query = query.range(options.offset, options.offset + (options.limit || 10) - 1);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        this.throwError('BOOKINGS_ERROR', error.message, HttpStatus.BAD_REQUEST);
+      }
+
+      return { success: true, data };
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      this.logger.error({ message: 'Rezervasyonlar getirme hatası', error: error.message });
+      this.throwError('BOOKINGS_ERROR', 'Rezervasyonlar getirilemedi', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  async getBooking(token: string, id: string) {
+    try {
+      const userId = await this.getUserIdFromToken(token);
+
+      const { data, error } = await this.supabase.getAdminClient()
+        .schema('backend')
+        .from('booking')
+        .select('*')
+        .eq('id', id)
+        .eq('user_id', userId)
+        .single();
+
+      if (error || !data) {
+        this.throwError('BOOKING_NOT_FOUND', 'Rezervasyon bulunamadı', HttpStatus.NOT_FOUND);
+      }
+
+      return { success: true, data };
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      this.logger.error({ message: 'Rezervasyon getirme hatası', error: error.message });
+      this.throwError('BOOKINGS_ERROR', 'Rezervasyon getirilemedi', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
   // ==================== TRANSACTIONS ====================
 
   async getTransactions(token: string, options?: { limit?: number; offset?: number }) {

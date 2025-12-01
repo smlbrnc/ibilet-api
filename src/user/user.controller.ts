@@ -164,6 +164,38 @@ export class UserController {
     return this.userService.markAllNotificationsAsRead(this.getToken(authorization));
   }
 
+  // ==================== BOOKINGS ====================
+
+  @Get('bookings')
+  @ApiOperation({ summary: 'Kullanıcının rezervasyonlarını listele' })
+  @ApiQuery({ name: 'status', required: false, enum: ['AWAITING_PAYMENT', 'PAYMENT_IN_PROGRESS', 'CONFIRMED', 'CANCELLED', 'EXPIRED', 'FAILED'], description: 'Durum filtresi' })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'offset', required: false, type: Number })
+  @ApiResponse({ status: 200, description: 'Rezervasyon listesi' })
+  async getBookings(
+    @Headers('authorization') authorization: string,
+    @Query('status') status?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    return this.userService.getBookings(this.getToken(authorization), {
+      status,
+      limit: limit ? parseInt(limit, 10) : undefined,
+      offset: offset ? parseInt(offset, 10) : undefined,
+    });
+  }
+
+  @Get('bookings/:id')
+  @ApiOperation({ summary: 'Rezervasyon detayını getir' })
+  @ApiResponse({ status: 200, description: 'Rezervasyon detayı' })
+  @ApiResponse({ status: 404, description: 'Rezervasyon bulunamadı' })
+  async getBooking(
+    @Headers('authorization') authorization: string,
+    @Param('id') id: string,
+  ) {
+    return this.userService.getBooking(this.getToken(authorization), id);
+  }
+
   // ==================== TRANSACTIONS ====================
 
   @Get('transactions')
