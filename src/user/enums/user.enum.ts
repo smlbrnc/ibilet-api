@@ -28,35 +28,3 @@ export enum TravellerGender {
   FEMALE = 'female',
 }
 
-export enum NotificationType {
-  BOOKING = 'booking',
-  PROMOTION = 'promotion',
-  SYSTEM = 'system',
-  REMINDER = 'reminder',
-  ALERT = 'alert',
-}
-
-export enum TransactionType {
-  PAYMENT = 'payment',
-  REFUND = 'refund',
-  PARTIAL_REFUND = 'partial_refund',
-}
-
-export enum TransactionStatus {
-  PENDING = 'pending',
-  COMPLETED = 'completed',
-  FAILED = 'failed',
-  CANCELLED = 'cancelled',
-}
-
-export enum DiscountType {
-  PERCENTAGE = 'percentage',
-  FIXED = 'fixed',
-}
-
-export enum DiscountAppliesTo {
-  FLIGHT = 'flight',
-  HOTEL = 'hotel',
-  ALL = 'all',
-}
-

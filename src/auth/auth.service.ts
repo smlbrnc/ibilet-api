@@ -12,38 +12,42 @@ export class AuthService {
     this.logger.setContext('AuthService');
   }
 
-  /**
-   * Supabase auth hatası fırlat
-   */
-  private throwAuthError(code: string, message: string, status: HttpStatus): never {
+  private throwError(code: string, message: string, status: HttpStatus): never {
     throw new HttpException({ success: false, code, message }, status);
   }
 
-  /**
-   * Kayıt ol
-   */
-  async signup(dto: SignupDto) {
+  private async handleRequest<T>(
+    operation: () => Promise<T>,
+    errorCode: string,
+    errorMessage: string,
+    errorStatus: HttpStatus = HttpStatus.INTERNAL_SERVER_ERROR,
+  ): Promise<T> {
     try {
+      return await operation();
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      this.logger.error({ message: errorMessage, error: error.message });
+      this.throwError(errorCode, errorMessage, errorStatus);
+    }
+  }
+
+  async signup(dto: SignupDto) {
+    return this.handleRequest(async () => {
       const { data, error } = await this.supabase.getAnonClient().auth.signUp({
         email: dto.email,
         password: dto.password,
         options: { data: dto.metadata || {} },
       });
 
-      if (error) {
-        this.throwAuthError('SIGNUP_ERROR', error.message, HttpStatus.BAD_REQUEST);
-      }
+      if (error) this.throwError('SIGNUP_ERROR', error.message, HttpStatus.BAD_REQUEST);
 
-      // Metadata'daki bilgileri user_profiles tablosuna kaydet
+      // Metadata'yı user_profiles tablosuna kaydet
       if (data.user && dto.metadata) {
-        const profileUpdate: Record<string, any> = {};
-        
-        if (dto.metadata.full_name) profileUpdate.full_name = dto.metadata.full_name;
-        if (dto.metadata.phone) profileUpdate.phone = dto.metadata.phone;
-        if (dto.metadata.date_of_birth) profileUpdate.date_of_birth = dto.metadata.date_of_birth;
-        if (dto.metadata.gender) profileUpdate.gender = dto.metadata.gender;
-        if (dto.metadata.nationality) profileUpdate.nationality = dto.metadata.nationality;
-        if (dto.metadata.tc_kimlik_no) profileUpdate.tc_kimlik_no = dto.metadata.tc_kimlik_no;
+        const { full_name, phone, date_of_birth, gender, nationality, tc_kimlik_no } = dto.metadata;
+        const profileUpdate = Object.fromEntries(
+          Object.entries({ full_name, phone, date_of_birth, gender, nationality, tc_kimlik_no })
+            .filter(([, v]) => v !== undefined)
+        );
 
         if (Object.keys(profileUpdate).length > 0) {
           const { error: profileError } = await this.supabase.getAdminClient()
@@ -51,196 +55,108 @@ export class AuthService {
             .update(profileUpdate)
             .eq('id', data.user.id);
 
-          if (profileError) {
-            this.logger.warn({ message: 'Profil güncelleme hatası', error: profileError.message });
-          }
+          if (profileError) this.logger.warn({ message: 'Profil güncelleme hatası', error: profileError.message });
         }
       }
 
       this.logger.log({ message: 'Kullanıcı kaydedildi', email: dto.email });
-
       return { success: true, data: { user: data.user, session: data.session } };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Kayıt hatası', error: error.message });
-      this.throwAuthError('SIGNUP_ERROR', 'Kayıt işlemi başarısız', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    }, 'SIGNUP_ERROR', 'Kayıt işlemi başarısız');
   }
 
-  /**
-   * Giriş yap
-   */
   async signin(dto: SigninDto) {
-    try {
+    return this.handleRequest(async () => {
       const { data, error } = await this.supabase.getAnonClient().auth.signInWithPassword({
         email: dto.email,
         password: dto.password,
       });
 
-      if (error) {
-        this.throwAuthError('SIGNIN_ERROR', error.message, HttpStatus.UNAUTHORIZED);
-      }
+      if (error) this.throwError('SIGNIN_ERROR', error.message, HttpStatus.UNAUTHORIZED);
 
       this.logger.log({ message: 'Kullanıcı giriş yaptı', email: dto.email });
-
       return { success: true, data: { user: data.user, session: data.session } };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Giriş hatası', error: error.message });
-      this.throwAuthError('SIGNIN_ERROR', 'Giriş işlemi başarısız', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    }, 'SIGNIN_ERROR', 'Giriş işlemi başarısız');
   }
 
-  /**
-   * Çıkış yap
-   */
   async signout() {
-    try {
+    return this.handleRequest(async () => {
       const { error } = await this.supabase.getAnonClient().auth.signOut({ scope: 'global' });
-
-      if (error) {
-        this.throwAuthError('SIGNOUT_ERROR', error.message, HttpStatus.BAD_REQUEST);
-      }
-
+      if (error) this.throwError('SIGNOUT_ERROR', error.message, HttpStatus.BAD_REQUEST);
       return { success: true, message: 'Çıkış başarılı' };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Çıkış hatası', error: error.message });
-      this.throwAuthError('SIGNOUT_ERROR', 'Çıkış işlemi başarısız', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    }, 'SIGNOUT_ERROR', 'Çıkış işlemi başarısız');
   }
 
-  /**
-   * Token yenile
-   */
   async refreshToken(dto: RefreshTokenDto) {
-    try {
+    return this.handleRequest(async () => {
       const { data, error } = await this.supabase.getAnonClient().auth.refreshSession({
         refresh_token: dto.refresh_token,
       });
 
-      if (error) {
-        this.throwAuthError('REFRESH_ERROR', error.message, HttpStatus.UNAUTHORIZED);
-      }
-
+      if (error) this.throwError('REFRESH_ERROR', error.message, HttpStatus.UNAUTHORIZED);
       return { success: true, data: { session: data.session } };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Token yenileme hatası', error: error.message });
-      this.throwAuthError('REFRESH_ERROR', 'Token yenileme başarısız', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    }, 'REFRESH_ERROR', 'Token yenileme başarısız');
   }
 
-  /**
-   * Magic link gönder
-   */
   async sendMagicLink(dto: MagicLinkDto) {
-    try {
+    return this.handleRequest(async () => {
       const { data, error } = await this.supabase.getAnonClient().auth.signInWithOtp({
         email: dto.email,
         options: { emailRedirectTo: dto.redirectTo },
       });
 
-      if (error) {
-        this.throwAuthError('MAGIC_LINK_ERROR', error.message, HttpStatus.BAD_REQUEST);
-      }
+      if (error) this.throwError('MAGIC_LINK_ERROR', error.message, HttpStatus.BAD_REQUEST);
 
       this.logger.log({ message: 'Magic link gönderildi', email: dto.email });
-
       return { success: true, message: 'Magic link gönderildi', data };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Magic link hatası', error: error.message });
-      this.throwAuthError('MAGIC_LINK_ERROR', 'Magic link gönderilemedi', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    }, 'MAGIC_LINK_ERROR', 'Magic link gönderilemedi');
   }
 
-  /**
-   * Kullanıcı bilgilerini getir
-   */
   async getUser(token: string) {
-    if (!token) {
-      this.throwAuthError('GET_USER_ERROR', 'Token bulunamadı', HttpStatus.UNAUTHORIZED);
-    }
+    if (!token) this.throwError('GET_USER_ERROR', 'Token bulunamadı', HttpStatus.UNAUTHORIZED);
 
-    try {
+    return this.handleRequest(async () => {
       const { data: { user }, error } = await this.supabase.getAnonClient().auth.getUser(token);
-
-      if (error) {
-        this.throwAuthError('GET_USER_ERROR', error.message, HttpStatus.UNAUTHORIZED);
-      }
-
+      if (error) this.throwError('GET_USER_ERROR', error.message, HttpStatus.UNAUTHORIZED);
       return { success: true, data: { user } };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Kullanıcı bilgisi hatası', error: error.message });
-      this.throwAuthError('GET_USER_ERROR', 'Kullanıcı bilgileri alınamadı', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    }, 'GET_USER_ERROR', 'Kullanıcı bilgileri alınamadı');
   }
 
-  /**
-   * Şifre sıfırlama emaili gönder
-   */
   async resetPassword(dto: ResetPasswordDto) {
-    try {
+    return this.handleRequest(async () => {
       const { error } = await this.supabase.getAnonClient().auth.resetPasswordForEmail(
         dto.email,
         { redirectTo: dto.redirectTo },
       );
 
-      if (error) {
-        this.throwAuthError('RESET_PASSWORD_ERROR', error.message, HttpStatus.BAD_REQUEST);
-      }
+      if (error) this.throwError('RESET_PASSWORD_ERROR', error.message, HttpStatus.BAD_REQUEST);
 
       this.logger.log({ message: 'Şifre sıfırlama emaili gönderildi', email: dto.email });
-
       return { success: true, message: 'Şifre sıfırlama linki email adresinize gönderildi' };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Şifre sıfırlama hatası', error: error.message });
-      this.throwAuthError('RESET_PASSWORD_ERROR', 'Şifre sıfırlama emaili gönderilemedi', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    }, 'RESET_PASSWORD_ERROR', 'Şifre sıfırlama emaili gönderilemedi');
   }
 
-  /**
-   * Şifre güncelle (token ile)
-   */
   async updatePassword(token: string, dto: UpdatePasswordDto) {
-    if (!token) {
-      this.throwAuthError('UPDATE_PASSWORD_ERROR', 'Token bulunamadı', HttpStatus.UNAUTHORIZED);
-    }
+    if (!token) this.throwError('UPDATE_PASSWORD_ERROR', 'Token bulunamadı', HttpStatus.UNAUTHORIZED);
 
-    try {
-      // Önce token ile session oluştur
+    return this.handleRequest(async () => {
       const { data: sessionData, error: sessionError } = await this.supabase.getAnonClient().auth.getUser(token);
 
       if (sessionError || !sessionData.user) {
-        this.throwAuthError('UPDATE_PASSWORD_ERROR', 'Geçersiz veya süresi dolmuş token', HttpStatus.UNAUTHORIZED);
+        this.throwError('UPDATE_PASSWORD_ERROR', 'Geçersiz veya süresi dolmuş token', HttpStatus.UNAUTHORIZED);
       }
 
-      // Şifreyi güncelle (admin client ile)
       const { error } = await this.supabase.getAdminClient().auth.admin.updateUserById(
         sessionData.user.id,
         { password: dto.password }
       );
 
-      if (error) {
-        this.throwAuthError('UPDATE_PASSWORD_ERROR', error.message, HttpStatus.BAD_REQUEST);
-      }
+      if (error) this.throwError('UPDATE_PASSWORD_ERROR', error.message, HttpStatus.BAD_REQUEST);
 
       this.logger.log({ message: 'Şifre güncellendi', userId: sessionData.user.id });
-
       return { success: true, message: 'Şifreniz başarıyla güncellendi' };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Şifre güncelleme hatası', error: error.message });
-      this.throwAuthError('UPDATE_PASSWORD_ERROR', 'Şifre güncellenemedi', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    }, 'UPDATE_PASSWORD_ERROR', 'Şifre güncellenemedi');
   }
 
-  /**
-   * Email token doğrula (signup, recovery, invite, email_change)
-   */
   async verifyEmailToken(tokenHash: string, type: string): Promise<any> {
     if (!tokenHash || !type) {
       return { success: false, code: 'INVALID_PARAMS', message: 'Token hash ve type gereklidir' };
@@ -258,7 +174,6 @@ export class AuthService {
       }
 
       this.logger.log({ message: 'Email doğrulandı', userId: data.user?.id, type });
-
       return { success: true, data: { user: data.user, session: data.session } };
     } catch (error) {
       this.logger.error({ message: 'Email doğrulama hatası', error: error.message });
@@ -266,38 +181,22 @@ export class AuthService {
     }
   }
 
-  /**
-   * OAuth URL al (Google/Apple)
-   */
   async getOAuthUrl(provider: OAuthProvider, redirectTo?: string) {
-    try {
+    return this.handleRequest(async () => {
       const { data, error } = await this.supabase.getAnonClient().auth.signInWithOAuth({
         provider,
-        options: {
-          redirectTo,
-          skipBrowserRedirect: true,
-        },
+        options: { redirectTo, skipBrowserRedirect: true },
       });
 
-      if (error) {
-        this.throwAuthError('OAUTH_ERROR', error.message, HttpStatus.BAD_REQUEST);
-      }
+      if (error) this.throwError('OAUTH_ERROR', error.message, HttpStatus.BAD_REQUEST);
 
       this.logger.log({ message: 'OAuth URL oluşturuldu', provider });
-
       return { success: true, data: { url: data.url, provider: data.provider } };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'OAuth URL hatası', error: error.message });
-      this.throwAuthError('OAUTH_ERROR', 'OAuth URL oluşturulamadı', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    }, 'OAUTH_ERROR', 'OAuth URL oluşturulamadı');
   }
 
-  /**
-   * ID Token ile giriş (Mobile Native - Google/Apple)
-   */
   async signInWithIdToken(provider: OAuthProvider, token: string, nonce?: string, accessToken?: string) {
-    try {
+    return this.handleRequest(async () => {
       const { data, error } = await this.supabase.getAnonClient().auth.signInWithIdToken({
         provider,
         token,
@@ -305,19 +204,15 @@ export class AuthService {
         access_token: accessToken,
       });
 
-      if (error) {
-        this.throwAuthError('ID_TOKEN_ERROR', error.message, HttpStatus.UNAUTHORIZED);
-      }
+      if (error) this.throwError('ID_TOKEN_ERROR', error.message, HttpStatus.UNAUTHORIZED);
 
-      // Kullanıcı profili oluştur/güncelle
+      // Kullanıcı profili güncelle
       if (data.user) {
         const metadata = data.user.user_metadata || {};
         const profileUpdate: Record<string, any> = {};
 
-        if (metadata.full_name) profileUpdate.full_name = metadata.full_name;
-        if (metadata.name) profileUpdate.full_name = metadata.name;
-        if (metadata.avatar_url) profileUpdate.avatar_url = metadata.avatar_url;
-        if (metadata.picture) profileUpdate.avatar_url = metadata.picture;
+        if (metadata.full_name || metadata.name) profileUpdate.full_name = metadata.full_name || metadata.name;
+        if (metadata.avatar_url || metadata.picture) profileUpdate.avatar_url = metadata.avatar_url || metadata.picture;
 
         if (Object.keys(profileUpdate).length > 0) {
           await this.supabase.getAdminClient()
@@ -328,13 +223,7 @@ export class AuthService {
       }
 
       this.logger.log({ message: 'ID Token ile giriş başarılı', provider, userId: data.user?.id });
-
       return { success: true, data: { user: data.user, session: data.session } };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'ID Token giriş hatası', error: error.message });
-      this.throwAuthError('ID_TOKEN_ERROR', 'ID Token ile giriş başarısız', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    }, 'ID_TOKEN_ERROR', 'ID Token ile giriş başarısız');
   }
 }
-

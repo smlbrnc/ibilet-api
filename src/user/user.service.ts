@@ -16,17 +16,27 @@ export class UserService {
     throw new HttpException({ success: false, code, message }, status);
   }
 
+  // Ortak hata yakalama wrapper'ı
+  private async handleRequest<T>(
+    operation: () => Promise<T>,
+    errorCode: string,
+    errorMessage: string,
+  ): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      this.logger.error({ message: errorMessage, error: error.message });
+      this.throwError(errorCode, errorMessage, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
   // Token'dan user ID çıkar
   async getUserIdFromToken(token: string): Promise<string> {
-    if (!token) {
-      this.throwError('UNAUTHORIZED', 'Token bulunamadı', HttpStatus.UNAUTHORIZED);
-    }
+    if (!token) this.throwError('UNAUTHORIZED', 'Token bulunamadı', HttpStatus.UNAUTHORIZED);
 
     const { data: { user }, error } = await this.supabase.getAnonClient().auth.getUser(token);
-    
-    if (error || !user) {
-      this.throwError('UNAUTHORIZED', 'Geçersiz token', HttpStatus.UNAUTHORIZED);
-    }
+    if (error || !user) this.throwError('UNAUTHORIZED', 'Geçersiz token', HttpStatus.UNAUTHORIZED);
 
     return user.id;
   }
@@ -34,12 +44,9 @@ export class UserService {
   // ==================== EMAIL CHECK (PUBLIC) ====================
 
   async checkEmail(email: string) {
-    try {
-      if (!email) {
-        this.throwError('EMAIL_REQUIRED', 'Email adresi gereklidir', HttpStatus.BAD_REQUEST);
-      }
+    return this.handleRequest(async () => {
+      if (!email) this.throwError('EMAIL_REQUIRED', 'Email adresi gereklidir', HttpStatus.BAD_REQUEST);
 
-      // user_profiles tablosunda email kontrolü
       const { data, error } = await this.supabase.getAdminClient()
         .from('user_profiles')
         .select('id')
@@ -51,24 +58,14 @@ export class UserService {
         this.throwError('CHECK_EMAIL_ERROR', 'Email kontrolü yapılamadı', HttpStatus.INTERNAL_SERVER_ERROR);
       }
 
-      return { 
-        success: true, 
-        data: { 
-          exists: !!data,
-          email: email.toLowerCase()
-        } 
-      };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Email kontrol hatası', error: error.message });
-      this.throwError('CHECK_EMAIL_ERROR', 'Email kontrolü yapılamadı', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+      return { success: true, data: { exists: !!data, email: email.toLowerCase() } };
+    }, 'CHECK_EMAIL_ERROR', 'Email kontrolü yapılamadı');
   }
 
   // ==================== PROFILE ====================
 
   async getProfile(token: string) {
-    try {
+    return this.handleRequest(async () => {
       const userId = await this.getUserIdFromToken(token);
 
       const { data, error } = await this.supabase.getAdminClient()
@@ -77,20 +74,14 @@ export class UserService {
         .eq('id', userId)
         .single();
 
-      if (error) {
-        this.throwError('PROFILE_ERROR', error.message, HttpStatus.BAD_REQUEST);
-      }
+      if (error) this.throwError('PROFILE_ERROR', error.message, HttpStatus.BAD_REQUEST);
 
       return { success: true, data };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Profil getirme hatası', error: error.message });
-      this.throwError('PROFILE_ERROR', 'Profil getirilemedi', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    }, 'PROFILE_ERROR', 'Profil getirilemedi');
   }
 
   async updateProfile(token: string, dto: UpdateProfileDto) {
-    try {
+    return this.handleRequest(async () => {
       const userId = await this.getUserIdFromToken(token);
 
       const { data, error } = await this.supabase.getAdminClient()
@@ -100,24 +91,17 @@ export class UserService {
         .select()
         .single();
 
-      if (error) {
-        this.throwError('PROFILE_ERROR', error.message, HttpStatus.BAD_REQUEST);
-      }
+      if (error) this.throwError('PROFILE_ERROR', error.message, HttpStatus.BAD_REQUEST);
 
       this.logger.log({ message: 'Profil güncellendi', userId });
-
       return { success: true, data };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Profil güncelleme hatası', error: error.message });
-      this.throwError('PROFILE_ERROR', 'Profil güncellenemedi', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    }, 'PROFILE_ERROR', 'Profil güncellenemedi');
   }
 
   // ==================== FAVORITES ====================
 
   async getFavorites(token: string, type?: string) {
-    try {
+    return this.handleRequest(async () => {
       const userId = await this.getUserIdFromToken(token);
 
       let query = this.supabase.getAdminClient()
@@ -126,26 +110,17 @@ export class UserService {
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
-      if (type) {
-        query = query.eq('type', type);
-      }
+      if (type) query = query.eq('type', type);
 
       const { data, error } = await query;
-
-      if (error) {
-        this.throwError('FAVORITES_ERROR', error.message, HttpStatus.BAD_REQUEST);
-      }
+      if (error) this.throwError('FAVORITES_ERROR', error.message, HttpStatus.BAD_REQUEST);
 
       return { success: true, data };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Favoriler getirme hatası', error: error.message });
-      this.throwError('FAVORITES_ERROR', 'Favoriler getirilemedi', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    }, 'FAVORITES_ERROR', 'Favoriler getirilemedi');
   }
 
   async addFavorite(token: string, dto: CreateFavoriteDto) {
-    try {
+    return this.handleRequest(async () => {
       const userId = await this.getUserIdFromToken(token);
 
       const { data, error } = await this.supabase.getAdminClient()
@@ -154,22 +129,15 @@ export class UserService {
         .select()
         .single();
 
-      if (error) {
-        this.throwError('FAVORITES_ERROR', error.message, HttpStatus.BAD_REQUEST);
-      }
+      if (error) this.throwError('FAVORITES_ERROR', error.message, HttpStatus.BAD_REQUEST);
 
       this.logger.log({ message: 'Favori eklendi', userId, type: dto.type });
-
       return { success: true, data };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Favori ekleme hatası', error: error.message });
-      this.throwError('FAVORITES_ERROR', 'Favori eklenemedi', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    }, 'FAVORITES_ERROR', 'Favori eklenemedi');
   }
 
   async removeFavorite(token: string, id: string) {
-    try {
+    return this.handleRequest(async () => {
       const userId = await this.getUserIdFromToken(token);
 
       const { error } = await this.supabase.getAdminClient()
@@ -178,24 +146,17 @@ export class UserService {
         .eq('id', id)
         .eq('user_id', userId);
 
-      if (error) {
-        this.throwError('FAVORITES_ERROR', error.message, HttpStatus.BAD_REQUEST);
-      }
+      if (error) this.throwError('FAVORITES_ERROR', error.message, HttpStatus.BAD_REQUEST);
 
       this.logger.log({ message: 'Favori silindi', userId, favoriteId: id });
-
       return { success: true, message: 'Favori silindi' };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Favori silme hatası', error: error.message });
-      this.throwError('FAVORITES_ERROR', 'Favori silinemedi', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    }, 'FAVORITES_ERROR', 'Favori silinemedi');
   }
 
   // ==================== TRAVELLERS ====================
 
   async getTravellers(token: string) {
-    try {
+    return this.handleRequest(async () => {
       const userId = await this.getUserIdFromToken(token);
 
       const { data, error } = await this.supabase.getAdminClient()
@@ -205,20 +166,14 @@ export class UserService {
         .order('is_primary', { ascending: false })
         .order('created_at', { ascending: false });
 
-      if (error) {
-        this.throwError('TRAVELLERS_ERROR', error.message, HttpStatus.BAD_REQUEST);
-      }
+      if (error) this.throwError('TRAVELLERS_ERROR', error.message, HttpStatus.BAD_REQUEST);
 
       return { success: true, data };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Yolcular getirme hatası', error: error.message });
-      this.throwError('TRAVELLERS_ERROR', 'Yolcular getirilemedi', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    }, 'TRAVELLERS_ERROR', 'Yolcular getirilemedi');
   }
 
   async getTraveller(token: string, id: string) {
-    try {
+    return this.handleRequest(async () => {
       const userId = await this.getUserIdFromToken(token);
 
       const { data, error } = await this.supabase.getAdminClient()
@@ -228,20 +183,14 @@ export class UserService {
         .eq('user_id', userId)
         .single();
 
-      if (error || !data) {
-        this.throwError('TRAVELLER_NOT_FOUND', 'Yolcu bulunamadı', HttpStatus.NOT_FOUND);
-      }
+      if (error || !data) this.throwError('TRAVELLER_NOT_FOUND', 'Yolcu bulunamadı', HttpStatus.NOT_FOUND);
 
       return { success: true, data };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Yolcu getirme hatası', error: error.message });
-      this.throwError('TRAVELLERS_ERROR', 'Yolcu getirilemedi', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    }, 'TRAVELLERS_ERROR', 'Yolcu getirilemedi');
   }
 
   async addTraveller(token: string, dto: CreateTravellerDto) {
-    try {
+    return this.handleRequest(async () => {
       const userId = await this.getUserIdFromToken(token);
 
       const { data, error } = await this.supabase.getAdminClient()
@@ -250,22 +199,15 @@ export class UserService {
         .select()
         .single();
 
-      if (error) {
-        this.throwError('TRAVELLERS_ERROR', error.message, HttpStatus.BAD_REQUEST);
-      }
+      if (error) this.throwError('TRAVELLERS_ERROR', error.message, HttpStatus.BAD_REQUEST);
 
       this.logger.log({ message: 'Yolcu eklendi', userId, travellerId: data.id });
-
       return { success: true, data };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Yolcu ekleme hatası', error: error.message });
-      this.throwError('TRAVELLERS_ERROR', 'Yolcu eklenemedi', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    }, 'TRAVELLERS_ERROR', 'Yolcu eklenemedi');
   }
 
   async updateTraveller(token: string, id: string, dto: UpdateTravellerDto) {
-    try {
+    return this.handleRequest(async () => {
       const userId = await this.getUserIdFromToken(token);
 
       const { data, error } = await this.supabase.getAdminClient()
@@ -276,22 +218,15 @@ export class UserService {
         .select()
         .single();
 
-      if (error) {
-        this.throwError('TRAVELLERS_ERROR', error.message, HttpStatus.BAD_REQUEST);
-      }
+      if (error) this.throwError('TRAVELLERS_ERROR', error.message, HttpStatus.BAD_REQUEST);
 
       this.logger.log({ message: 'Yolcu güncellendi', userId, travellerId: id });
-
       return { success: true, data };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Yolcu güncelleme hatası', error: error.message });
-      this.throwError('TRAVELLERS_ERROR', 'Yolcu güncellenemedi', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    }, 'TRAVELLERS_ERROR', 'Yolcu güncellenemedi');
   }
 
   async removeTraveller(token: string, id: string) {
-    try {
+    return this.handleRequest(async () => {
       const userId = await this.getUserIdFromToken(token);
 
       const { error } = await this.supabase.getAdminClient()
@@ -300,24 +235,17 @@ export class UserService {
         .eq('id', id)
         .eq('user_id', userId);
 
-      if (error) {
-        this.throwError('TRAVELLERS_ERROR', error.message, HttpStatus.BAD_REQUEST);
-      }
+      if (error) this.throwError('TRAVELLERS_ERROR', error.message, HttpStatus.BAD_REQUEST);
 
       this.logger.log({ message: 'Yolcu silindi', userId, travellerId: id });
-
       return { success: true, message: 'Yolcu silindi' };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Yolcu silme hatası', error: error.message });
-      this.throwError('TRAVELLERS_ERROR', 'Yolcu silinemedi', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    }, 'TRAVELLERS_ERROR', 'Yolcu silinemedi');
   }
 
   // ==================== NOTIFICATIONS ====================
 
   async getNotifications(token: string, options?: { unreadOnly?: boolean; limit?: number }) {
-    try {
+    return this.handleRequest(async () => {
       const userId = await this.getUserIdFromToken(token);
 
       let query = this.supabase.getAdminClient()
@@ -326,31 +254,18 @@ export class UserService {
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
-      if (options?.unreadOnly) {
-        query = query.eq('is_read', false);
-      }
-      if (options?.limit) {
-        query = query.limit(options.limit);
-      }
+      if (options?.unreadOnly) query = query.eq('is_read', false);
+      if (options?.limit) query = query.limit(options.limit);
 
       const { data, error } = await query;
+      if (error) this.throwError('NOTIFICATIONS_ERROR', error.message, HttpStatus.BAD_REQUEST);
 
-      if (error) {
-        this.throwError('NOTIFICATIONS_ERROR', error.message, HttpStatus.BAD_REQUEST);
-      }
-
-      const unreadCount = data?.filter(n => !n.is_read).length || 0;
-
-      return { success: true, data, unreadCount };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Bildirimler getirme hatası', error: error.message });
-      this.throwError('NOTIFICATIONS_ERROR', 'Bildirimler getirilemedi', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+      return { success: true, data, unreadCount: data?.filter(n => !n.is_read).length || 0 };
+    }, 'NOTIFICATIONS_ERROR', 'Bildirimler getirilemedi');
   }
 
   async markNotificationAsRead(token: string, id: string) {
-    try {
+    return this.handleRequest(async () => {
       const userId = await this.getUserIdFromToken(token);
 
       const { error } = await this.supabase.getAdminClient()
@@ -359,20 +274,14 @@ export class UserService {
         .eq('id', id)
         .eq('user_id', userId);
 
-      if (error) {
-        this.throwError('NOTIFICATIONS_ERROR', error.message, HttpStatus.BAD_REQUEST);
-      }
+      if (error) this.throwError('NOTIFICATIONS_ERROR', error.message, HttpStatus.BAD_REQUEST);
 
       return { success: true, message: 'Bildirim okundu olarak işaretlendi' };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Bildirim güncelleme hatası', error: error.message });
-      this.throwError('NOTIFICATIONS_ERROR', 'Bildirim güncellenemedi', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    }, 'NOTIFICATIONS_ERROR', 'Bildirim güncellenemedi');
   }
 
   async markAllNotificationsAsRead(token: string) {
-    try {
+    return this.handleRequest(async () => {
       const userId = await this.getUserIdFromToken(token);
 
       const { error } = await this.supabase.getAdminClient()
@@ -381,22 +290,16 @@ export class UserService {
         .eq('user_id', userId)
         .eq('is_read', false);
 
-      if (error) {
-        this.throwError('NOTIFICATIONS_ERROR', error.message, HttpStatus.BAD_REQUEST);
-      }
+      if (error) this.throwError('NOTIFICATIONS_ERROR', error.message, HttpStatus.BAD_REQUEST);
 
       return { success: true, message: 'Tüm bildirimler okundu olarak işaretlendi' };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Bildirimler güncelleme hatası', error: error.message });
-      this.throwError('NOTIFICATIONS_ERROR', 'Bildirimler güncellenemedi', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    }, 'NOTIFICATIONS_ERROR', 'Bildirimler güncellenemedi');
   }
 
   // ==================== BOOKINGS ====================
 
   async getBookings(token: string, options?: { status?: string; limit?: number; offset?: number }) {
-    try {
+    return this.handleRequest(async () => {
       const userId = await this.getUserIdFromToken(token);
 
       let query = this.supabase.getAdminClient()
@@ -406,32 +309,19 @@ export class UserService {
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
-      if (options?.status) {
-        query = query.eq('status', options.status);
-      }
-      if (options?.limit) {
-        query = query.limit(options.limit);
-      }
-      if (options?.offset) {
-        query = query.range(options.offset, options.offset + (options.limit || 10) - 1);
-      }
+      if (options?.status) query = query.eq('status', options.status);
+      if (options?.limit) query = query.limit(options.limit);
+      if (options?.offset) query = query.range(options.offset, options.offset + (options.limit || 10) - 1);
 
       const { data, error } = await query;
-
-      if (error) {
-        this.throwError('BOOKINGS_ERROR', error.message, HttpStatus.BAD_REQUEST);
-      }
+      if (error) this.throwError('BOOKINGS_ERROR', error.message, HttpStatus.BAD_REQUEST);
 
       return { success: true, data };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Rezervasyonlar getirme hatası', error: error.message });
-      this.throwError('BOOKINGS_ERROR', 'Rezervasyonlar getirilemedi', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    }, 'BOOKINGS_ERROR', 'Rezervasyonlar getirilemedi');
   }
 
   async getBooking(token: string, id: string) {
-    try {
+    return this.handleRequest(async () => {
       const userId = await this.getUserIdFromToken(token);
 
       const { data, error } = await this.supabase.getAdminClient()
@@ -442,22 +332,16 @@ export class UserService {
         .eq('user_id', userId)
         .single();
 
-      if (error || !data) {
-        this.throwError('BOOKING_NOT_FOUND', 'Rezervasyon bulunamadı', HttpStatus.NOT_FOUND);
-      }
+      if (error || !data) this.throwError('BOOKING_NOT_FOUND', 'Rezervasyon bulunamadı', HttpStatus.NOT_FOUND);
 
       return { success: true, data };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Rezervasyon getirme hatası', error: error.message });
-      this.throwError('BOOKINGS_ERROR', 'Rezervasyon getirilemedi', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    }, 'BOOKINGS_ERROR', 'Rezervasyon getirilemedi');
   }
 
   // ==================== TRANSACTIONS ====================
 
   async getTransactions(token: string, options?: { limit?: number; offset?: number }) {
-    try {
+    return this.handleRequest(async () => {
       const userId = await this.getUserIdFromToken(token);
 
       let query = this.supabase.getAdminClient()
@@ -466,29 +350,18 @@ export class UserService {
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
-      if (options?.limit) {
-        query = query.limit(options.limit);
-      }
-      if (options?.offset) {
-        query = query.range(options.offset, options.offset + (options.limit || 10) - 1);
-      }
+      if (options?.limit) query = query.limit(options.limit);
+      if (options?.offset) query = query.range(options.offset, options.offset + (options.limit || 10) - 1);
 
       const { data, error } = await query;
-
-      if (error) {
-        this.throwError('TRANSACTIONS_ERROR', error.message, HttpStatus.BAD_REQUEST);
-      }
+      if (error) this.throwError('TRANSACTIONS_ERROR', error.message, HttpStatus.BAD_REQUEST);
 
       return { success: true, data };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'İşlemler getirme hatası', error: error.message });
-      this.throwError('TRANSACTIONS_ERROR', 'İşlemler getirilemedi', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    }, 'TRANSACTIONS_ERROR', 'İşlemler getirilemedi');
   }
 
   async getTransaction(token: string, id: string) {
-    try {
+    return this.handleRequest(async () => {
       const userId = await this.getUserIdFromToken(token);
 
       const { data, error } = await this.supabase.getAdminClient()
@@ -498,22 +371,16 @@ export class UserService {
         .eq('user_id', userId)
         .single();
 
-      if (error || !data) {
-        this.throwError('TRANSACTION_NOT_FOUND', 'İşlem bulunamadı', HttpStatus.NOT_FOUND);
-      }
+      if (error || !data) this.throwError('TRANSACTION_NOT_FOUND', 'İşlem bulunamadı', HttpStatus.NOT_FOUND);
 
       return { success: true, data };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'İşlem getirme hatası', error: error.message });
-      this.throwError('TRANSACTIONS_ERROR', 'İşlem getirilemedi', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    }, 'TRANSACTIONS_ERROR', 'İşlem getirilemedi');
   }
 
   // ==================== USER DISCOUNTS ====================
 
   async getUserDiscounts(token: string, options?: { activeOnly?: boolean }) {
-    try {
+    return this.handleRequest(async () => {
       const userId = await this.getUserIdFromToken(token);
 
       let query = this.supabase.getAdminClient()
@@ -523,27 +390,18 @@ export class UserService {
         .order('created_at', { ascending: false });
 
       if (options?.activeOnly) {
-        query = query
-          .eq('is_used', false)
-          .gte('expires_at', new Date().toISOString());
+        query = query.eq('is_used', false).gte('expires_at', new Date().toISOString());
       }
 
       const { data, error } = await query;
-
-      if (error) {
-        this.throwError('USER_DISCOUNTS_ERROR', error.message, HttpStatus.BAD_REQUEST);
-      }
+      if (error) this.throwError('USER_DISCOUNTS_ERROR', error.message, HttpStatus.BAD_REQUEST);
 
       return { success: true, data };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Kullanıcı indirimleri getirme hatası', error: error.message });
-      this.throwError('USER_DISCOUNTS_ERROR', 'İndirimler getirilemedi', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    }, 'USER_DISCOUNTS_ERROR', 'İndirimler getirilemedi');
   }
 
   async validateUserDiscount(token: string, code: string) {
-    try {
+    return this.handleRequest(async () => {
       const userId = await this.getUserIdFromToken(token);
 
       const { data, error } = await this.supabase.getAdminClient()
@@ -555,68 +413,47 @@ export class UserService {
         .gte('expires_at', new Date().toISOString())
         .single();
 
-      if (error || !data) {
-        this.throwError('DISCOUNT_INVALID', 'Geçersiz veya kullanılmış indirim kodu', HttpStatus.NOT_FOUND);
-      }
+      if (error || !data) this.throwError('DISCOUNT_INVALID', 'Geçersiz veya kullanılmış indirim kodu', HttpStatus.NOT_FOUND);
 
       return { success: true, data };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Kullanıcı indirimi doğrulama hatası', error: error.message });
-      this.throwError('USER_DISCOUNTS_ERROR', 'İndirim kodu doğrulanamadı', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    }, 'USER_DISCOUNTS_ERROR', 'İndirim kodu doğrulanamadı');
   }
 
   // ==================== AVATAR ====================
 
   async uploadAvatar(token: string, file: Express.Multer.File) {
-    try {
+    return this.handleRequest(async () => {
       const userId = await this.getUserIdFromToken(token);
 
-      // Dosya kontrolü
-      if (!file) {
-        this.throwError('AVATAR_ERROR', 'Dosya bulunamadı', HttpStatus.BAD_REQUEST);
-      }
+      if (!file) this.throwError('AVATAR_ERROR', 'Dosya bulunamadı', HttpStatus.BAD_REQUEST);
+      if (file.size > 1048576) this.throwError('AVATAR_ERROR', 'Dosya boyutu 1 MB\'ı geçemez', HttpStatus.BAD_REQUEST);
 
-      // Dosya boyutu kontrolü (1 MB)
-      if (file.size > 1048576) {
-        this.throwError('AVATAR_ERROR', 'Dosya boyutu 1 MB\'ı geçemez', HttpStatus.BAD_REQUEST);
-      }
-
-      // MIME type kontrolü
       const allowedTypes = ['image/jpeg', 'image/png'];
       if (!allowedTypes.includes(file.mimetype)) {
         this.throwError('AVATAR_ERROR', 'Sadece JPEG ve PNG dosyaları kabul edilir', HttpStatus.BAD_REQUEST);
       }
 
-      // Dosya uzantısını belirle
       const ext = file.mimetype === 'image/png' ? 'png' : 'jpg';
       const filePath = `${userId}/avatar.${ext}`;
 
-      // Önce mevcut avatar'ı sil (varsa)
+      // Mevcut avatar'ları sil ve yenisini yükle
       await this.supabase.getAdminClient().storage
         .from('avatars')
         .remove([`${userId}/avatar.jpg`, `${userId}/avatar.png`]);
 
-      // Yeni dosyayı yükle
       const { error: uploadError } = await this.supabase.getAdminClient().storage
         .from('avatars')
-        .upload(filePath, file.buffer, {
-          contentType: file.mimetype,
-          upsert: true,
-        });
+        .upload(filePath, file.buffer, { contentType: file.mimetype, upsert: true });
 
       if (uploadError) {
         this.logger.error({ message: 'Avatar yükleme hatası', error: uploadError.message });
         this.throwError('AVATAR_ERROR', 'Avatar yüklenemedi', HttpStatus.INTERNAL_SERVER_ERROR);
       }
 
-      // Public URL oluştur
       const { data: { publicUrl } } = this.supabase.getAdminClient().storage
         .from('avatars')
         .getPublicUrl(filePath);
 
-      // Profile'a URL'yi kaydet
       const { error: updateError } = await this.supabase.getAdminClient()
         .from('user_profiles')
         .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
@@ -628,20 +465,14 @@ export class UserService {
       }
 
       this.logger.log({ message: 'Avatar yüklendi', userId });
-
       return { success: true, data: { avatar_url: publicUrl } };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Avatar yükleme hatası', error: error.message });
-      this.throwError('AVATAR_ERROR', 'Avatar yüklenemedi', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    }, 'AVATAR_ERROR', 'Avatar yüklenemedi');
   }
 
   async deleteAvatar(token: string) {
-    try {
+    return this.handleRequest(async () => {
       const userId = await this.getUserIdFromToken(token);
 
-      // Her iki olası dosyayı da sil
       const { error: deleteError } = await this.supabase.getAdminClient().storage
         .from('avatars')
         .remove([`${userId}/avatar.jpg`, `${userId}/avatar.png`]);
@@ -651,7 +482,6 @@ export class UserService {
         this.throwError('AVATAR_ERROR', 'Avatar silinemedi', HttpStatus.INTERNAL_SERVER_ERROR);
       }
 
-      // Profile'dan URL'yi temizle
       const { error: updateError } = await this.supabase.getAdminClient()
         .from('user_profiles')
         .update({ avatar_url: null, updated_at: new Date().toISOString() })
@@ -663,13 +493,7 @@ export class UserService {
       }
 
       this.logger.log({ message: 'Avatar silindi', userId });
-
       return { success: true, message: 'Avatar silindi' };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Avatar silme hatası', error: error.message });
-      this.throwError('AVATAR_ERROR', 'Avatar silinemedi', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    }, 'AVATAR_ERROR', 'Avatar silinemedi');
   }
 }
-
