@@ -566,5 +566,110 @@ export class UserService {
       this.throwError('USER_DISCOUNTS_ERROR', 'İndirim kodu doğrulanamadı', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
+
+  // ==================== AVATAR ====================
+
+  async uploadAvatar(token: string, file: Express.Multer.File) {
+    try {
+      const userId = await this.getUserIdFromToken(token);
+
+      // Dosya kontrolü
+      if (!file) {
+        this.throwError('AVATAR_ERROR', 'Dosya bulunamadı', HttpStatus.BAD_REQUEST);
+      }
+
+      // Dosya boyutu kontrolü (1 MB)
+      if (file.size > 1048576) {
+        this.throwError('AVATAR_ERROR', 'Dosya boyutu 1 MB\'ı geçemez', HttpStatus.BAD_REQUEST);
+      }
+
+      // MIME type kontrolü
+      const allowedTypes = ['image/jpeg', 'image/png'];
+      if (!allowedTypes.includes(file.mimetype)) {
+        this.throwError('AVATAR_ERROR', 'Sadece JPEG ve PNG dosyaları kabul edilir', HttpStatus.BAD_REQUEST);
+      }
+
+      // Dosya uzantısını belirle
+      const ext = file.mimetype === 'image/png' ? 'png' : 'jpg';
+      const filePath = `${userId}/avatar.${ext}`;
+
+      // Önce mevcut avatar'ı sil (varsa)
+      await this.supabase.getAdminClient().storage
+        .from('avatars')
+        .remove([`${userId}/avatar.jpg`, `${userId}/avatar.png`]);
+
+      // Yeni dosyayı yükle
+      const { error: uploadError } = await this.supabase.getAdminClient().storage
+        .from('avatars')
+        .upload(filePath, file.buffer, {
+          contentType: file.mimetype,
+          upsert: true,
+        });
+
+      if (uploadError) {
+        this.logger.error({ message: 'Avatar yükleme hatası', error: uploadError.message });
+        this.throwError('AVATAR_ERROR', 'Avatar yüklenemedi', HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+
+      // Public URL oluştur
+      const { data: { publicUrl } } = this.supabase.getAdminClient().storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      // Profile'a URL'yi kaydet
+      const { error: updateError } = await this.supabase.getAdminClient()
+        .from('user_profiles')
+        .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
+        .eq('id', userId);
+
+      if (updateError) {
+        this.logger.error({ message: 'Profil güncelleme hatası', error: updateError.message });
+        this.throwError('AVATAR_ERROR', 'Avatar URL kaydedilemedi', HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+
+      this.logger.log({ message: 'Avatar yüklendi', userId });
+
+      return { success: true, data: { avatar_url: publicUrl } };
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      this.logger.error({ message: 'Avatar yükleme hatası', error: error.message });
+      this.throwError('AVATAR_ERROR', 'Avatar yüklenemedi', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  async deleteAvatar(token: string) {
+    try {
+      const userId = await this.getUserIdFromToken(token);
+
+      // Her iki olası dosyayı da sil
+      const { error: deleteError } = await this.supabase.getAdminClient().storage
+        .from('avatars')
+        .remove([`${userId}/avatar.jpg`, `${userId}/avatar.png`]);
+
+      if (deleteError) {
+        this.logger.error({ message: 'Avatar silme hatası', error: deleteError.message });
+        this.throwError('AVATAR_ERROR', 'Avatar silinemedi', HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+
+      // Profile'dan URL'yi temizle
+      const { error: updateError } = await this.supabase.getAdminClient()
+        .from('user_profiles')
+        .update({ avatar_url: null, updated_at: new Date().toISOString() })
+        .eq('id', userId);
+
+      if (updateError) {
+        this.logger.error({ message: 'Profil güncelleme hatası', error: updateError.message });
+        this.throwError('AVATAR_ERROR', 'Avatar URL temizlenemedi', HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+
+      this.logger.log({ message: 'Avatar silindi', userId });
+
+      return { success: true, message: 'Avatar silindi' };
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      this.logger.error({ message: 'Avatar silme hatası', error: error.message });
+      this.throwError('AVATAR_ERROR', 'Avatar silinemedi', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
 }
 

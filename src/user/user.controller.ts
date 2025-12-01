@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, Headers } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, Headers, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { UserService } from './user.service';
 import { UpdateProfileDto, CreateFavoriteDto, CreateTravellerDto, UpdateTravellerDto } from './dto';
 
@@ -43,6 +44,38 @@ export class UserController {
     @Body() dto: UpdateProfileDto,
   ) {
     return this.userService.updateProfile(this.getToken(authorization), dto);
+  }
+
+  // ==================== AVATAR ====================
+
+  @Post('avatar')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Avatar yükle' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary', description: 'Avatar dosyası (JPEG/PNG, max 1MB)' },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Avatar yüklendi' })
+  @ApiResponse({ status: 400, description: 'Geçersiz dosya' })
+  @ApiResponse({ status: 401, description: 'Yetkisiz erişim' })
+  async uploadAvatar(
+    @Headers('authorization') authorization: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.userService.uploadAvatar(this.getToken(authorization), file);
+  }
+
+  @Delete('avatar')
+  @ApiOperation({ summary: 'Avatar sil' })
+  @ApiResponse({ status: 200, description: 'Avatar silindi' })
+  @ApiResponse({ status: 401, description: 'Yetkisiz erişim' })
+  async deleteAvatar(@Headers('authorization') authorization: string) {
+    return this.userService.deleteAvatar(this.getToken(authorization));
   }
 
   // ==================== FAVORITES ====================
