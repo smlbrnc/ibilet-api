@@ -1,9 +1,9 @@
-import { Controller, Post, Get, Body, Headers, Query, Res } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { Controller, Post, Get, Body, Headers, Query, Res, Param } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoggerService } from '../common/logger/logger.service';
-import { SignupDto, SigninDto, RefreshTokenDto, MagicLinkDto, ResetPasswordDto, UpdatePasswordDto } from './dto';
+import { SignupDto, SigninDto, RefreshTokenDto, MagicLinkDto, ResetPasswordDto, UpdatePasswordDto, OAuthProvider, IdTokenSignInDto } from './dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -122,6 +122,27 @@ export class AuthController {
       this.logger.warn({ message: 'Email doğrulama başarısız', type, error: result.code });
       return res.redirect(`${frontendUrl}/auth/callback?${params.toString()}`);
     }
+  }
+
+  @Get('oauth/:provider')
+  @ApiOperation({ summary: 'OAuth URL al (Google/Apple)' })
+  @ApiParam({ name: 'provider', enum: OAuthProvider, description: 'OAuth provider' })
+  @ApiQuery({ name: 'redirect_to', required: false, description: 'Başarılı giriş sonrası yönlendirilecek URL' })
+  @ApiResponse({ status: 200, description: 'OAuth URL döndürüldü' })
+  @ApiResponse({ status: 400, description: 'Geçersiz provider' })
+  async getOAuthUrl(
+    @Param('provider') provider: OAuthProvider,
+    @Query('redirect_to') redirectTo?: string,
+  ) {
+    return this.authService.getOAuthUrl(provider, redirectTo);
+  }
+
+  @Post('oauth/token')
+  @ApiOperation({ summary: 'ID Token ile giriş (Mobile Native)' })
+  @ApiResponse({ status: 200, description: 'Giriş başarılı' })
+  @ApiResponse({ status: 401, description: 'Geçersiz token' })
+  async signInWithIdToken(@Body() dto: IdTokenSignInDto) {
+    return this.authService.signInWithIdToken(dto.provider, dto.token, dto.nonce, dto.accessToken);
   }
 }
 

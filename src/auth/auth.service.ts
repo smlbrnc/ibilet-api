@@ -1,7 +1,7 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { SupabaseService } from '../common/services/supabase.service';
 import { LoggerService } from '../common/logger/logger.service';
-import { SignupDto, SigninDto, RefreshTokenDto, MagicLinkDto, ResetPasswordDto, UpdatePasswordDto } from './dto';
+import { SignupDto, SigninDto, RefreshTokenDto, MagicLinkDto, ResetPasswordDto, UpdatePasswordDto, OAuthProvider } from './dto';
 
 @Injectable()
 export class AuthService {
@@ -263,6 +263,77 @@ export class AuthService {
     } catch (error) {
       this.logger.error({ message: 'Email doğrulama hatası', error: error.message });
       return { success: false, code: 'VERIFICATION_ERROR', message: 'Email doğrulama başarısız' };
+    }
+  }
+
+  /**
+   * OAuth URL al (Google/Apple)
+   */
+  async getOAuthUrl(provider: OAuthProvider, redirectTo?: string) {
+    try {
+      const { data, error } = await this.supabase.getAnonClient().auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+        },
+      });
+
+      if (error) {
+        this.throwAuthError('OAUTH_ERROR', error.message, HttpStatus.BAD_REQUEST);
+      }
+
+      this.logger.log({ message: 'OAuth URL oluşturuldu', provider });
+
+      return { success: true, data: { url: data.url, provider: data.provider } };
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      this.logger.error({ message: 'OAuth URL hatası', error: error.message });
+      this.throwAuthError('OAUTH_ERROR', 'OAuth URL oluşturulamadı', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  /**
+   * ID Token ile giriş (Mobile Native - Google/Apple)
+   */
+  async signInWithIdToken(provider: OAuthProvider, token: string, nonce?: string, accessToken?: string) {
+    try {
+      const { data, error } = await this.supabase.getAnonClient().auth.signInWithIdToken({
+        provider,
+        token,
+        nonce,
+        access_token: accessToken,
+      });
+
+      if (error) {
+        this.throwAuthError('ID_TOKEN_ERROR', error.message, HttpStatus.UNAUTHORIZED);
+      }
+
+      // Kullanıcı profili oluştur/güncelle
+      if (data.user) {
+        const metadata = data.user.user_metadata || {};
+        const profileUpdate: Record<string, any> = {};
+
+        if (metadata.full_name) profileUpdate.full_name = metadata.full_name;
+        if (metadata.name) profileUpdate.full_name = metadata.name;
+        if (metadata.avatar_url) profileUpdate.avatar_url = metadata.avatar_url;
+        if (metadata.picture) profileUpdate.avatar_url = metadata.picture;
+
+        if (Object.keys(profileUpdate).length > 0) {
+          await this.supabase.getAdminClient()
+            .from('user_profiles')
+            .update({ ...profileUpdate, updated_at: new Date().toISOString() })
+            .eq('id', data.user.id);
+        }
+      }
+
+      this.logger.log({ message: 'ID Token ile giriş başarılı', provider, userId: data.user?.id });
+
+      return { success: true, data: { user: data.user, session: data.session } };
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      this.logger.error({ message: 'ID Token giriş hatası', error: error.message });
+      this.throwAuthError('ID_TOKEN_ERROR', 'ID Token ile giriş başarısız', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 }
