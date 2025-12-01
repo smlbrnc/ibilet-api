@@ -224,5 +224,48 @@ export class CmsService {
       this.throwError('TREND_FLIGHTS_ERROR', 'Trend uçuşlar getirilemedi', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
+
+  // ==================== STATIC PAGES ====================
+
+  async getStaticPages() {
+    try {
+      const { data, error } = await this.supabase.getAdminClient()
+        .from('static_pages')
+        .select('slug, title, meta_description, updated_at')
+        .eq('is_published', true)
+        .order('title', { ascending: true });
+
+      if (error) {
+        this.throwError('STATIC_PAGES_ERROR', error.message, HttpStatus.BAD_REQUEST);
+      }
+
+      return { success: true, data };
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      this.logger.error({ message: 'Statik sayfa listesi hatası', error: error.message });
+      this.throwError('STATIC_PAGES_ERROR', 'Sayfalar getirilemedi', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  async getStaticPageBySlug(slug: string) {
+    try {
+      const { data, error } = await this.supabase.getAdminClient()
+        .from('static_pages')
+        .select('*')
+        .eq('slug', slug)
+        .eq('is_published', true)
+        .single();
+
+      if (error || !data) {
+        this.throwError('PAGE_NOT_FOUND', 'Sayfa bulunamadı', HttpStatus.NOT_FOUND);
+      }
+
+      return { success: true, data };
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      this.logger.error({ message: 'Statik sayfa detay hatası', error: error.message });
+      this.throwError('PAGE_ERROR', 'Sayfa getirilemedi', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
 }
 

@@ -94,5 +94,22 @@ export class CmsController {
   async getTrendFlights(@Query('limit') limit?: string) {
     return this.cmsService.getTrendFlights(limit ? parseInt(limit, 10) : 6);
   }
+
+  // ==================== STATIC PAGES ====================
+
+  @Get('pages')
+  @ApiOperation({ summary: 'Statik sayfa listesini getir' })
+  @ApiResponse({ status: 200, description: 'Sayfa listesi' })
+  async getStaticPages() {
+    return this.cmsService.getStaticPages();
+  }
+
+  @Get('pages/:slug')
+  @ApiOperation({ summary: 'Statik sayfa detayını getir' })
+  @ApiResponse({ status: 200, description: 'Sayfa detayı' })
+  @ApiResponse({ status: 404, description: 'Sayfa bulunamadı' })
+  async getStaticPageBySlug(@Param('slug') slug: string) {
+    return this.cmsService.getStaticPageBySlug(slug);
+  }
 }
 
