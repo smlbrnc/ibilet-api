@@ -283,5 +283,43 @@ export class UserController {
   ) {
     return this.userService.validateUserDiscount(this.getToken(authorization), code);
   }
+
+  // ==================== SESSIONS ====================
+
+  @Get('sessions')
+  @ApiOperation({ summary: 'Aktif oturumları listele' })
+  @ApiQuery({ name: 'current_session_id', required: false, description: 'Mevcut oturum ID (Bu cihaz işaretlemesi için)' })
+  @ApiResponse({ status: 200, description: 'Oturum listesi' })
+  @ApiResponse({ status: 401, description: 'Yetkisiz erişim' })
+  async getSessions(
+    @Headers('authorization') authorization: string,
+    @Query('current_session_id') currentSessionId?: string,
+  ) {
+    return this.userService.getSessions(this.getToken(authorization), currentSessionId);
+  }
+
+  @Delete('sessions/:id')
+  @ApiOperation({ summary: 'Belirli bir oturumu sonlandır' })
+  @ApiResponse({ status: 200, description: 'Oturum sonlandırıldı' })
+  @ApiResponse({ status: 404, description: 'Oturum bulunamadı' })
+  @ApiResponse({ status: 401, description: 'Yetkisiz erişim' })
+  async terminateSession(
+    @Headers('authorization') authorization: string,
+    @Param('id') id: string,
+  ) {
+    return this.userService.terminateSession(this.getToken(authorization), id);
+  }
+
+  @Delete('sessions')
+  @ApiOperation({ summary: 'Mevcut oturum hariç tüm oturumları sonlandır' })
+  @ApiQuery({ name: 'current_session_id', required: true, description: 'Mevcut oturum ID (Silinmeyecek)' })
+  @ApiResponse({ status: 200, description: 'Diğer oturumlar sonlandırıldı' })
+  @ApiResponse({ status: 401, description: 'Yetkisiz erişim' })
+  async terminateOtherSessions(
+    @Headers('authorization') authorization: string,
+    @Query('current_session_id') currentSessionId: string,
+  ) {
+    return this.userService.terminateOtherSessions(this.getToken(authorization), currentSessionId);
+  }
 }
 

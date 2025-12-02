@@ -2,6 +2,7 @@ import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { SupabaseService } from '../common/services/supabase.service';
 import { LoggerService } from '../common/logger/logger.service';
 import { UpdateProfileDto, CreateFavoriteDto, CreateTravellerDto, UpdateTravellerDto } from './dto';
+import { parseUserAgent, formatSessionDisplay } from '../common/utils/user-agent.util';
 
 @Injectable()
 export class UserService {
@@ -495,5 +496,69 @@ export class UserService {
       this.logger.log({ message: 'Avatar silindi', userId });
       return { success: true, message: 'Avatar silindi' };
     }, 'AVATAR_ERROR', 'Avatar silinemedi');
+  }
+
+  // ==================== SESSIONS ====================
+
+  async getSessions(token: string, currentSessionId?: string) {
+    return this.handleRequest(async () => {
+      const userId = await this.getUserIdFromToken(token);
+
+      const { data, error } = await this.supabase.getAdminClient()
+        .rpc('get_user_sessions', { p_user_id: userId });
+
+      if (error) this.throwError('SESSIONS_ERROR', error.message, HttpStatus.BAD_REQUEST);
+
+      const sessions = (data || []).map((session: { id: string; user_agent: string; ip: string; created_at: string; refreshed_at: string; tag: string }) => {
+        const parsed = parseUserAgent(session.user_agent);
+        return {
+          id: session.id,
+          device: parsed.device,
+          browser: parsed.browser,
+          os: parsed.os,
+          display: formatSessionDisplay(parsed),
+          ip: session.ip,
+          created_at: session.created_at,
+          last_active: session.refreshed_at || session.created_at,
+          is_current: currentSessionId ? session.id === currentSessionId : false,
+          tag: session.tag,
+        };
+      });
+
+      return { success: true, data: sessions };
+    }, 'SESSIONS_ERROR', 'Oturumlar getirilemedi');
+  }
+
+  async terminateSession(token: string, sessionId: string) {
+    return this.handleRequest(async () => {
+      const userId = await this.getUserIdFromToken(token);
+
+      const { data, error } = await this.supabase.getAdminClient()
+        .rpc('terminate_user_session', { p_user_id: userId, p_session_id: sessionId });
+
+      if (error) this.throwError('SESSIONS_ERROR', error.message, HttpStatus.BAD_REQUEST);
+      if (!data) this.throwError('SESSION_NOT_FOUND', 'Oturum bulunamadı', HttpStatus.NOT_FOUND);
+
+      this.logger.log({ message: 'Oturum sonlandırıldı', userId, sessionId });
+      return { success: true, message: 'Oturum sonlandırıldı' };
+    }, 'SESSIONS_ERROR', 'Oturum sonlandırılamadı');
+  }
+
+  async terminateOtherSessions(token: string, currentSessionId: string) {
+    return this.handleRequest(async () => {
+      const userId = await this.getUserIdFromToken(token);
+
+      if (!currentSessionId) {
+        this.throwError('SESSIONS_ERROR', 'Mevcut oturum ID gerekli', HttpStatus.BAD_REQUEST);
+      }
+
+      const { data, error } = await this.supabase.getAdminClient()
+        .rpc('terminate_other_sessions', { p_user_id: userId, p_current_session_id: currentSessionId });
+
+      if (error) this.throwError('SESSIONS_ERROR', error.message, HttpStatus.BAD_REQUEST);
+
+      this.logger.log({ message: 'Diğer oturumlar sonlandırıldı', userId, count: data, keptSessionId: currentSessionId });
+      return { success: true, message: 'Diğer tüm oturumlar sonlandırıldı', terminatedCount: data };
+    }, 'SESSIONS_ERROR', 'Oturumlar sonlandırılamadı');
   }
 }

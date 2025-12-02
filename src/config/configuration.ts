@@ -87,15 +87,15 @@ export default () => ({
     baseUrl:
       process.env.NODE_ENV === 'production'
         ? process.env.YOLCU360_URL
-        : process.env.YOLCU360_TEST_URL,
+        : process.env.YOLCU360_URL,
     apiKey:
       process.env.NODE_ENV === 'production'
         ? process.env.YOLCU360_KEY
-        : process.env.YOLCU360_TEST_KEY,
+        : process.env.YOLCU360_KEY,
     apiSecret:
       process.env.NODE_ENV === 'production'
         ? process.env.YOLCU360_SECRET
-        : process.env.YOLCU360_TEST_SECRET,
+        : process.env.YOLCU360_SECRET,
   },
 });
 

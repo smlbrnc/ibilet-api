@@ -4,6 +4,7 @@ import { IsEmail, IsString, IsNotEmpty, IsOptional, IsEnum } from 'class-validat
 export enum ContactCategory {
   GENERAL = 'general',
   BOOKING = 'booking',
+  PAYMENT = 'payment',
   REFUND = 'refund',
   COMPLAINT = 'complaint',
   SUGGESTION = 'suggestion',

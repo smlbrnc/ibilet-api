@@ -62,7 +62,7 @@ export class AuthService {
       this.logger.log({ message: 'Kullanıcı kaydedildi', email: dto.email });
       return { success: true, data: { user: data.user, session: data.session } };
     }, 'SIGNUP_ERROR', 'Kayıt işlemi başarısız');
-  }
+    }
 
   async signin(dto: SigninDto) {
     return this.handleRequest(async () => {
@@ -76,7 +76,7 @@ export class AuthService {
       this.logger.log({ message: 'Kullanıcı giriş yaptı', email: dto.email });
       return { success: true, data: { user: data.user, session: data.session } };
     }, 'SIGNIN_ERROR', 'Giriş işlemi başarısız');
-  }
+    }
 
   async signout() {
     return this.handleRequest(async () => {
@@ -84,7 +84,7 @@ export class AuthService {
       if (error) this.throwError('SIGNOUT_ERROR', error.message, HttpStatus.BAD_REQUEST);
       return { success: true, message: 'Çıkış başarılı' };
     }, 'SIGNOUT_ERROR', 'Çıkış işlemi başarısız');
-  }
+    }
 
   async refreshToken(dto: RefreshTokenDto) {
     return this.handleRequest(async () => {
@@ -95,7 +95,7 @@ export class AuthService {
       if (error) this.throwError('REFRESH_ERROR', error.message, HttpStatus.UNAUTHORIZED);
       return { success: true, data: { session: data.session } };
     }, 'REFRESH_ERROR', 'Token yenileme başarısız');
-  }
+    }
 
   async sendMagicLink(dto: MagicLinkDto) {
     return this.handleRequest(async () => {
@@ -109,7 +109,7 @@ export class AuthService {
       this.logger.log({ message: 'Magic link gönderildi', email: dto.email });
       return { success: true, message: 'Magic link gönderildi', data };
     }, 'MAGIC_LINK_ERROR', 'Magic link gönderilemedi');
-  }
+    }
 
   async getUser(token: string) {
     if (!token) this.throwError('GET_USER_ERROR', 'Token bulunamadı', HttpStatus.UNAUTHORIZED);
@@ -119,7 +119,7 @@ export class AuthService {
       if (error) this.throwError('GET_USER_ERROR', error.message, HttpStatus.UNAUTHORIZED);
       return { success: true, data: { user } };
     }, 'GET_USER_ERROR', 'Kullanıcı bilgileri alınamadı');
-  }
+    }
 
   async resetPassword(dto: ResetPasswordDto) {
     return this.handleRequest(async () => {
@@ -133,7 +133,7 @@ export class AuthService {
       this.logger.log({ message: 'Şifre sıfırlama emaili gönderildi', email: dto.email });
       return { success: true, message: 'Şifre sıfırlama linki email adresinize gönderildi' };
     }, 'RESET_PASSWORD_ERROR', 'Şifre sıfırlama emaili gönderilemedi');
-  }
+    }
 
   async updatePassword(token: string, dto: UpdatePasswordDto) {
     if (!token) this.throwError('UPDATE_PASSWORD_ERROR', 'Token bulunamadı', HttpStatus.UNAUTHORIZED);
@@ -155,7 +155,7 @@ export class AuthService {
       this.logger.log({ message: 'Şifre güncellendi', userId: sessionData.user.id });
       return { success: true, message: 'Şifreniz başarıyla güncellendi' };
     }, 'UPDATE_PASSWORD_ERROR', 'Şifre güncellenemedi');
-  }
+    }
 
   async verifyEmailToken(tokenHash: string, type: string): Promise<any> {
     if (!tokenHash || !type) {
@@ -193,7 +193,7 @@ export class AuthService {
       this.logger.log({ message: 'OAuth URL oluşturuldu', provider });
       return { success: true, data: { url: data.url, provider: data.provider } };
     }, 'OAUTH_ERROR', 'OAuth URL oluşturulamadı');
-  }
+    }
 
   async signInWithIdToken(provider: OAuthProvider, token: string, nonce?: string, accessToken?: string) {
     return this.handleRequest(async () => {
@@ -225,5 +225,5 @@ export class AuthService {
       this.logger.log({ message: 'ID Token ile giriş başarılı', provider, userId: data.user?.id });
       return { success: true, data: { user: data.user, session: data.session } };
     }, 'ID_TOKEN_ERROR', 'ID Token ile giriş başarısız');
+    }
   }
-}
