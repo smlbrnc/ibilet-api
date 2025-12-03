@@ -3,6 +3,7 @@ export const YOLCU360_ENDPOINTS = {
   AUTH_REFRESH: '/auth/refresh',
   LOCATIONS: '/locations',
   SEARCH_POINT: '/search/point',
+  CAR_EXTRA_PRODUCTS: '/search',
 } as const;
 
 export const YOLCU360_CACHE_KEYS = {

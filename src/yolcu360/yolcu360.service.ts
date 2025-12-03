@@ -83,5 +83,22 @@ export class Yolcu360Service {
 
     return response.json();
   }
+
+  async getCarSearchResult(searchID: string, code: string): Promise<any> {
+    const token = await this.tokenService.getValidToken();
+    const url = `${this.baseUrl}${YOLCU360_ENDPOINTS.CAR_EXTRA_PRODUCTS}/${searchID}/${code}/extra-products`;
+
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      this.logger.error(`Araç sonuç getirme hatası: ${error}`);
+      throw new Error(`Araç sonucu getirilemedi: ${response.status}`);
+    }
+
+    return response.json();
+  }
 }
 

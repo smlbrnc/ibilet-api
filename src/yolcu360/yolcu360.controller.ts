@@ -28,5 +28,15 @@ export class Yolcu360Controller {
   async searchCars(@Body() dto: CarSearchDto) {
     return this.yolcu360Service.searchCars(dto);
   }
+
+  @Get('search/:searchID/:code')
+  @ApiOperation({ summary: 'Araç arama sonucu detayı' })
+  @ApiResponse({ status: 200, description: 'Seçilen araç detayı' })
+  async getCarSearchResult(
+    @Param('searchID') searchID: string,
+    @Param('code') code: string,
+  ) {
+    return this.yolcu360Service.getCarSearchResult(searchID, code);
+  }
 }
 
