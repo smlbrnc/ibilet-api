@@ -4,6 +4,7 @@ export const YOLCU360_ENDPOINTS = {
   LOCATIONS: '/locations',
   SEARCH_POINT: '/search/point',
   CAR_EXTRA_PRODUCTS: '/search',
+  ORDER: '/order',
 } as const;
 
 export const YOLCU360_CACHE_KEYS = {
@@ -15,4 +16,3 @@ export const YOLCU360_CACHE_KEYS = {
 
 // Token yenileme için 5 dakika önceden refresh yap
 export const TOKEN_REFRESH_THRESHOLD = 5 * 60 * 1000;
-
