@@ -5,6 +5,11 @@ export const YOLCU360_ENDPOINTS = {
   SEARCH_POINT: '/search/point',
   CAR_EXTRA_PRODUCTS: '/search',
   ORDER: '/order',
+  FINDEKS_CHECK: '/findeks/check',
+  FINDEKS_PHONE_LIST: '/findeks/phone-list',
+  FINDEKS_REPORT: '/findeks/report',
+  FINDEKS_PIN_CONFIRM: '/findeks/pin-confirm',
+  FINDEKS_PIN_RENEW: '/findeks/pin-renew',
 } as const;
 
 export const YOLCU360_CACHE_KEYS = {
