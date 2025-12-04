@@ -4,6 +4,12 @@ import { Yolcu360TokenService } from './yolcu360-token.service';
 import { LoggerService } from '../common/logger/logger.service';
 import { YOLCU360_ENDPOINTS } from './constants/yolcu360.constant';
 import { CarSearchDto, CreateOrderDto, OrderResponseDto } from './dto';
+import {
+  LocationResponse,
+  LocationDetailsResponse,
+  CarSearchResponse,
+  CarSearchResultResponse,
+} from './dto/response-types.dto';
 
 interface Yolcu360Error {
   code?: number;
@@ -59,38 +65,12 @@ export class Yolcu360Service {
       const errorText = await response.text();
       this.logger.error(`${context} hatası (${response.status}): ${errorText}`);
 
-      try {
-        errorDetails = JSON.parse(errorText) as Yolcu360Error;
-
-        if (errorDetails.code) {
-          errorCode = `YOLCU360_${errorDetails.code}`;
-        }
-
-        if (errorDetails.description) {
-          errorMessage = errorDetails.description;
-          if (errorDetails.details) {
-            if (typeof errorDetails.details === 'string') {
-              errorMessage += `: ${errorDetails.details}`;
-            } else if (typeof errorDetails.details === 'object') {
-              const detailsStr = Object.entries(errorDetails.details)
-                .map(([key, value]) => `${key}: ${value}`)
-                .join(', ');
-              if (detailsStr) {
-                errorMessage += ` (${detailsStr})`;
-              }
-            }
-          }
-        } else if (errorDetails.message) {
-          errorMessage = errorDetails.message;
-        } else if (errorDetails.error) {
-          errorMessage = errorDetails.error;
-        } else if (typeof errorDetails === 'string') {
-          errorMessage = errorDetails;
-        }
-      } catch {
-        if (errorText) {
-          errorMessage = errorText;
-        }
+      errorDetails = this.parseErrorResponse(errorText);
+      if (errorDetails) {
+        errorCode = this.extractErrorCode(errorDetails);
+        errorMessage = this.extractErrorMessage(errorDetails, errorMessage);
+      } else if (errorText) {
+        errorMessage = errorText;
       }
     } catch (err) {
       this.logger.error(`Hata mesajı parse edilemedi: ${err}`);
@@ -107,23 +87,75 @@ export class Yolcu360Service {
     throw error;
   }
 
-  async searchLocations(query: string): Promise<unknown> {
-    return this.makeRequest<unknown>(
+  private parseErrorResponse(errorText: string): Yolcu360Error | null {
+    try {
+      return JSON.parse(errorText) as Yolcu360Error;
+    } catch {
+      return null;
+    }
+  }
+
+  private extractErrorCode(errorDetails: Yolcu360Error): string | null {
+    return errorDetails.code ? `YOLCU360_${errorDetails.code}` : null;
+  }
+
+  private extractErrorMessage(
+    errorDetails: Yolcu360Error,
+    defaultMessage: string,
+  ): string {
+    if (errorDetails.description) {
+      let message = errorDetails.description;
+      if (errorDetails.details) {
+        message += this.formatErrorDetails(errorDetails.details);
+      }
+      return message;
+    }
+
+    if (errorDetails.message) {
+      return errorDetails.message;
+    }
+
+    if (errorDetails.error) {
+      return errorDetails.error;
+    }
+
+    return defaultMessage;
+  }
+
+  private formatErrorDetails(
+    details: string | Record<string, any>,
+  ): string {
+    if (typeof details === 'string') {
+      return `: ${details}`;
+    }
+
+    if (typeof details === 'object') {
+      const detailsStr = Object.entries(details)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join(', ');
+      return detailsStr ? ` (${detailsStr})` : '';
+    }
+
+    return '';
+  }
+
+  async searchLocations(query: string): Promise<LocationResponse> {
+    return this.makeRequest<LocationResponse>(
       `${YOLCU360_ENDPOINTS.LOCATIONS}?query=${encodeURIComponent(query)}`,
       { method: 'GET' },
       'Lokasyon arama',
     );
   }
 
-  async getLocationDetails(placeId: string): Promise<unknown> {
-    return this.makeRequest<unknown>(
+  async getLocationDetails(placeId: string): Promise<LocationDetailsResponse> {
+    return this.makeRequest<LocationDetailsResponse>(
       `${YOLCU360_ENDPOINTS.LOCATIONS}/${placeId}`,
       { method: 'GET' },
       'Lokasyon detay',
     );
   }
 
-  async searchCars(dto: CarSearchDto): Promise<unknown> {
+  async searchCars(dto: CarSearchDto): Promise<CarSearchResponse> {
     const body = {
       checkInDateTime: dto.checkInDateTime,
       checkOutDateTime: dto.checkOutDateTime,
@@ -134,7 +166,7 @@ export class Yolcu360Service {
       checkOutLocation: dto.checkOutLocation,
     };
 
-    return this.makeRequest<unknown>(
+    return this.makeRequest<CarSearchResponse>(
       YOLCU360_ENDPOINTS.SEARCH_POINT,
       {
         method: 'POST',
@@ -144,8 +176,11 @@ export class Yolcu360Service {
     );
   }
 
-  async getCarSearchResult(searchID: string, code: string): Promise<unknown> {
-    return this.makeRequest<unknown>(
+  async getCarSearchResult(
+    searchID: string,
+    code: string,
+  ): Promise<CarSearchResultResponse> {
+    return this.makeRequest<CarSearchResultResponse>(
       `${YOLCU360_ENDPOINTS.CAR_EXTRA_PRODUCTS}/${searchID}/${code}/extra-products`,
       { method: 'GET' },
       'Araç sonuç getirme',

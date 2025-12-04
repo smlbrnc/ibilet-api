@@ -18,12 +18,19 @@ interface AuthResponse {
 
 @Injectable()
 export class Yolcu360TokenService {
+  private readonly baseUrl: string;
+  private readonly apiKey: string;
+  private readonly apiSecret: string;
+
   constructor(
     private readonly configService: ConfigService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private readonly logger: LoggerService,
   ) {
     this.logger.setContext('Yolcu360TokenService');
+    this.baseUrl = this.configService.get<string>('yolcu360.baseUrl')!;
+    this.apiKey = this.configService.get<string>('yolcu360.apiKey')!;
+    this.apiSecret = this.configService.get<string>('yolcu360.apiSecret')!;
   }
 
   async getValidToken(): Promise<string> {
@@ -65,14 +72,10 @@ export class Yolcu360TokenService {
   }
 
   private async login(): Promise<string> {
-    const baseUrl = this.configService.get<string>('yolcu360.baseUrl');
-    const apiKey = this.configService.get<string>('yolcu360.apiKey');
-    const apiSecret = this.configService.get<string>('yolcu360.apiSecret');
-
-    const response = await fetch(`${baseUrl}${YOLCU360_ENDPOINTS.AUTH_LOGIN}`, {
+    const response = await fetch(`${this.baseUrl}${YOLCU360_ENDPOINTS.AUTH_LOGIN}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key: apiKey, secret: apiSecret }),
+      body: JSON.stringify({ key: this.apiKey, secret: this.apiSecret }),
     });
 
     if (!response.ok) {
@@ -89,10 +92,8 @@ export class Yolcu360TokenService {
   }
 
   private async refreshAccessToken(refreshToken: string): Promise<string> {
-    const baseUrl = this.configService.get<string>('yolcu360.baseUrl');
-
     const response = await fetch(
-      `${baseUrl}${YOLCU360_ENDPOINTS.AUTH_REFRESH}`,
+      `${this.baseUrl}${YOLCU360_ENDPOINTS.AUTH_REFRESH}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -144,13 +145,5 @@ export class Yolcu360TokenService {
     ]);
   }
 
-  async clearTokens(): Promise<void> {
-    await Promise.all([
-      this.cacheManager.del(YOLCU360_CACHE_KEYS.ACCESS_TOKEN),
-      this.cacheManager.del(YOLCU360_CACHE_KEYS.ACCESS_TOKEN_EXP),
-      this.cacheManager.del(YOLCU360_CACHE_KEYS.REFRESH_TOKEN),
-      this.cacheManager.del(YOLCU360_CACHE_KEYS.REFRESH_TOKEN_EXP),
-    ]);
-  }
 }
 

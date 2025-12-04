@@ -48,45 +48,6 @@ export class Yolcu360Controller {
   @ApiBody({
     type: CreateOrderDto,
     description: 'Sipariş oluşturma isteği',
-    examples: {
-      example1: {
-        summary: 'Kredi kartı ile sipariş örneği',
-        value: {
-          paymentType: 'creditCard',
-          searchID: 'search_123456789',
-          code: 'ECAR',
-          isFullCredit: true,
-          isLimitedCredit: false,
-          extraProducts: [
-            { code: 'GPS', quantity: 1 },
-            { code: 'CDW', quantity: 1 },
-          ],
-          passenger: {
-            firstName: 'John',
-            lastName: 'Doe',
-            email: 'john.doe@example.com',
-            nationality: 'US',
-            phone: '+1234567890',
-            birthDate: '1990-01-15',
-            passportNo: 'ABC123456',
-          },
-          billing: {
-            type: 'individual',
-            label: 'Home Address',
-            firstName: 'John',
-            lastName: 'Doe',
-            email: 'john.doe@example.com',
-            phone: '+1234567890',
-            countryName: 'United States',
-            countryCode: 'US',
-            adm1: 'California',
-            adm2: 'Los Angeles',
-            line: '123 Main Street',
-            zipCode: '90210',
-          },
-        },
-      },
-    },
   })
   @ApiResponse({ status: 201, description: 'Sipariş oluşturuldu', type: OrderResponseDto })
   @ApiResponse({ status: 400, description: 'Geçersiz istek' })
