@@ -24,9 +24,16 @@ export interface LocationDetailsResponse {
   type?: string;
 }
 
+// API yanıtı: { count: number, results: [...] } veya { data: { count: number, results: [...] } }
 export interface CarSearchResponse {
-  searchID: string;
-  items: unknown[];
+  count?: number;
+  results?: unknown[];
+  items?: unknown[];
+  data?: {
+    count?: number;
+    results?: unknown[];
+    items?: unknown[];
+  };
   [key: string]: unknown;
 }
 
@@ -35,5 +42,34 @@ export interface CarSearchResultResponse {
   searchID: string;
   extraProducts: unknown[];
   [key: string]: unknown;
+}
+
+export interface CarSelectionResponse {
+  id: string;
+  code: string;
+  search_id: string;
+  car_data: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+}
+
+export class CarSelectionResponseDto {
+  @ApiProperty({ description: 'Kayıt ID' })
+  id: string;
+
+  @ApiProperty({ description: 'Araç code' })
+  code: string;
+
+  @ApiProperty({ description: 'Search ID' })
+  search_id: string;
+
+  @ApiProperty({ description: 'Araç verisi (JSON)', type: Object })
+  car_data: Record<string, any>;
+
+  @ApiProperty({ description: 'Oluşturulma tarihi' })
+  created_at: string;
+
+  @ApiProperty({ description: 'Güncellenme tarihi' })
+  updated_at: string;
 }
 

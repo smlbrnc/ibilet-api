@@ -1,7 +1,8 @@
 import { Controller, Get, Post, Query, Param, Body } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { Yolcu360Service } from './yolcu360.service';
-import { LocationSearchDto, CarSearchDto, CreateOrderDto, OrderResponseDto } from './dto';
+import { LocationSearchDto, CarSearchDto, CreateOrderDto, OrderResponseDto, SaveCarSelectionDto } from './dto';
+import { CarSelectionResponse, CarSelectionResponseDto } from './dto/response-types.dto';
 
 @ApiTags('Yolcu 360')
 @Controller('yolcu360')
@@ -54,5 +55,30 @@ export class Yolcu360Controller {
   @ApiResponse({ status: 500, description: 'Sunucu hatası' })
   async createOrder(@Body() dto: CreateOrderDto): Promise<OrderResponseDto> {
     return this.yolcu360Service.createOrder(dto);
+  }
+
+  @Post('car-selection/:code')
+  @ApiOperation({ summary: 'Seçilen aracı veritabanına kaydet' })
+  @ApiQuery({
+    name: 'searchID',
+    required: true,
+    description: 'Search ID (search isteğinden dönen searchID)',
+  })
+  @ApiResponse({ status: 201, description: 'Araç başarıyla kaydedildi', type: CarSelectionResponseDto })
+  @ApiResponse({ status: 400, description: 'Geçersiz istek' })
+  @ApiResponse({ status: 404, description: 'Araç veya search yanıtı bulunamadı' })
+  async saveCarSelection(
+    @Param('code') code: string,
+    @Query() dto: SaveCarSelectionDto,
+  ): Promise<CarSelectionResponse> {
+    return this.yolcu360Service.saveCarSelection(code, dto.searchID);
+  }
+
+  @Get('car-selection/:code')
+  @ApiOperation({ summary: 'Kaydedilen araç kaydını getir (code ile)' })
+  @ApiResponse({ status: 200, description: 'Araç kaydı', type: CarSelectionResponseDto })
+  @ApiResponse({ status: 404, description: 'Araç kaydı bulunamadı' })
+  async getCarSelection(@Param('code') code: string): Promise<CarSelectionResponse> {
+    return this.yolcu360Service.getCarSelectionByCode(code);
   }
 }
