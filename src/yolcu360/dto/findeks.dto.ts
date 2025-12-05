@@ -1,5 +1,5 @@
 import { IsString, IsNumber, IsDateString, IsArray, ValidateNested } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class FindeksCheckDto {
@@ -67,6 +67,7 @@ export class FindeksReportDto {
     description: 'Telefon listesinden gelen telefon anahtarı',
     example: 123,
   })
+  @Transform(({ value }) => parseInt(value, 10))
   @IsNumber()
   phoneKey: number;
 

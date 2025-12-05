@@ -1,6 +1,7 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, UseFilters } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { FindeksService } from './findeks.service';
+import { Yolcu360ExceptionFilter } from './filters/yolcu360-exception.filter';
 import {
   FindeksCheckDto,
   FindeksPhoneListDto,
@@ -14,6 +15,7 @@ import {
 
 @ApiTags('Findeks')
 @Controller('findeks')
+@UseFilters(Yolcu360ExceptionFilter)
 export class FindeksController {
   constructor(private readonly findeksService: FindeksService) {}
 

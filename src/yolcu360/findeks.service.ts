@@ -64,40 +64,31 @@ export class FindeksService {
   }
 
   private async handleError(response: Response, context: string): Promise<never> {
-    let errorMessage = `${context} başarısız`;
-    let errorDetails: Yolcu360Error | null = null;
-    let errorCode: string | null = null;
-
     try {
       const errorText = await response.text();
       this.logger.error(`${context} hatası (${response.status}): ${errorText}`);
 
-      errorDetails = this.parseErrorResponse(errorText);
+      // Yolcu360'dan gelen yanıtı parse et
+      const errorDetails = this.parseErrorResponse(errorText);
+      
+      const httpStatus = this.mapStatusToHttpStatus(response.status);
+      
+      // Eğer JSON yanıt varsa direkt onu döndür, yoksa text yanıtı döndür
       if (errorDetails) {
-        errorCode = this.extractErrorCode(errorDetails);
-        errorMessage = this.extractErrorMessage(errorDetails, errorMessage);
-      } else if (errorText) {
-        const extracted = this.extractErrorFromText(errorText, context);
-        errorMessage = extracted.message;
-        if (extracted.code) {
-          errorCode = extracted.code;
-        }
+        throw new HttpException(errorDetails, httpStatus);
+      } else {
+        throw new HttpException({ error: errorText || `${context} başarısız` }, httpStatus);
       }
     } catch (err) {
+      if (err instanceof HttpException) {
+        throw err;
+      }
       this.logger.error(`Hata mesajı parse edilemedi: ${err}`);
+      throw new HttpException(
+        { error: `${context} başarısız` },
+        this.mapStatusToHttpStatus(response.status),
+      );
     }
-
-    const httpStatus = this.mapStatusToHttpStatus(response.status);
-    
-    throw new HttpException(
-      {
-        success: false,
-        code: errorCode || `FINDEKS_ERROR_${response.status}`,
-        message: errorMessage,
-        details: errorDetails,
-      },
-      httpStatus,
-    );
   }
 
   private extractErrorFromText(errorText: string, context: string): { message: string; code?: string } {
@@ -220,6 +211,8 @@ export class FindeksService {
   }
 
   async generateReport(dto: FindeksReportDto): Promise<FindeksReportResponse> {
+    this.logger.log(`Findeks rapor oluşturma isteği: ${JSON.stringify(dto)}`);
+    
     return this.makeRequest<FindeksReportResponse>(
       YOLCU360_ENDPOINTS.FINDEKS_REPORT,
       {

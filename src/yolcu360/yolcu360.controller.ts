@@ -1,11 +1,13 @@
-import { Controller, Get, Post, Query, Param, Body } from '@nestjs/common';
+import { Controller, Get, Post, Query, Param, Body, UseFilters } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { Yolcu360Service } from './yolcu360.service';
+import { Yolcu360ExceptionFilter } from './filters/yolcu360-exception.filter';
 import { LocationSearchDto, CarSearchDto, CreateOrderDto, OrderResponseDto, SaveCarSelectionDto } from './dto';
 import { CarSelectionResponse, CarSelectionResponseDto } from './dto/response-types.dto';
 
 @ApiTags('Yolcu 360')
 @Controller('yolcu360')
+@UseFilters(Yolcu360ExceptionFilter)
 export class Yolcu360Controller {
   constructor(private readonly yolcu360Service: Yolcu360Service) {}
 
@@ -55,6 +57,15 @@ export class Yolcu360Controller {
   @ApiResponse({ status: 500, description: 'Sunucu hatası' })
   async createOrder(@Body() dto: CreateOrderDto): Promise<OrderResponseDto> {
     return this.yolcu360Service.createOrder(dto);
+  }
+
+  @Get('order/:orderId')
+  @ApiOperation({ summary: 'Sipariş detayı getir' })
+  @ApiResponse({ status: 200, description: 'Sipariş detayı', type: OrderResponseDto })
+  @ApiResponse({ status: 404, description: 'Sipariş bulunamadı' })
+  @ApiResponse({ status: 400, description: 'Geçersiz istek' })
+  async getOrder(@Param('orderId') orderId: string): Promise<OrderResponseDto> {
+    return this.yolcu360Service.getOrder(orderId);
   }
 
   @Post('car-selection/:code')

@@ -66,34 +66,40 @@ export class Yolcu360Service {
   }
 
   private async handleError(response: Response, context: string): Promise<never> {
-    let errorMessage = `${context} başarısız: ${response.status}`;
-    let errorDetails: Yolcu360Error | null = null;
-    let errorCode: string | null = null;
-
     try {
       const errorText = await response.text();
       this.logger.error(`${context} hatası (${response.status}): ${errorText}`);
 
-      errorDetails = this.parseErrorResponse(errorText);
+      // Yolcu360'dan gelen yanıtı parse et
+      const errorDetails = this.parseErrorResponse(errorText);
+      
+      // Eğer JSON yanıt varsa direkt onu döndür, yoksa text yanıtı döndür
       if (errorDetails) {
-        errorCode = this.extractErrorCode(errorDetails);
-        errorMessage = this.extractErrorMessage(errorDetails, errorMessage);
-      } else if (errorText) {
-        errorMessage = errorText;
+        const error = new Error(JSON.stringify(errorDetails)) as Error & {
+          status?: number;
+          response?: Yolcu360Error;
+        };
+        error.status = response.status;
+        error.response = errorDetails;
+        throw error;
+      } else {
+        const error = new Error(errorText || `${context} başarısız`) as Error & {
+          status?: number;
+        };
+        error.status = response.status;
+        throw error;
       }
     } catch (err) {
+      if (err instanceof Error && 'status' in err) {
+        throw err;
+      }
       this.logger.error(`Hata mesajı parse edilemedi: ${err}`);
+      const error = new Error(`${context} başarısız`) as Error & {
+        status?: number;
+      };
+      error.status = response.status;
+      throw error;
     }
-
-    const error = new Error(errorMessage) as Error & {
-      status?: number;
-      details?: Yolcu360Error | null;
-      code?: string | null;
-    };
-    error.status = response.status;
-    error.details = errorDetails;
-    error.code = errorCode;
-    throw error;
   }
 
   private parseErrorResponse(errorText: string): Yolcu360Error | null {
@@ -281,7 +287,7 @@ export class Yolcu360Service {
   }
 
   async createOrder(dto: CreateOrderDto): Promise<OrderResponseDto> {
-    return this.makeRequest<OrderResponseDto>(
+    const orderResponse = await this.makeRequest<OrderResponseDto>(
       YOLCU360_ENDPOINTS.ORDER,
       {
         method: 'POST',
@@ -289,6 +295,53 @@ export class Yolcu360Service {
       },
       'Sipariş oluşturma',
     );
+
+    // Order yanıtını veritabanına kaydet (non-blocking)
+    await this.saveOrderToDatabase(orderResponse);
+
+    return orderResponse;
+  }
+
+  async getOrder(orderId: string): Promise<OrderResponseDto> {
+    return this.makeRequest<OrderResponseDto>(
+      `${YOLCU360_ENDPOINTS.ORDER}/${orderId}`,
+      { method: 'GET' },
+      'Sipariş detay getirme',
+    );
+  }
+
+  /**
+   * Order yanıtını pre_transactionid tablosuna kaydet
+   */
+  private async saveOrderToDatabase(order: OrderResponseDto): Promise<void> {
+    try {
+      const adminClient = this.supabase.getAdminClient();
+
+      const { error: insertError } = await adminClient
+        .schema('backend')
+        .from('pre_transactionid')
+        .insert({
+          transaction_id: order.id,
+          expires_on: null,
+          success: true,
+          code: order.id,
+          messages: null,
+          body: order,
+        });
+
+      if (insertError) {
+        this.logger.error(`Order veritabanı kayıt hatası: ${insertError.message} (orderId: ${order.id})`);
+        return;
+      }
+
+      this.logger.log(`Order başarıyla veritabanına kaydedildi: ${order.id}`);
+    } catch (error) {
+      this.logger.error({
+        message: 'Order veritabanı kayıt hatası',
+        error: error instanceof Error ? error.message : String(error),
+        orderId: order.id,
+      });
+    }
   }
 
   async saveCarSelection(code: string, searchID: string): Promise<CarSelectionResponse> {
