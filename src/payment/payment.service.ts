@@ -1,14 +1,14 @@
 import { Injectable, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
 import { firstValueFrom } from 'rxjs';
 import { LoggerService } from '../common/logger/logger.service';
 import { PaymentConfigService } from './config/payment-config.service';
 import { SupabaseService } from '../common/services/supabase.service';
 import { PaxHttpService } from '../pax/pax-http.service';
-import { EmailService } from '../email/email.service';
-import { NetgsmService } from '../sms/netgsm.service';
-import { PdfService } from '../pdf/pdf.service';
+import { Yolcu360Service } from '../yolcu360/yolcu360.service';
 import { PaymentRequestDto } from './dto/payment-request.dto';
 import { DirectPaymentRequestDto } from './dto/direct-payment-request.dto';
 import { RefundRequestDto } from './dto/refund-request.dto';
@@ -33,9 +33,8 @@ export class PaymentService {
     private readonly configService: ConfigService,
     private readonly supabase: SupabaseService,
     private readonly paxHttp: PaxHttpService,
-    private readonly emailService: EmailService,
-    private readonly netgsmService: NetgsmService,
-    private readonly pdfService: PdfService,
+    private readonly yolcu360Service: Yolcu360Service,
+    @InjectQueue('notifications') private readonly notificationQueue: Queue,
   ) {
     this.logger.setContext('PaymentService');
   }
@@ -310,15 +309,17 @@ export class PaymentService {
 
     let transactionId = '';
     let reservationNumber = '';
+    let productType = 'flight'; // Default: flight (PAX)
 
     if (responseData.orderId) {
       try {
         const adminClient = this.supabase.getAdminClient();
 
+        // Booking kaydını bul
         const { data: booking, error: findError } = await adminClient
           .schema('backend')
           .from('booking')
-          .select('id, transaction_id')
+          .select('id, transaction_id, product_type')
           .eq('order_id', responseData.orderId)
           .single();
 
@@ -330,62 +331,14 @@ export class PaymentService {
           });
         } else {
           transactionId = booking.transaction_id;
+          productType = booking.product_type || 'flight'; // Product type'ı al
 
-          let newStatus = responseData.success ? 'SUCCESS' : 'FAILED';
-          let bookingDetail = null;
-          let reservationDetails = null;
-
-          // Ödeme başarılı ise commit-transaction çağır
-          if (responseData.success) {
-            const commitResult = await this.commitTransaction(booking.transaction_id);
-            bookingDetail = commitResult.bookingDetail;
-            newStatus = commitResult.status;
-            reservationNumber = commitResult.reservationNumber;
-
-            // Reservation detail al
-            if (reservationNumber) {
-              reservationDetails = await this.getReservationDetails(reservationNumber);
-            }
-          }
-
-          // Booking'i güncelle
-          const { error: updateError } = await adminClient
-            .schema('backend')
-            .from('booking')
-            .update({
-              status: newStatus,
-              order_detail: responseData,
-              booking_detail: bookingDetail,
-              booking_number: reservationNumber || null,
-              reservation_details: reservationDetails,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', booking.id);
-
-          if (updateError) {
-            this.logger.error({
-              message: 'Callback: Booking güncelleme hatası',
-              orderId: responseData.orderId,
-              error: updateError.message,
-            });
+          // Product type kontrolü - Yolcu360 araç mı?
+          if (booking.product_type === 'car') {
+            reservationNumber = await this.processYolcu360Callback(booking, responseData, adminClient);
           } else {
-            this.logger.log({
-              message: `Callback: Booking güncellendi → ${newStatus}`,
-              orderId: responseData.orderId,
-              transactionId: booking.transaction_id,
-              success: responseData.success,
-            });
-
-            // CONFIRMED durumunda bildirim gönder (PDF ile birlikte)
-            if (newStatus === 'CONFIRMED' && reservationDetails) {
-              this.sendNotifications(reservationDetails, booking.transaction_id, reservationNumber, booking.id).catch((error) => {
-                this.logger.error({
-                  message: 'Callback: Bildirim gönderme hatası',
-                  transactionId: booking.transaction_id,
-                  error: error instanceof Error ? error.message : String(error),
-                });
-              });
-            }
+            // PAX flow
+            reservationNumber = await this.processPaxCallback(booking, responseData, adminClient);
           }
         }
       } catch (error) {
@@ -398,10 +351,179 @@ export class PaymentService {
     }
 
     // Redirect URL oluştur
-    const redirectUrl = this.buildRedirectUrl(responseData, transactionId, reservationNumber);
+    const redirectUrl = this.buildRedirectUrl(responseData, transactionId, reservationNumber, productType);
     this.logger.log(`🔄 Redirect URL: ${redirectUrl}`);
 
     return { redirectUrl, success: responseData.success && !!reservationNumber };
+  }
+
+  /**
+   * Yolcu360 araç callback işleme
+   */
+  private async processYolcu360Callback(booking: any, responseData: any, adminClient: any): Promise<string> {
+    let newStatus = responseData.success ? 'SUCCESS' : 'FAILED';
+    let findeksCode = null;
+    let orderDetails = null;
+    let paymentError = null;
+
+    if (responseData.success) {
+      // Limit ödeme yap
+      const paymentResult = await this.yolcu360Service.processLimitPaymentForCallback(booking.transaction_id);
+
+      if (paymentResult.success) {
+        findeksCode = paymentResult.findeksCode;
+        this.logger.log({
+          message: 'Callback: Yolcu360 limit ödeme başarılı',
+          transactionId: booking.transaction_id,
+          findeksCode,
+        });
+      } else {
+        this.logger.error({
+          message: 'Callback: Yolcu360 limit ödeme hatası',
+          transactionId: booking.transaction_id,
+          error: paymentResult.error,
+        });
+        newStatus = 'FAILED';
+        paymentError = paymentResult.error;
+      }
+
+      // Order detaylarını al (hata olsa bile dene)
+      try {
+        orderDetails = await this.yolcu360Service.getOrderDetails(booking.transaction_id);
+        this.logger.log({
+          message: 'Callback: Yolcu360 order detayları alındı',
+          transactionId: booking.transaction_id,
+        });
+      } catch (error) {
+        this.logger.error({
+          message: 'Callback: Yolcu360 order detay hatası',
+          transactionId: booking.transaction_id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        // Order detay hatası status'u değiştirmesin, sadece log
+      }
+    }
+
+    // Booking'i güncelle (hata bilgisi de dahil)
+    const updateData: any = {
+      status: newStatus,
+      order_detail: responseData,
+      booking_number: findeksCode || null,
+      booking_detail: orderDetails || null,
+      updated_at: new Date().toISOString(),
+    };
+
+    // Yolcu30 Limit Ödeme hatası varsa reservation_details'e hata bilgisi ekle
+    if (paymentError) {
+      updateData.reservation_details = {
+        error: paymentError,
+        errorType: 'YOLCU360_LIMIT_PAYMENT_ERROR',
+        timestamp: new Date().toISOString(),
+      };
+    }
+
+    // Ödeme hatası varsa ve order detay alınamadıysa, booking_detail'e de hata bilgisi ekle
+    if (paymentError && !orderDetails) {
+      updateData.booking_detail = {
+        error: paymentError,
+        timestamp: new Date().toISOString(),
+      };
+    }
+
+    const { error: updateError } = await adminClient
+      .schema('backend')
+      .from('booking')
+      .update(updateData)
+      .eq('id', booking.id);
+
+    if (updateError) {
+      this.logger.error({
+        message: 'Callback: Yolcu360 booking güncelleme hatası',
+        transactionId: booking.transaction_id,
+        error: updateError.message,
+      });
+    } else {
+      this.logger.log({
+        message: `Callback: Yolcu360 booking güncellendi → ${newStatus}`,
+        transactionId: booking.transaction_id,
+        findeksCode,
+        success: responseData.success,
+        hasOrderDetails: !!orderDetails,
+        hasPaymentError: !!paymentError,
+      });
+    }
+
+    return findeksCode || '';
+  }
+
+  /**
+   * PAX callback işleme (mevcut flow)
+   */
+  private async processPaxCallback(booking: any, responseData: any, adminClient: any): Promise<string> {
+    let newStatus = responseData.success ? 'SUCCESS' : 'FAILED';
+    let bookingDetail = null;
+    let reservationDetails = null;
+    let reservationNumber = '';
+
+    // Ödeme başarılı ise commit-transaction çağır
+    if (responseData.success) {
+      const commitResult = await this.commitTransaction(booking.transaction_id);
+      bookingDetail = commitResult.bookingDetail;
+      newStatus = commitResult.status;
+      reservationNumber = commitResult.reservationNumber;
+
+      // Reservation detail al
+      if (reservationNumber) {
+        reservationDetails = await this.getReservationDetails(reservationNumber);
+      }
+    }
+
+    // Booking'i güncelle
+    const { error: updateError } = await adminClient
+      .schema('backend')
+      .from('booking')
+      .update({
+        status: newStatus,
+        order_detail: responseData,
+        booking_detail: bookingDetail,
+        booking_number: reservationNumber || null,
+        reservation_details: reservationDetails,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', booking.id);
+
+    if (updateError) {
+      this.logger.error({
+        message: 'Callback: Booking güncelleme hatası',
+        orderId: responseData.orderId,
+        error: updateError.message,
+      });
+    } else {
+      this.logger.log({
+        message: `Callback: Booking güncellendi → ${newStatus}`,
+        orderId: responseData.orderId,
+        transactionId: booking.transaction_id,
+        success: responseData.success,
+      });
+
+      // CONFIRMED durumunda bildirim gönder (PDF ile birlikte) - Queue'ya ekle
+      if (newStatus === 'CONFIRMED' && reservationDetails) {
+        await this.notificationQueue.add('send-booking-confirmation', {
+          reservationDetails,
+          transactionId: booking.transaction_id,
+          reservationNumber,
+          bookingId: booking.id,
+        });
+
+        this.logger.log({
+          message: 'Queue: Bildirim job oluşturuldu',
+          transactionId: booking.transaction_id,
+          reservationNumber,
+        });
+      }
+    }
+
+    return reservationNumber;
   }
 
   /**
@@ -457,90 +579,9 @@ export class PaymentService {
   }
 
   /**
-   * Email ve SMS bildirimlerini gönder (PDF ile birlikte)
-   */
-  private async sendNotifications(
-    reservationDetails: any,
-    transactionId: string,
-    reservationNumber: string,
-    bookingId?: string,
-  ): Promise<void> {
-    try {
-      // PDF oluştur (await)
-      let pdfBuffer: Buffer | undefined;
-      let pdfFilename: string | undefined;
-
-      try {
-        const pdfResult = await this.pdfService.generateBookingPdf(reservationDetails, reservationNumber);
-        pdfBuffer = pdfResult.buffer;
-        pdfFilename = `booking-${reservationNumber}.pdf`;
-
-        // PDF'i dosya sistemine kaydet
-        await this.pdfService.savePdfToFileSystem(pdfResult.buffer, pdfResult.filePath);
-
-        // PDF yolunu booking tablosuna kaydet
-        if (bookingId) {
-          const adminClient = this.supabase.getAdminClient();
-          await adminClient
-            .schema('backend')
-            .from('booking')
-            .update({ pdf_path: pdfResult.filePath, updated_at: new Date().toISOString() })
-            .eq('id', bookingId);
-        }
-
-        this.logger.log({ message: 'Callback: PDF oluşturuldu', transactionId, reservationNumber });
-      } catch (pdfError) {
-        const pdfErrorMessage = pdfError instanceof Error ? pdfError.message : String(pdfError);
-        this.logger.error({ message: 'Callback: PDF oluşturma hatası', transactionId, error: pdfErrorMessage });
-        // PDF hatası email gönderimini engellemez
-      }
-
-      // Email gönder (PDF attachment ile, await)
-      const emailPromise = this.emailService
-        .sendBookingConfirmation(reservationDetails, transactionId, pdfBuffer, pdfFilename)
-        .then((result) => {
-          if (result.success) {
-            this.logger.log({ message: 'Callback: Rezervasyon onay emaili gönderildi', transactionId, reservationNumber });
-          } else {
-            this.logger.error({ message: 'Callback: Rezervasyon onay emaili gönderilemedi', transactionId, error: result.message });
-          }
-          return result;
-        })
-        .catch((error) => {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          this.logger.error({ message: 'Callback: Rezervasyon onay emaili gönderme hatası', transactionId, error: errorMessage });
-          return { success: false, message: errorMessage };
-        });
-
-      // SMS gönder (paralel)
-      const smsPromise = this.netgsmService
-        .sendBookingConfirmation(reservationDetails, transactionId)
-        .then((result) => {
-          if (result.success) {
-            this.logger.log({ message: 'Callback: Rezervasyon onay SMS gönderildi', transactionId, reservationNumber });
-          } else {
-            this.logger.error({ message: 'Callback: Rezervasyon onay SMS gönderilemedi', transactionId, error: result.message });
-          }
-          return result;
-        })
-        .catch((error) => {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          this.logger.error({ message: 'Callback: Rezervasyon onay SMS gönderme hatası', transactionId, error: errorMessage });
-          return { success: false, message: errorMessage };
-        });
-
-      // Email ve SMS'i paralel bekle
-      await Promise.allSettled([emailPromise, smsPromise]);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error({ message: 'Callback: Bildirim gönderme hatası', transactionId, error: errorMessage });
-    }
-  }
-
-  /**
    * Redirect URL oluştur
    */
-  private buildRedirectUrl(responseData: any, transactionId: string, reservationNumber: string): string {
+  private buildRedirectUrl(responseData: any, transactionId: string, reservationNumber: string, productType: string = 'flight'): string {
     const isFullySuccessful = responseData.success && reservationNumber;
     const isCommitError = responseData.success && !reservationNumber;
 
@@ -555,8 +596,8 @@ export class PaymentService {
       ...(isFullySuccessful
         ? { reservationNumber }
         : isCommitError
-          ? { returnCode: responseData.transaction?.returnCode || '', reservationNumber: 'Ödeme başarılı ancak rezervasyon oluşturulamadı' }
-          : { returnCode: responseData.transaction?.returnCode || '', message: responseData.transaction?.message || '' }),
+          ? { productType, returnCode: responseData.transaction?.returnCode || '', error: 'Ödeme başarılı ancak rezervasyon oluşturulamadı' }
+          : { productType, returnCode: responseData.transaction?.returnCode || '', message: responseData.transaction?.message || '' }),
     });
 
     const baseRedirectUrl = this.configService.get<string>('payment.redirectUrl');

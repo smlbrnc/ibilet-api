@@ -111,50 +111,6 @@ export class Yolcu360Service {
     }
   }
 
-  private extractErrorCode(errorDetails: Yolcu360Error): string | null {
-    return errorDetails.code ? `YOLCU360_${errorDetails.code}` : null;
-  }
-
-  private extractErrorMessage(
-    errorDetails: Yolcu360Error,
-    defaultMessage: string,
-  ): string {
-    if (errorDetails.description) {
-      let message = errorDetails.description;
-      if (errorDetails.details) {
-        message += this.formatErrorDetails(errorDetails.details);
-      }
-      return message;
-    }
-
-    if (errorDetails.message) {
-      return errorDetails.message;
-    }
-
-    if (errorDetails.error) {
-      return errorDetails.error;
-    }
-
-    return defaultMessage;
-  }
-
-  private formatErrorDetails(
-    details: string | Record<string, any>,
-  ): string {
-    if (typeof details === 'string') {
-      return `: ${details}`;
-    }
-
-    if (typeof details === 'object') {
-      const detailsStr = Object.entries(details)
-        .map(([key, value]) => `${key}: ${value}`)
-        .join(', ');
-      return detailsStr ? ` (${detailsStr})` : '';
-    }
-
-    return '';
-  }
-
   /**
    * Cache key oluştur
    */
@@ -424,18 +380,75 @@ export class Yolcu360Service {
   }
 
   /**
-   * Yolcu360 limit ödeme işlemi
+   * Yolcu360 limit ödeme işlemi (callback için kullanılır)
+   */
+  async processLimitPaymentForCallback(orderID: string): Promise<{
+    success: boolean;
+    findeksCode?: string;
+    error?: string;
+  }> {
+    try {
+      this.logger.log(`=== YOLCU360 LIMIT PAYMENT (CALLBACK) ===`);
+      this.logger.debug(`OrderID: ${orderID}`);
+
+      const paymentResponse = await this.makeRequest<any>(
+        YOLCU360_ENDPOINTS.PAYMENT_PAY,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            orderID: orderID,
+            paymentType: 'limit',
+          }),
+        },
+        'Limit ödeme (callback)',
+      );
+
+      this.logger.log(`=== YOLCU360 PAYMENT RESPONSE (CALLBACK) ===`);
+      this.logger.debug(JSON.stringify(paymentResponse));
+
+      const findeksCode = paymentResponse?.findeksCode;
+
+      if (!findeksCode) {
+        this.logger.warn(`findeksCode bulunamadı: ${orderID}`);
+      }
+
+      return {
+        success: true,
+        findeksCode: findeksCode,
+      };
+    } catch (error) {
+      this.logger.error({
+        message: 'Limit ödeme hatası (callback)',
+        error: error instanceof Error ? error.message : String(error),
+        orderID: orderID,
+      });
+
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Ödeme işlemi başarısız',
+      };
+    }
+  }
+
+  /**
+   * Order detaylarını getir
+   */
+  async getOrderDetails(orderId: string): Promise<OrderResponseDto> {
+    return this.getOrder(orderId);
+  }
+
+  /**
+   * Yolcu360 limit ödeme işlemi (public endpoint için)
    */
   async processLimitPayment(dto: PaymentPayDto): Promise<{
-    status: string;
-    is3dsSecure: boolean;
-    threeDSHtmlContent: null;
+    success: boolean;
+    message: string;
   }> {
     try {
       this.logger.log(`=== YOLCU360 LIMIT PAYMENT ===`);
       this.logger.debug(`OrderID: ${dto.orderID}, PaymentType: ${dto.paymentType}`);
 
-      // Transaction ID ile pre_transactionid tablosundan kayıt bul
+      // Transaction kontrolü
       const adminClient = this.supabase.getAdminClient();
       const { data: transactionData, error: transactionError } = await adminClient
         .schema('backend')
@@ -449,10 +462,8 @@ export class Yolcu360Service {
         throw new NotFoundException(`Transaction ID bulunamadı: ${dto.orderID}`);
       }
 
-      this.logger.log(`Transaction bulundu: ${dto.orderID}`);
-
-      // Yolcu360 API'ye ödeme isteği gönder
-      const paymentResponse = await this.makeRequest<any>(
+      // Ödeme işlemi
+      await this.makeRequest<any>(
         YOLCU360_ENDPOINTS.PAYMENT_PAY,
         {
           method: 'POST',
@@ -464,14 +475,11 @@ export class Yolcu360Service {
         'Limit ödeme',
       );
 
-      this.logger.log(`=== YOLCU360 PAYMENT RESPONSE ===`);
-      this.logger.debug(JSON.stringify(paymentResponse));
+      this.logger.log(`Limit ödeme başarılı: ${dto.orderID}`);
 
-      // Başarılı response dön
       return {
-        status: 'success',
-        is3dsSecure: false,
-        threeDSHtmlContent: null,
+        success: true,
+        message: 'Ödeme başarılı',
       };
     } catch (error) {
       this.logger.error({
@@ -484,10 +492,9 @@ export class Yolcu360Service {
         throw error;
       }
 
-      throw new BadRequestException({
-        status: 'failed',
-        message: error instanceof Error ? error.message : 'Ödeme işlemi başarısız',
-      });
+      throw new BadRequestException(
+        error instanceof Error ? error.message : 'Ödeme işlemi başarısız',
+      );
     }
   }
 }

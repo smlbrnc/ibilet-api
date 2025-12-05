@@ -104,9 +104,8 @@ export class Yolcu360Controller {
     schema: {
       type: 'object',
       properties: {
-        status: { type: 'string', example: 'success' },
-        is3dsSecure: { type: 'boolean', example: false },
-        threeDSHtmlContent: { type: 'string', nullable: true, example: null },
+        success: { type: 'boolean', example: true },
+        message: { type: 'string', example: 'Ödeme başarılı' },
       },
     },
   })

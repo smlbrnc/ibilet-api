@@ -3,6 +3,7 @@ import { IsNumber, IsString, IsEmail, IsIP, IsNotEmpty, IsOptional, Min, Max, Va
 import { Type } from 'class-transformer';
 import { CardInfoDto } from './card-info.dto';
 import { CurrencyCode } from '../enums/currency-codes.enum';
+import { ProductType } from '../enums/product-type.enum';
 
 export class PaymentInitiateRequestDto {
   @ApiProperty({
@@ -68,5 +69,15 @@ export class PaymentInitiateRequestDto {
   @Type(() => CardInfoDto)
   @IsNotEmpty()
   cardInfo: CardInfoDto;
+
+  @ApiProperty({
+    description: 'Ürün tipi',
+    enum: ProductType,
+    example: ProductType.FLIGHT,
+    default: ProductType.FLIGHT,
+  })
+  @IsEnum(ProductType)
+  @IsNotEmpty()
+  productType: ProductType;
 }
 

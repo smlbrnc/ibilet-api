@@ -18,6 +18,7 @@ import { CmsModule } from './cms/cms.module';
 import { ContactModule } from './contact/contact.module';
 import { UserModule } from './user/user.module';
 import { Yolcu360Module } from './yolcu360/yolcu360.module';
+import { QueueModule } from './common/queues/queue.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -54,6 +55,7 @@ import { AppController } from './app.controller';
     ContactModule,
     UserModule,
     Yolcu360Module,
+    QueueModule,
   ],
   controllers: [AppController],
   providers: [

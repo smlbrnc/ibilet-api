@@ -10,6 +10,7 @@ import { CallbackRequestDto } from './dto/callback-request.dto';
 import { LoggerService } from '../common/logger/logger.service';
 import { SupabaseService } from '../common/services/supabase.service';
 import { BOOKING_STATUS_MESSAGES, DEFAULT_STATUS_INFO } from './constants/booking-status.constant';
+import { ProductType } from './enums/product-type.enum';
 
 @ApiTags('Payment')
 @Controller('payment')
@@ -45,6 +46,81 @@ export class PaymentController {
     try {
       const adminClient = this.supabase.getAdminClient();
 
+      // Yolcu360 araç kiralama için özel akış
+      if (dto.productType === ProductType.CAR) {
+        // 1. pre_transactionid kontrolü
+        const { data: preTransaction, error: preTransError } = await adminClient
+          .schema('backend')
+          .from('pre_transactionid')
+          .select('*')
+          .eq('transaction_id', dto.transactionId)
+          .single();
+
+        if (preTransError || !preTransaction) {
+          throw new HttpException(
+            { success: false, code: 'TRANSACTION_NOT_FOUND', message: 'Transaction bulunamadı' },
+            HttpStatus.NOT_FOUND,
+          );
+        }
+
+        // 2. success kontrolü
+        if (!preTransaction.success) {
+          throw new HttpException(
+            { success: false, code: 'TRANSACTION_NOT_SUCCESS', message: 'Transaction başarısız durumda' },
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+
+        // 3. Ödeme başlat (booking kaydı callback'de oluşturulacak)
+        const paymentDto: PaymentRequestDto = {
+          amount: dto.amount,
+          currencyCode: dto.currencyCode || '949',
+          transactionType: 'sales',
+          installmentCount: 0,
+          customerEmail: dto.customerEmail,
+          customerIp: dto.customerIp,
+          companyName: 'IBGROUP',
+          cardInfo: dto.cardInfo,
+        };
+
+        const paymentResult = await this.paymentService.initiate3DSecurePayment(paymentDto);
+
+        // 4. Başarılı ise booking kaydı oluştur
+        if (paymentResult.success) {
+          const orderId = paymentResult.data?.orderId;
+
+          const { error: createError } = await adminClient
+            .schema('backend')
+            .from('booking')
+            .insert({
+              pre_transaction_id: preTransaction.id,
+              transaction_id: dto.transactionId,
+              order_id: orderId,
+              status: 'PAYMENT_IN_PROGRESS',
+              product_type: dto.productType,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            });
+
+          if (createError) {
+            this.logger.error({ 
+              message: 'Booking oluşturma hatası', 
+              error: createError.message, 
+              transactionId: dto.transactionId 
+            });
+          } else {
+            this.logger.log({ 
+              message: 'Yolcu360 araç booking oluşturuldu', 
+              transactionId: dto.transactionId, 
+              orderId 
+            });
+          }
+        }
+
+        return { success: true, message: 'Ödeme başlatıldı', data: paymentResult.data };
+      }
+
+      // Mevcut PAX flow (productType === 'car' değilse)
       // 1. transaction_id ile booking kaydını bul
       const { data: booking, error: bookingError } = await adminClient
         .schema('backend')
@@ -105,7 +181,12 @@ export class PaymentController {
         const { error: updateError } = await adminClient
           .schema('backend')
           .from('booking')
-          .update({ status: 'PAYMENT_IN_PROGRESS', order_id: orderId, updated_at: new Date().toISOString() })
+          .update({ 
+            status: 'PAYMENT_IN_PROGRESS', 
+            order_id: orderId, 
+            product_type: dto.productType,
+            updated_at: new Date().toISOString() 
+          })
           .eq('id', booking.id);
 
         if (updateError) {
