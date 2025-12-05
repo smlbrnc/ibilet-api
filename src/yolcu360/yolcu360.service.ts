@@ -7,6 +7,7 @@ import { LoggerService } from '../common/logger/logger.service';
 import { SupabaseService } from '../common/services/supabase.service';
 import { YOLCU360_ENDPOINTS } from './constants/yolcu360.constant';
 import { CarSearchDto, CreateOrderDto, OrderResponseDto } from './dto';
+import { PaymentPayDto } from './dto/payment-pay.dto';
 import {
   LocationResponse,
   LocationDetailsResponse,
@@ -420,5 +421,73 @@ export class Yolcu360Service {
     }
 
     return this.mapToCarSelectionResponse(carData);
+  }
+
+  /**
+   * Yolcu360 limit ödeme işlemi
+   */
+  async processLimitPayment(dto: PaymentPayDto): Promise<{
+    status: string;
+    is3dsSecure: boolean;
+    threeDSHtmlContent: null;
+  }> {
+    try {
+      this.logger.log(`=== YOLCU360 LIMIT PAYMENT ===`);
+      this.logger.debug(`OrderID: ${dto.orderID}, PaymentType: ${dto.paymentType}`);
+
+      // Transaction ID ile pre_transactionid tablosundan kayıt bul
+      const adminClient = this.supabase.getAdminClient();
+      const { data: transactionData, error: transactionError } = await adminClient
+        .schema('backend')
+        .from('pre_transactionid')
+        .select('*')
+        .eq('transaction_id', dto.orderID)
+        .single();
+
+      if (transactionError || !transactionData) {
+        this.logger.error(`Transaction bulunamadı: ${dto.orderID}`);
+        throw new NotFoundException(`Transaction ID bulunamadı: ${dto.orderID}`);
+      }
+
+      this.logger.log(`Transaction bulundu: ${dto.orderID}`);
+
+      // Yolcu360 API'ye ödeme isteği gönder
+      const paymentResponse = await this.makeRequest<any>(
+        YOLCU360_ENDPOINTS.PAYMENT_PAY,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            orderID: dto.orderID,
+            paymentType: dto.paymentType,
+          }),
+        },
+        'Limit ödeme',
+      );
+
+      this.logger.log(`=== YOLCU360 PAYMENT RESPONSE ===`);
+      this.logger.debug(JSON.stringify(paymentResponse));
+
+      // Başarılı response dön
+      return {
+        status: 'success',
+        is3dsSecure: false,
+        threeDSHtmlContent: null,
+      };
+    } catch (error) {
+      this.logger.error({
+        message: 'Limit ödeme hatası',
+        error: error instanceof Error ? error.message : String(error),
+        orderID: dto.orderID,
+      });
+
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new BadRequestException({
+        status: 'failed',
+        message: error instanceof Error ? error.message : 'Ödeme işlemi başarısız',
+      });
+    }
   }
 }

@@ -5,6 +5,7 @@ export const YOLCU360_ENDPOINTS = {
   SEARCH_POINT: '/search/point',
   CAR_EXTRA_PRODUCTS: '/search',
   ORDER: '/order',
+  PAYMENT_PAY: '/payment/pay',
   FINDEKS_CHECK: '/findeks/check',
   FINDEKS_PHONE_LIST: '/findeks/phone-list',
   FINDEKS_REPORT: '/findeks/report',

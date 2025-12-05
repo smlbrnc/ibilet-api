@@ -2,7 +2,7 @@ import { Controller, Get, Post, Query, Param, Body, UseFilters } from '@nestjs/c
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { Yolcu360Service } from './yolcu360.service';
 import { Yolcu360ExceptionFilter } from './filters/yolcu360-exception.filter';
-import { LocationSearchDto, CarSearchDto, CreateOrderDto, OrderResponseDto, SaveCarSelectionDto } from './dto';
+import { LocationSearchDto, CarSearchDto, CreateOrderDto, OrderResponseDto, SaveCarSelectionDto, PaymentPayDto } from './dto';
 import { CarSelectionResponse, CarSelectionResponseDto } from './dto/response-types.dto';
 
 @ApiTags('Yolcu 360')
@@ -91,5 +91,29 @@ export class Yolcu360Controller {
   @ApiResponse({ status: 404, description: 'Araç kaydı bulunamadı' })
   async getCarSelection(@Param('code') code: string): Promise<CarSelectionResponse> {
     return this.yolcu360Service.getCarSelectionByCode(code);
+  }
+
+  @Post('payment/pay')
+  @ApiOperation({
+    summary: 'Yolcu360 Limit ödeme (3D Secure olmadan)',
+    description: 'Yolcu360 limit sistemi ile ödeme yapar. Direkt onaylanır, 3D Secure gerektirmez.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Ödeme başarılı',
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', example: 'success' },
+        is3dsSecure: { type: 'boolean', example: false },
+        threeDSHtmlContent: { type: 'string', nullable: true, example: null },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Validation hatası' })
+  @ApiResponse({ status: 404, description: 'Transaction bulunamadı' })
+  @ApiResponse({ status: 500, description: 'Sunucu hatası' })
+  async payWithLimit(@Body() dto: PaymentPayDto) {
+    return this.yolcu360Service.processLimitPayment(dto);
   }
 }
