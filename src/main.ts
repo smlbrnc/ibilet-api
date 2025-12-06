@@ -56,7 +56,7 @@ async function bootstrap() {
     .setDescription('iBilet Core API - Flight & Hotel Booking')
     .setVersion('1.0')
     .addBearerAuth()
-    .addTag('Health', 'Health check endpoints')
+    .addTag('Health')
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('docs', app, document, {

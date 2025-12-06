@@ -4,7 +4,7 @@ import { NetgsmService } from './netgsm.service';
 import { SendSmsDto } from './dto/send-sms.dto';
 import { GetBalanceDto } from './dto/get-balance.dto';
 
-@ApiTags('Sms Netgsm')
+@ApiTags('Netgsm')
 @Controller('sms')
 export class SmsController {
   constructor(private readonly netgsmService: NetgsmService) {}

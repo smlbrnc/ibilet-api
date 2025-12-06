@@ -4,7 +4,7 @@ import { FoursquareService } from './foursquare.service';
 import { NearbyQueryDto, SortOption } from './dto/nearby-query.dto';
 import { NearbyGroupedResponseDto } from './dto/nearby-response.dto';
 
-@ApiTags('Foursquare Places')
+@ApiTags('Foursquare')
 @Controller('places')
 export class FoursquareController {
   constructor(private readonly foursquareService: FoursquareService) {}
