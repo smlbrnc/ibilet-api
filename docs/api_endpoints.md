@@ -232,6 +232,10 @@
 |--------|----------|------|----------|
 | GET | `/cms/blogs` | 🌐 Public | Blog listesini getir |
 | GET | `/cms/blogs/:slug` | 🌐 Public | Blog detayını getir |
+| GET | `/cms/blogs/categories` | 🌐 Public | Blog kategorilerini getir |
+| GET | `/cms/blogs/categories/:id` | 🌐 Public | Kategoriye göre blogları getir |
+| GET | `/cms/blogs/featured` | 🌐 Public | Öne çıkan blogları getir |
+| GET | `/cms/blogs/recent` | 🌐 Public | Son yazıları getir |
 | GET | `/cms/campaigns` | 🌐 Public | Kampanya listesini getir |
 | GET | `/cms/campaigns/:slug` | 🌐 Public | Kampanya detayını getir |
 | GET | `/cms/discounts` | 🌐 Public | Aktif indirim kodlarını listele |
@@ -242,7 +246,8 @@
 | GET | `/cms/pages/:slug` | 🌐 Public | Statik sayfa detayını getir |
 
 **Özet:**
-- **Public:** 10 endpoint (Tümü public)
+- **Public:** 14 endpoint (Tümü public)
+- **Blog Endpoint'leri:** 6 endpoint (liste, detay, kategoriler, kategoriye göre, öne çıkan, son yazılar)
 
 ---
 
@@ -340,14 +345,14 @@
 | **Email** | 1 | 0 | 1 | 0 |
 | **SMS** | 2 | 0 | 2 | 0 |
 | **PDF** | 2 | 0 | 2 | 0 |
-| **CMS** | 10 | 0 | 10 | 0 |
+| **CMS** | 14 | 0 | 14 | 0 |
 | **Contact** | 1 | 0 | 1 | 0 |
 | **Airport** | 1 | 0 | 1 | 0 |
 | **Foursquare** | 1 | 0 | 1 | 0 |
 | **Yolcu360** | 9 | 0 | 9 | 0 |
 | **Findeks** | 5 | 0 | 5 | 0 |
 | **Health** | 2 | 0 | 2 | 0 |
-| **TOPLAM** | **95** | **27** | **67** | **1** |
+| **TOPLAM** | **99** | **27** | **71** | **1** |
 
 ---
 

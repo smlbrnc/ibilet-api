@@ -8,6 +8,10 @@ import { Public } from '../common/decorators/public.decorator';
 export class CmsController {
   constructor(private readonly cmsService: CmsService) {}
 
+  private parseNumber(value?: string): number | undefined {
+    return value ? parseInt(value, 10) : undefined;
+  }
+
   // ==================== BLOGS ====================
 
   @Public()
@@ -24,9 +28,52 @@ export class CmsController {
   ) {
     return this.cmsService.getBlogs({
       category,
-      limit: limit ? parseInt(limit, 10) : undefined,
-      offset: offset ? parseInt(offset, 10) : undefined,
+      limit: this.parseNumber(limit),
+      offset: this.parseNumber(offset),
     });
+  }
+
+  @Public()
+  @Get('blogs/categories')
+  @ApiOperation({ summary: 'Blog kategorilerini getir' })
+  @ApiResponse({ status: 200, description: 'Kategori listesi' })
+  async getBlogCategories() {
+    return this.cmsService.getBlogCategories();
+  }
+
+  @Public()
+  @Get('blogs/categories/:id')
+  @ApiOperation({ summary: 'Kategoriye göre blogları getir' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Sayfa başına kayıt' })
+  @ApiQuery({ name: 'offset', required: false, type: Number, description: 'Atlama sayısı' })
+  @ApiResponse({ status: 200, description: 'Kategoriye göre blog listesi' })
+  async getBlogsByCategoryId(
+    @Param('id') id: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    return this.cmsService.getBlogsByCategoryId(id, {
+      limit: this.parseNumber(limit),
+      offset: this.parseNumber(offset),
+    });
+  }
+
+  @Public()
+  @Get('blogs/featured')
+  @ApiOperation({ summary: 'Öne çıkan blogları getir' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Limit (default: 2)' })
+  @ApiResponse({ status: 200, description: 'Öne çıkan blog listesi' })
+  async getFeaturedBlogs(@Query('limit') limit?: string) {
+    return this.cmsService.getFeaturedBlogs(this.parseNumber(limit) || 2);
+  }
+
+  @Public()
+  @Get('blogs/recent')
+  @ApiOperation({ summary: 'Son yazıları getir' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Limit (default: 4)' })
+  @ApiResponse({ status: 200, description: 'Son yazılar listesi' })
+  async getRecentBlogs(@Query('limit') limit?: string) {
+    return this.cmsService.getRecentBlogs(this.parseNumber(limit) || 4);
   }
 
   @Public()
@@ -54,7 +101,7 @@ export class CmsController {
   async getCampaigns(@Query('type') type?: string, @Query('limit') limit?: string) {
     return this.cmsService.getCampaigns({
       type,
-      limit: limit ? parseInt(limit, 10) : undefined,
+      limit: this.parseNumber(limit),
     });
   }
 
@@ -89,21 +136,12 @@ export class CmsController {
   // ==================== TRENDS ====================
 
   @Public()
-  @Get('trends/hotels')
-  @ApiOperation({ summary: 'Popüler otelleri getir' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Limit (default: 6)' })
-  @ApiResponse({ status: 200, description: 'Trend otel listesi' })
-  async getTrendHotels(@Query('limit') limit?: string) {
-    return this.cmsService.getTrendHotels(limit ? parseInt(limit, 10) : 6);
-  }
-
-  @Public()
   @Get('trends/flights')
   @ApiOperation({ summary: 'Popüler uçuşları getir' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Limit (default: 6)' })
   @ApiResponse({ status: 200, description: 'Trend uçuş listesi' })
   async getTrendFlights(@Query('limit') limit?: string) {
-    return this.cmsService.getTrendFlights(limit ? parseInt(limit, 10) : 6);
+    return this.cmsService.getTrendFlights(this.parseNumber(limit) || 6);
   }
 
   // ==================== STATIC PAGES ====================
@@ -123,5 +161,16 @@ export class CmsController {
   @ApiResponse({ status: 404, description: 'Sayfa bulunamadı' })
   async getStaticPageBySlug(@Param('slug') slug: string) {
     return this.cmsService.getStaticPageBySlug(slug);
+  }
+
+  // ==================== FAQ ====================
+
+  @Public()
+  @Get('faq')
+  @ApiOperation({ summary: 'Sık Sorulan Soruları getir' })
+  @ApiQuery({ name: 'lang', required: false, enum: ['tr', 'en'], description: 'Dil seçimi (tr/en)' })
+  @ApiResponse({ status: 200, description: 'FAQ listesi' })
+  async getFaqs(@Query('lang') lang?: string) {
+    return this.cmsService.getFaqs(lang || 'tr');
   }
 }

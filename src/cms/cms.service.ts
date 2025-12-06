@@ -1,81 +1,267 @@
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus, Inject } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import { SupabaseService } from '../common/services/supabase.service';
 import { LoggerService } from '../common/logger/logger.service';
 
 @Injectable()
 export class CmsService {
+  // Cache TTL süreleri (ms)
+  private readonly CACHE_TTL = {
+    BLOGS: 30 * 60 * 1000, // 30 dakika
+    BLOG_DETAIL: 60 * 60 * 1000, // 1 saat
+    CATEGORIES: 60 * 60 * 1000, // 1 saat
+    CAMPAIGNS: 15 * 60 * 1000, // 15 dakika
+    DISCOUNTS: 10 * 60 * 1000, // 10 dakika
+    TRENDS: 30 * 60 * 1000, // 30 dakika
+    PAGES: 60 * 60 * 1000, // 1 saat
+    FAQ: 60 * 60 * 1000, // 1 saat
+  };
+
   constructor(
     private readonly supabase: SupabaseService,
     private readonly logger: LoggerService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {
     this.logger.setContext('CmsService');
   }
 
+  // ==================== HELPER METHODS ====================
+
   private throwError(code: string, message: string, status: HttpStatus): never {
     throw new HttpException({ success: false, code, message }, status);
+  }
+
+  private async getCachedOrExecute<T>(
+    cacheKey: string,
+    ttl: number,
+    executeFn: () => Promise<T>,
+  ): Promise<T> {
+    const cached = await this.cacheManager.get<T>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const result = await executeFn();
+    await this.cacheManager.set(cacheKey, result, ttl);
+    return result;
+  }
+
+  private handleError(error: unknown, errorMessage: string, defaultCode: string): never {
+    if (error instanceof HttpException) {
+      throw error;
+    }
+    this.logger.error({ message: errorMessage, error: (error as Error).message });
+    this.throwError(defaultCode, errorMessage, HttpStatus.INTERNAL_SERVER_ERROR);
+  }
+
+  private createSuccessResponse<T>(data: T, count?: number | null) {
+    return count !== undefined && count !== null
+      ? { success: true, data, count }
+      : { success: true, data };
   }
 
   // ==================== BLOGS ====================
 
   async getBlogs(options?: { category?: string; limit?: number; offset?: number }) {
     try {
-      let query = this.supabase
-        .getAdminClient()
-        .from('blogs')
-        .select('*')
-        .eq('is_published', true)
-        .order('published_at', { ascending: false });
+      const cacheKey = `cms:blogs:${JSON.stringify(options || {})}`;
 
-      if (options?.category) {
-        query = query.eq('category', options.category);
-      }
-      if (options?.limit) {
-        query = query.limit(options.limit);
-      }
-      if (options?.offset) {
-        query = query.range(options.offset, options.offset + (options.limit || 10) - 1);
-      }
+      return await this.getCachedOrExecute(
+        cacheKey,
+        this.CACHE_TTL.BLOGS,
+        async () => {
+          let query = this.supabase
+            .getAdminClient()
+            .from('blogs')
+            .select('*')
+            .eq('is_published', true)
+            .order('published_at', { ascending: false });
 
-      const { data, error, count } = await query;
+          if (options?.category) {
+            query = query.eq('category', options.category);
+          }
+          if (options?.limit) {
+            query = query.limit(options.limit);
+          }
+          if (options?.offset !== undefined) {
+            query = query.range(options.offset, options.offset + (options.limit || 10) - 1);
+          }
 
-      if (error) {
-        this.throwError('BLOGS_ERROR', error.message, HttpStatus.BAD_REQUEST);
-      }
+          const { data, error, count } = await query;
 
-      return { success: true, data, count };
+          if (error) {
+            this.throwError('BLOGS_ERROR', error.message, HttpStatus.BAD_REQUEST);
+          }
+
+          return this.createSuccessResponse(data, count);
+        },
+      );
     } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Blog listesi hatası', error: error.message });
-      this.throwError('BLOGS_ERROR', 'Bloglar getirilemedi', HttpStatus.INTERNAL_SERVER_ERROR);
+      this.handleError(error, 'Blog listesi hatası', 'BLOGS_ERROR');
     }
   }
 
   async getBlogBySlug(slug: string) {
     try {
-      const { data, error } = await this.supabase
-        .getAdminClient()
-        .from('blogs')
-        .select('*')
-        .eq('slug', slug)
-        .eq('is_published', true)
-        .single();
+      const cacheKey = `cms:blog:${slug}`;
 
-      if (error || !data) {
-        this.throwError('BLOG_NOT_FOUND', 'Blog bulunamadı', HttpStatus.NOT_FOUND);
-      }
+      return await this.getCachedOrExecute(
+        cacheKey,
+        this.CACHE_TTL.BLOG_DETAIL,
+        async () => {
+          const { data, error } = await this.supabase
+            .getAdminClient()
+            .from('blogs')
+            .select('*')
+            .eq('slug', slug)
+            .eq('is_published', true)
+            .single();
 
-      // View count artır
-      await this.supabase
-        .getAdminClient()
-        .from('blogs')
-        .update({ view_count: (data.view_count || 0) + 1 })
-        .eq('id', data.id);
+          if (error || !data) {
+            this.throwError('BLOG_NOT_FOUND', 'Blog bulunamadı', HttpStatus.NOT_FOUND);
+          }
 
-      return { success: true, data };
+          // View count artır
+          await this.supabase
+            .getAdminClient()
+            .from('blogs')
+            .update({ view_count: (data.view_count || 0) + 1 })
+            .eq('id', data.id);
+
+          return this.createSuccessResponse(data);
+        },
+      );
     } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Blog detay hatası', error: error.message });
-      this.throwError('BLOG_ERROR', 'Blog getirilemedi', HttpStatus.INTERNAL_SERVER_ERROR);
+      this.handleError(error, 'Blog detay hatası', 'BLOG_ERROR');
+    }
+  }
+
+  async getBlogCategories() {
+    try {
+      const cacheKey = 'cms:blog:categories';
+
+      return await this.getCachedOrExecute(cacheKey, this.CACHE_TTL.CATEGORIES, async () => {
+        const { data, error } = await this.supabase
+          .getAdminClient()
+          .from('blog_categories')
+          .select('*')
+          .order('id', { ascending: true });
+
+        if (error) {
+          this.throwError('BLOG_CATEGORIES_ERROR', error.message, HttpStatus.BAD_REQUEST);
+        }
+
+        return this.createSuccessResponse(data);
+      });
+    } catch (error) {
+      this.handleError(error, 'Blog kategorileri hatası', 'BLOG_CATEGORIES_ERROR');
+    }
+  }
+
+  async getBlogsByCategoryId(categoryId: string, options?: { limit?: number; offset?: number }) {
+    try {
+      const cacheKey = `cms:blogs:category:${categoryId}:${JSON.stringify(options || {})}`;
+
+      return await this.getCachedOrExecute(
+        cacheKey,
+        this.CACHE_TTL.BLOGS,
+        async () => {
+          const { data: mappings, error: mappingError } = await this.supabase
+            .getAdminClient()
+            .from('blog_category_mapping')
+            .select('blog_category_name')
+            .eq('category_id', categoryId);
+
+          if (mappingError) {
+            this.throwError(
+              'BLOG_CATEGORY_MAPPING_ERROR',
+              mappingError.message,
+              HttpStatus.BAD_REQUEST,
+            );
+          }
+
+          if (!mappings || mappings.length === 0) {
+            return this.createSuccessResponse([], 0);
+          }
+
+          const categoryNames = mappings.map((m) => m.blog_category_name);
+
+          let query = this.supabase
+            .getAdminClient()
+            .from('blogs')
+            .select('*')
+            .eq('is_published', true)
+            .in('category', categoryNames)
+            .order('published_at', { ascending: false });
+
+          if (options?.limit) {
+            query = query.limit(options.limit);
+          }
+          if (options?.offset !== undefined) {
+            query = query.range(options.offset, options.offset + (options.limit || 10) - 1);
+          }
+
+          const { data, error, count } = await query;
+
+          if (error) {
+            this.throwError('BLOGS_ERROR', error.message, HttpStatus.BAD_REQUEST);
+          }
+
+          return this.createSuccessResponse(data, count);
+        },
+      );
+    } catch (error) {
+      this.handleError(error, 'Kategoriye göre blog listesi hatası', 'BLOGS_ERROR');
+    }
+  }
+
+  async getFeaturedBlogs(limit: number = 2) {
+    try {
+      const cacheKey = `cms:blogs:featured:${limit}`;
+
+      return await this.getCachedOrExecute(cacheKey, this.CACHE_TTL.BLOGS, async () => {
+        const { data, error } = await this.supabase
+          .getAdminClient()
+          .from('blogs')
+          .select('*')
+          .eq('is_published', true)
+          .eq('is_featured', true)
+          .order('published_at', { ascending: false })
+          .limit(limit);
+
+        if (error) {
+          this.throwError('BLOGS_ERROR', error.message, HttpStatus.BAD_REQUEST);
+        }
+
+        return this.createSuccessResponse(data);
+      });
+    } catch (error) {
+      this.handleError(error, 'Öne çıkan bloglar hatası', 'BLOGS_ERROR');
+    }
+  }
+
+  async getRecentBlogs(limit: number = 4) {
+    try {
+      const cacheKey = `cms:blogs:recent:${limit}`;
+
+      return await this.getCachedOrExecute(cacheKey, this.CACHE_TTL.BLOGS, async () => {
+        const { data, error } = await this.supabase
+          .getAdminClient()
+          .from('blogs')
+          .select('*')
+          .eq('is_published', true)
+          .order('published_at', { ascending: false })
+          .limit(limit);
+
+        if (error) {
+          this.throwError('BLOGS_ERROR', error.message, HttpStatus.BAD_REQUEST);
+        }
+
+        return this.createSuccessResponse(data);
+      });
+    } catch (error) {
+      this.handleError(error, 'Son yazılar hatası', 'BLOGS_ERROR');
     }
   }
 
@@ -83,58 +269,62 @@ export class CmsService {
 
   async getCampaigns(options?: { type?: string; limit?: number }) {
     try {
-      let query = this.supabase
-        .getAdminClient()
-        .from('campaigns')
-        .select('*')
-        .eq('is_active', true)
-        .gte('end_date', new Date().toISOString())
-        .order('priority', { ascending: false });
+      const cacheKey = `cms:campaigns:${JSON.stringify(options || {})}`;
 
-      if (options?.type) {
-        query = query.eq('type', options.type);
-      }
-      if (options?.limit) {
-        query = query.limit(options.limit);
-      }
+      return await this.getCachedOrExecute(
+        cacheKey,
+        this.CACHE_TTL.CAMPAIGNS,
+        async () => {
+          let query = this.supabase
+            .getAdminClient()
+            .from('campaigns')
+            .select('*')
+            .eq('is_active', true)
+            .gte('end_date', new Date().toISOString())
+            .order('priority', { ascending: false });
 
-      const { data, error } = await query;
+          if (options?.type) {
+            query = query.eq('type', options.type);
+          }
+          if (options?.limit) {
+            query = query.limit(options.limit);
+          }
 
-      if (error) {
-        this.throwError('CAMPAIGNS_ERROR', error.message, HttpStatus.BAD_REQUEST);
-      }
+          const { data, error } = await query;
 
-      return { success: true, data };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Kampanya listesi hatası', error: error.message });
-      this.throwError(
-        'CAMPAIGNS_ERROR',
-        'Kampanyalar getirilemedi',
-        HttpStatus.INTERNAL_SERVER_ERROR,
+          if (error) {
+            this.throwError('CAMPAIGNS_ERROR', error.message, HttpStatus.BAD_REQUEST);
+          }
+
+          return this.createSuccessResponse(data);
+        },
       );
+    } catch (error) {
+      this.handleError(error, 'Kampanya listesi hatası', 'CAMPAIGNS_ERROR');
     }
   }
 
   async getCampaignBySlug(slug: string) {
     try {
-      const { data, error } = await this.supabase
-        .getAdminClient()
-        .from('campaigns')
-        .select('*')
-        .eq('slug', slug)
-        .eq('is_active', true)
-        .single();
+      const cacheKey = `cms:campaign:${slug}`;
 
-      if (error || !data) {
-        this.throwError('CAMPAIGN_NOT_FOUND', 'Kampanya bulunamadı', HttpStatus.NOT_FOUND);
-      }
+      return await this.getCachedOrExecute(cacheKey, this.CACHE_TTL.CAMPAIGNS, async () => {
+        const { data, error } = await this.supabase
+          .getAdminClient()
+          .from('campaigns')
+          .select('*')
+          .eq('slug', slug)
+          .eq('is_active', true)
+          .single();
 
-      return { success: true, data };
+        if (error || !data) {
+          this.throwError('CAMPAIGN_NOT_FOUND', 'Kampanya bulunamadı', HttpStatus.NOT_FOUND);
+        }
+
+        return this.createSuccessResponse(data);
+      });
     } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Kampanya detay hatası', error: error.message });
-      this.throwError('CAMPAIGN_ERROR', 'Kampanya getirilemedi', HttpStatus.INTERNAL_SERVER_ERROR);
+      this.handleError(error, 'Kampanya detay hatası', 'CAMPAIGN_ERROR');
     }
   }
 
@@ -142,29 +332,27 @@ export class CmsService {
 
   async getDiscounts() {
     try {
-      const { data, error } = await this.supabase
-        .getAdminClient()
-        .from('discount')
-        .select(
-          'id, code, name, description, type, value, min_purchase_amount, applies_to, start_date, end_date',
-        )
-        .eq('is_active', true)
-        .gte('end_date', new Date().toISOString())
-        .order('created_at', { ascending: false });
+      const cacheKey = 'cms:discounts';
 
-      if (error) {
-        this.throwError('DISCOUNTS_ERROR', error.message, HttpStatus.BAD_REQUEST);
-      }
+      return await this.getCachedOrExecute(cacheKey, this.CACHE_TTL.DISCOUNTS, async () => {
+        const { data, error } = await this.supabase
+          .getAdminClient()
+          .from('discount')
+          .select(
+            'id, code, name, description, type, value, min_purchase_amount, applies_to, start_date, end_date',
+          )
+          .eq('is_active', true)
+          .gte('end_date', new Date().toISOString())
+          .order('created_at', { ascending: false });
 
-      return { success: true, data };
+        if (error) {
+          this.throwError('DISCOUNTS_ERROR', error.message, HttpStatus.BAD_REQUEST);
+        }
+
+        return this.createSuccessResponse(data);
+      });
     } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'İndirim listesi hatası', error: error.message });
-      this.throwError(
-        'DISCOUNTS_ERROR',
-        'İndirimler getirilemedi',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.handleError(error, 'İndirim listesi hatası', 'DISCOUNTS_ERROR');
     }
   }
 
@@ -183,7 +371,6 @@ export class CmsService {
         this.throwError('DISCOUNT_INVALID', 'Geçersiz indirim kodu', HttpStatus.NOT_FOUND);
       }
 
-      // Usage limit kontrolü
       if (data.usage_limit && data.used_count >= data.usage_limit) {
         this.throwError(
           'DISCOUNT_EXPIRED',
@@ -192,43 +379,9 @@ export class CmsService {
         );
       }
 
-      return { success: true, data };
+      return this.createSuccessResponse(data);
     } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'İndirim kodu doğrulama hatası', error: error.message });
-      this.throwError(
-        'DISCOUNT_ERROR',
-        'İndirim kodu doğrulanamadı',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
-
-  // ==================== TREND HOTELS ====================
-
-  async getTrendHotels(limit = 6) {
-    try {
-      const { data, error } = await this.supabase
-        .getAdminClient()
-        .from('trend_hotel')
-        .select('*')
-        .eq('is_active', true)
-        .order('priority', { ascending: false })
-        .limit(limit);
-
-      if (error) {
-        this.throwError('TREND_HOTELS_ERROR', error.message, HttpStatus.BAD_REQUEST);
-      }
-
-      return { success: true, data };
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Trend otel listesi hatası', error: error.message });
-      this.throwError(
-        'TREND_HOTELS_ERROR',
-        'Trend oteller getirilemedi',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.handleError(error, 'İndirim kodu doğrulama hatası', 'DISCOUNT_ERROR');
     }
   }
 
@@ -236,27 +389,25 @@ export class CmsService {
 
   async getTrendFlights(limit = 6) {
     try {
-      const { data, error } = await this.supabase
-        .getAdminClient()
-        .from('trend_flight')
-        .select('*')
-        .eq('is_active', true)
-        .order('priority', { ascending: false })
-        .limit(limit);
+      const cacheKey = `cms:trends:flights:${limit}`;
 
-      if (error) {
-        this.throwError('TREND_FLIGHTS_ERROR', error.message, HttpStatus.BAD_REQUEST);
-      }
+      return await this.getCachedOrExecute(cacheKey, this.CACHE_TTL.TRENDS, async () => {
+        const { data, error } = await this.supabase
+          .getAdminClient()
+          .from('trend_flight')
+          .select('*')
+          .eq('is_active', true)
+          .order('priority', { ascending: false })
+          .limit(limit);
 
-      return { success: true, data };
+        if (error) {
+          this.throwError('TREND_FLIGHTS_ERROR', error.message, HttpStatus.BAD_REQUEST);
+        }
+
+        return this.createSuccessResponse(data);
+      });
     } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Trend uçuş listesi hatası', error: error.message });
-      this.throwError(
-        'TREND_FLIGHTS_ERROR',
-        'Trend uçuşlar getirilemedi',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.handleError(error, 'Trend uçuş listesi hatası', 'TREND_FLIGHTS_ERROR');
     }
   }
 
@@ -264,48 +415,80 @@ export class CmsService {
 
   async getStaticPages() {
     try {
-      const { data, error } = await this.supabase
-        .getAdminClient()
-        .from('static_pages')
-        .select('slug, title, meta_description, updated_at')
-        .eq('is_published', true)
-        .order('title', { ascending: true });
+      const cacheKey = 'cms:static:pages';
 
-      if (error) {
-        this.throwError('STATIC_PAGES_ERROR', error.message, HttpStatus.BAD_REQUEST);
-      }
+      return await this.getCachedOrExecute(cacheKey, this.CACHE_TTL.PAGES, async () => {
+        const { data, error } = await this.supabase
+          .getAdminClient()
+          .from('static_pages')
+          .select('slug, title, meta_description, updated_at')
+          .eq('is_published', true)
+          .order('title', { ascending: true });
 
-      return { success: true, data };
+        if (error) {
+          this.throwError('STATIC_PAGES_ERROR', error.message, HttpStatus.BAD_REQUEST);
+        }
+
+        return this.createSuccessResponse(data);
+      });
     } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Statik sayfa listesi hatası', error: error.message });
-      this.throwError(
-        'STATIC_PAGES_ERROR',
-        'Sayfalar getirilemedi',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.handleError(error, 'Statik sayfa listesi hatası', 'STATIC_PAGES_ERROR');
     }
   }
 
   async getStaticPageBySlug(slug: string) {
     try {
-      const { data, error } = await this.supabase
-        .getAdminClient()
-        .from('static_pages')
-        .select('*')
-        .eq('slug', slug)
-        .eq('is_published', true)
-        .single();
+      const cacheKey = `cms:static:page:${slug}`;
 
-      if (error || !data) {
-        this.throwError('PAGE_NOT_FOUND', 'Sayfa bulunamadı', HttpStatus.NOT_FOUND);
-      }
+      return await this.getCachedOrExecute(cacheKey, this.CACHE_TTL.PAGES, async () => {
+        const { data, error } = await this.supabase
+          .getAdminClient()
+          .from('static_pages')
+          .select('*')
+          .eq('slug', slug)
+          .eq('is_published', true)
+          .single();
 
-      return { success: true, data };
+        if (error || !data) {
+          this.throwError('PAGE_NOT_FOUND', 'Sayfa bulunamadı', HttpStatus.NOT_FOUND);
+        }
+
+        return this.createSuccessResponse(data);
+      });
     } catch (error) {
-      if (error instanceof HttpException) throw error;
-      this.logger.error({ message: 'Statik sayfa detay hatası', error: error.message });
-      this.throwError('PAGE_ERROR', 'Sayfa getirilemedi', HttpStatus.INTERNAL_SERVER_ERROR);
+      this.handleError(error, 'Statik sayfa detay hatası', 'PAGE_ERROR');
+    }
+  }
+
+  // ==================== FAQ ====================
+
+  async getFaqs(language: string = 'tr') {
+    try {
+      const cacheKey = `cms:faq:${language}`;
+
+      return await this.getCachedOrExecute(cacheKey, this.CACHE_TTL.FAQ, async () => {
+        const { data, error } = await this.supabase
+          .getAdminClient()
+          .from('faq')
+          .select('*')
+          .eq('is_active', true)
+          .order('priority', { ascending: true });
+
+        if (error) {
+          this.throwError('FAQ_ERROR', error.message, HttpStatus.BAD_REQUEST);
+        }
+
+        const formattedData = data.map((item) => ({
+          id: item.id,
+          question: language === 'en' ? item.question_en : item.question_tr,
+          answer: language === 'en' ? item.answer_en : item.answer_tr,
+          priority: item.priority,
+        }));
+
+        return this.createSuccessResponse(formattedData);
+      });
+    } catch (error) {
+      this.handleError(error, 'FAQ listesi hatası', 'FAQ_ERROR');
     }
   }
 }
