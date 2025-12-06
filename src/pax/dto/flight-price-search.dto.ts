@@ -83,7 +83,10 @@ export class FlightPriceSearchDto {
   @IsOptional()
   Night?: number;
 
-  @ApiPropertyOptional({ example: false, description: 'Paket teklif toplam fiyatını devre dışı bırak' })
+  @ApiPropertyOptional({
+    example: false,
+    description: 'Paket teklif toplam fiyatını devre dışı bırak',
+  })
   @IsBoolean()
   @IsOptional()
   disablePackageOfferTotalPrice?: boolean;
@@ -98,4 +101,3 @@ export class FlightPriceSearchDto {
   @IsOptional()
   forceFlightBundlePackage?: boolean;
 }
-

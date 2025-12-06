@@ -19,7 +19,8 @@ export class CmsService {
 
   async getBlogs(options?: { category?: string; limit?: number; offset?: number }) {
     try {
-      let query = this.supabase.getAdminClient()
+      let query = this.supabase
+        .getAdminClient()
         .from('blogs')
         .select('*')
         .eq('is_published', true)
@@ -51,7 +52,8 @@ export class CmsService {
 
   async getBlogBySlug(slug: string) {
     try {
-      const { data, error } = await this.supabase.getAdminClient()
+      const { data, error } = await this.supabase
+        .getAdminClient()
         .from('blogs')
         .select('*')
         .eq('slug', slug)
@@ -63,7 +65,8 @@ export class CmsService {
       }
 
       // View count artır
-      await this.supabase.getAdminClient()
+      await this.supabase
+        .getAdminClient()
         .from('blogs')
         .update({ view_count: (data.view_count || 0) + 1 })
         .eq('id', data.id);
@@ -80,7 +83,8 @@ export class CmsService {
 
   async getCampaigns(options?: { type?: string; limit?: number }) {
     try {
-      let query = this.supabase.getAdminClient()
+      let query = this.supabase
+        .getAdminClient()
         .from('campaigns')
         .select('*')
         .eq('is_active', true)
@@ -104,13 +108,18 @@ export class CmsService {
     } catch (error) {
       if (error instanceof HttpException) throw error;
       this.logger.error({ message: 'Kampanya listesi hatası', error: error.message });
-      this.throwError('CAMPAIGNS_ERROR', 'Kampanyalar getirilemedi', HttpStatus.INTERNAL_SERVER_ERROR);
+      this.throwError(
+        'CAMPAIGNS_ERROR',
+        'Kampanyalar getirilemedi',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
   async getCampaignBySlug(slug: string) {
     try {
-      const { data, error } = await this.supabase.getAdminClient()
+      const { data, error } = await this.supabase
+        .getAdminClient()
         .from('campaigns')
         .select('*')
         .eq('slug', slug)
@@ -133,9 +142,12 @@ export class CmsService {
 
   async getDiscounts() {
     try {
-      const { data, error } = await this.supabase.getAdminClient()
+      const { data, error } = await this.supabase
+        .getAdminClient()
         .from('discount')
-        .select('id, code, name, description, type, value, min_purchase_amount, applies_to, start_date, end_date')
+        .select(
+          'id, code, name, description, type, value, min_purchase_amount, applies_to, start_date, end_date',
+        )
         .eq('is_active', true)
         .gte('end_date', new Date().toISOString())
         .order('created_at', { ascending: false });
@@ -148,13 +160,18 @@ export class CmsService {
     } catch (error) {
       if (error instanceof HttpException) throw error;
       this.logger.error({ message: 'İndirim listesi hatası', error: error.message });
-      this.throwError('DISCOUNTS_ERROR', 'İndirimler getirilemedi', HttpStatus.INTERNAL_SERVER_ERROR);
+      this.throwError(
+        'DISCOUNTS_ERROR',
+        'İndirimler getirilemedi',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
   async validateDiscountCode(code: string) {
     try {
-      const { data, error } = await this.supabase.getAdminClient()
+      const { data, error } = await this.supabase
+        .getAdminClient()
         .from('discount')
         .select('*')
         .eq('code', code.toUpperCase())
@@ -168,14 +185,22 @@ export class CmsService {
 
       // Usage limit kontrolü
       if (data.usage_limit && data.used_count >= data.usage_limit) {
-        this.throwError('DISCOUNT_EXPIRED', 'İndirim kodu kullanım limitine ulaştı', HttpStatus.BAD_REQUEST);
+        this.throwError(
+          'DISCOUNT_EXPIRED',
+          'İndirim kodu kullanım limitine ulaştı',
+          HttpStatus.BAD_REQUEST,
+        );
       }
 
       return { success: true, data };
     } catch (error) {
       if (error instanceof HttpException) throw error;
       this.logger.error({ message: 'İndirim kodu doğrulama hatası', error: error.message });
-      this.throwError('DISCOUNT_ERROR', 'İndirim kodu doğrulanamadı', HttpStatus.INTERNAL_SERVER_ERROR);
+      this.throwError(
+        'DISCOUNT_ERROR',
+        'İndirim kodu doğrulanamadı',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
@@ -183,7 +208,8 @@ export class CmsService {
 
   async getTrendHotels(limit = 6) {
     try {
-      const { data, error } = await this.supabase.getAdminClient()
+      const { data, error } = await this.supabase
+        .getAdminClient()
         .from('trend_hotel')
         .select('*')
         .eq('is_active', true)
@@ -198,7 +224,11 @@ export class CmsService {
     } catch (error) {
       if (error instanceof HttpException) throw error;
       this.logger.error({ message: 'Trend otel listesi hatası', error: error.message });
-      this.throwError('TREND_HOTELS_ERROR', 'Trend oteller getirilemedi', HttpStatus.INTERNAL_SERVER_ERROR);
+      this.throwError(
+        'TREND_HOTELS_ERROR',
+        'Trend oteller getirilemedi',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
@@ -206,7 +236,8 @@ export class CmsService {
 
   async getTrendFlights(limit = 6) {
     try {
-      const { data, error } = await this.supabase.getAdminClient()
+      const { data, error } = await this.supabase
+        .getAdminClient()
         .from('trend_flight')
         .select('*')
         .eq('is_active', true)
@@ -221,7 +252,11 @@ export class CmsService {
     } catch (error) {
       if (error instanceof HttpException) throw error;
       this.logger.error({ message: 'Trend uçuş listesi hatası', error: error.message });
-      this.throwError('TREND_FLIGHTS_ERROR', 'Trend uçuşlar getirilemedi', HttpStatus.INTERNAL_SERVER_ERROR);
+      this.throwError(
+        'TREND_FLIGHTS_ERROR',
+        'Trend uçuşlar getirilemedi',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
@@ -229,7 +264,8 @@ export class CmsService {
 
   async getStaticPages() {
     try {
-      const { data, error } = await this.supabase.getAdminClient()
+      const { data, error } = await this.supabase
+        .getAdminClient()
         .from('static_pages')
         .select('slug, title, meta_description, updated_at')
         .eq('is_published', true)
@@ -243,13 +279,18 @@ export class CmsService {
     } catch (error) {
       if (error instanceof HttpException) throw error;
       this.logger.error({ message: 'Statik sayfa listesi hatası', error: error.message });
-      this.throwError('STATIC_PAGES_ERROR', 'Sayfalar getirilemedi', HttpStatus.INTERNAL_SERVER_ERROR);
+      this.throwError(
+        'STATIC_PAGES_ERROR',
+        'Sayfalar getirilemedi',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
   async getStaticPageBySlug(slug: string) {
     try {
-      const { data, error } = await this.supabase.getAdminClient()
+      const { data, error } = await this.supabase
+        .getAdminClient()
         .from('static_pages')
         .select('*')
         .eq('slug', slug)
@@ -268,4 +309,3 @@ export class CmsService {
     }
   }
 }
-

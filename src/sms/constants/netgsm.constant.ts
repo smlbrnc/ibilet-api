@@ -31,4 +31,3 @@ export const BALANCE_ERROR_MESSAGES: Record<string, string> = {
 };
 
 export const SMS_SUCCESS_CODES = ['00', '01', '02'];
-

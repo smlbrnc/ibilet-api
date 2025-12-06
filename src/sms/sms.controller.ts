@@ -45,7 +45,7 @@ export class SmsController {
     type: GetBalanceDto,
     examples: {
       'Tüm Varlık': { value: { stip: 3 } },
-      'Kredi': { value: { stip: 2 } },
+      Kredi: { value: { stip: 2 } },
     },
   })
   @ApiResponse({ status: 200, description: 'Bakiye sorgulandı' })
@@ -54,4 +54,3 @@ export class SmsController {
     return this.netgsmService.getBalance(dto);
   }
 }
-

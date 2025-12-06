@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PaxHttpService } from '../pax-http.service';
 import { SupabaseService } from '../../common/services/supabase.service';
@@ -19,7 +19,11 @@ export class BookingService {
   /**
    * PAX API endpoint çağrısı yapar (ortak metod)
    */
-  async callPaxEndpoint(endpointKey: string, request: any, options: PaxRequestOptions = {}): Promise<any> {
+  async callPaxEndpoint(
+    endpointKey: string,
+    request: any,
+    options: PaxRequestOptions = {},
+  ): Promise<any> {
     const baseUrl = this.config.get<string>('pax.baseUrl');
     const endpoint = this.config.get<string>(`pax.endpoints.${endpointKey}`);
     const result = await this.paxHttp.post(`${baseUrl}${endpoint}`, request, options);
@@ -82,15 +86,28 @@ export class BookingService {
         .single();
 
       if (insertError) {
-        this.logger.error({ message: 'Supabase kayıt hatası', error: insertError.message, transactionId: data.transactionId });
+        this.logger.error({
+          message: 'Supabase kayıt hatası',
+          error: insertError.message,
+          transactionId: data.transactionId,
+        });
         return;
       }
 
-      this.logger.log({ message: 'set-reservation-info yanıtı Supabase\'e kaydedildi', transactionId: data.transactionId, success: data.success });
+      this.logger.log({
+        message: "set-reservation-info yanıtı Supabase'e kaydedildi",
+        transactionId: data.transactionId,
+        success: data.success,
+      });
 
       // Success durumunda booking kaydı oluştur
       if (data.success && insertData?.id && data.transactionId) {
-        await this.createBookingRecord(insertData.id, data.transactionId, data.expiresOn, data.userId);
+        await this.createBookingRecord(
+          insertData.id,
+          data.transactionId,
+          data.expiresOn,
+          data.userId,
+        );
       }
     } catch (error) {
       this.logger.error({
@@ -116,20 +133,25 @@ export class BookingService {
       const isExpired = expiresOnDate ? expiresOnDate <= new Date() : true;
       const bookingStatus = isExpired ? 'EXPIRED' : 'AWAITING_PAYMENT';
 
-      const { error: bookingError } = await adminClient
-        .schema('backend')
-        .from('booking')
-        .insert({
-          pre_transaction_id: preTransactionId,
-          transaction_id: transactionId,
-          user_id: userId,
-          status: bookingStatus,
-        });
+      const { error: bookingError } = await adminClient.schema('backend').from('booking').insert({
+        pre_transaction_id: preTransactionId,
+        transaction_id: transactionId,
+        user_id: userId,
+        status: bookingStatus,
+      });
 
       if (bookingError) {
-        this.logger.error({ message: 'Booking kayıt hatası', error: bookingError.message, transactionId });
+        this.logger.error({
+          message: 'Booking kayıt hatası',
+          error: bookingError.message,
+          transactionId,
+        });
       } else {
-        this.logger.log({ message: 'Booking kaydı oluşturuldu', transactionId, status: bookingStatus });
+        this.logger.log({
+          message: 'Booking kaydı oluşturuldu',
+          transactionId,
+          status: bookingStatus,
+        });
       }
     } catch (error) {
       this.logger.error({
@@ -143,7 +165,11 @@ export class BookingService {
   /**
    * Cancellation penalty sorgula (booking kontrolü ile)
    */
-  async getCancellationPenalty(reservationNumber: string, request: any, options: PaxRequestOptions = {}): Promise<any> {
+  async getCancellationPenalty(
+    reservationNumber: string,
+    request: any,
+    options: PaxRequestOptions = {},
+  ): Promise<any> {
     const adminClient = this.supabase.getAdminClient();
 
     const { data: booking, error: bookingError } = await adminClient
@@ -154,7 +180,11 @@ export class BookingService {
       .single();
 
     if (bookingError || !booking) {
-      throw new NotFoundException({ success: false, code: 'RESERVATION_NOT_FOUND', message: 'Rezervasyon bulunamadı' });
+      throw new NotFoundException({
+        success: false,
+        code: 'RESERVATION_NOT_FOUND',
+        message: 'Rezervasyon bulunamadı',
+      });
     }
 
     return this.callPaxEndpoint('cancellationPenalty', request, options);
@@ -163,9 +193,16 @@ export class BookingService {
   /**
    * Rezervasyon iptal et
    */
-  async cancelReservation(reservationNumber: string, request: any, options: PaxRequestOptions = {}): Promise<any> {
+  async cancelReservation(
+    reservationNumber: string,
+    request: any,
+    options: PaxRequestOptions = {},
+  ): Promise<any> {
     const baseUrl = this.config.get<string>('pax.baseUrl');
-    const endpoint = (this.config.get<string>('pax.endpoints.cancelReservation') || '').replace('{reservationNumber}', reservationNumber);
+    const endpoint = (this.config.get<string>('pax.endpoints.cancelReservation') || '').replace(
+      '{reservationNumber}',
+      reservationNumber,
+    );
     const result = await this.paxHttp.post(`${baseUrl}${endpoint}`, request, options);
     return result.body || result;
   }
@@ -185,7 +222,11 @@ export class BookingService {
       .single();
 
     if (bookingError || !booking) {
-      throw new NotFoundException({ success: false, code: 'BOOKING_NOT_FOUND', message: 'Booking bulunamadı' });
+      throw new NotFoundException({
+        success: false,
+        code: 'BOOKING_NOT_FOUND',
+        message: 'Booking bulunamadı',
+      });
     }
 
     // AWAITING_PAYMENT durumunda güncelleme kontrolü
@@ -211,7 +252,10 @@ export class BookingService {
       .single();
 
     if (preError || !preTransaction) {
-      this.logger.error({ message: 'pre_transactionid kaydı bulunamadı', transactionId: booking.transaction_id });
+      this.logger.error({
+        message: 'pre_transactionid kaydı bulunamadı',
+        transactionId: booking.transaction_id,
+      });
       return null;
     }
 
@@ -242,11 +286,20 @@ export class BookingService {
       .single();
 
     if (updateError) {
-      this.logger.error({ message: 'Booking güncelleme hatası', error: updateError.message, transactionId: booking.transaction_id });
+      this.logger.error({
+        message: 'Booking güncelleme hatası',
+        error: updateError.message,
+        transactionId: booking.transaction_id,
+      });
       return null;
     }
 
-    this.logger.log({ message: 'Booking status güncellendi', transactionId: booking.transaction_id, oldStatus: booking.status, newStatus });
+    this.logger.log({
+      message: 'Booking status güncellendi',
+      transactionId: booking.transaction_id,
+      oldStatus: booking.status,
+      newStatus,
+    });
     return updatedBooking;
   }
 
@@ -270,4 +323,3 @@ export class BookingService {
     };
   }
 }
-

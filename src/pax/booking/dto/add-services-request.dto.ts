@@ -23,4 +23,3 @@ export class AddServicesRequestDto {
   @IsString()
   culture: string;
 }
-

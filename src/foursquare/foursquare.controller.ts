@@ -20,7 +20,11 @@ export class FoursquareController {
     description: 'Sıralama kriteri (POPULARITY, RATING, DISTANCE)',
     example: SortOption.POPULARITY,
   })
-  @ApiResponse({ status: 200, description: 'Yakındaki yerler başarıyla getirildi', type: NearbyGroupedResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Yakındaki yerler başarıyla getirildi',
+    type: NearbyGroupedResponseDto,
+  })
   @ApiResponse({ status: 400, description: 'Geçersiz parametreler' })
   @ApiResponse({ status: 500, description: 'Sunucu hatası' })
   async getNearbyPlaces(@Query() query: NearbyQueryDto): Promise<NearbyGroupedResponseDto> {

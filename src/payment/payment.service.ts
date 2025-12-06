@@ -16,8 +16,16 @@ import { CallbackRequestDto } from './dto/callback-request.dto';
 import { generateOrderId, getVposUrl, getTransactionMessage } from './utils/vpos-helpers.util';
 import { getHashData as get3DSecureHash } from './utils/vpos-hash.util';
 import { getHashData as getDirectHash } from './utils/vpos-hash-direct.util';
-import { build3DSecureFormData, buildDirectPaymentXml, parseXmlResponse } from './utils/vpos-xml-builder.util';
-import { format3DSecurePaymentResponse, formatDirectPaymentResponse, format3DSecureCallbackResponse } from './utils/vpos-response-parser.util';
+import {
+  build3DSecureFormData,
+  buildDirectPaymentXml,
+  parseXmlResponse,
+} from './utils/vpos-xml-builder.util';
+import {
+  format3DSecurePaymentResponse,
+  formatDirectPaymentResponse,
+  format3DSecureCallbackResponse,
+} from './utils/vpos-response-parser.util';
 
 export interface CallbackResult {
   redirectUrl: string;
@@ -48,7 +56,7 @@ export class PaymentService {
   async initiate3DSecurePayment(dto: PaymentRequestDto) {
     try {
       const orderId = generateOrderId('IB');
-      
+
       this.logger.log({
         message: 'VPOS payment request initiated',
         orderId,
@@ -154,7 +162,10 @@ export class PaymentService {
 
       // Hash hesapla (3D'siz)
       const hashParams: any = {
-        userPassword: this.paymentConfig.getTerminalUserId() === 'GARANTI' ? 'GARANTI' : this.paymentConfig.getProvisionPassword(),
+        userPassword:
+          this.paymentConfig.getTerminalUserId() === 'GARANTI'
+            ? 'GARANTI'
+            : this.paymentConfig.getProvisionPassword(),
         terminalId: this.paymentConfig.getTerminalId(),
         orderId,
         amount: dto.amount,
@@ -344,7 +355,11 @@ export class PaymentService {
 
           // Product type kontrolü - Yolcu360 araç mı?
           if (booking.product_type === 'car') {
-            reservationNumber = await this.processYolcu360Callback(booking, responseData, adminClient);
+            reservationNumber = await this.processYolcu360Callback(
+              booking,
+              responseData,
+              adminClient,
+            );
           } else {
             // PAX flow
             reservationNumber = await this.processPaxCallback(booking, responseData, adminClient);
@@ -360,7 +375,12 @@ export class PaymentService {
     }
 
     // Redirect URL oluştur
-    const redirectUrl = this.buildRedirectUrl(responseData, transactionId, reservationNumber, productType);
+    const redirectUrl = this.buildRedirectUrl(
+      responseData,
+      transactionId,
+      reservationNumber,
+      productType,
+    );
     this.logger.log(`🔄 Redirect URL: ${redirectUrl}`);
 
     return { redirectUrl, success: responseData.success && !!reservationNumber };
@@ -369,7 +389,11 @@ export class PaymentService {
   /**
    * Yolcu360 araç callback işleme
    */
-  private async processYolcu360Callback(booking: any, responseData: any, adminClient: any): Promise<string> {
+  private async processYolcu360Callback(
+    booking: any,
+    responseData: any,
+    adminClient: any,
+  ): Promise<string> {
     let newStatus = responseData.success ? 'SUCCESS' : 'FAILED';
     let findeksCode = null;
     let orderDetails = null;
@@ -377,7 +401,9 @@ export class PaymentService {
 
     if (responseData.success) {
       // Limit ödeme yap
-      const paymentResult = await this.yolcu360Service.processLimitPaymentForCallback(booking.transaction_id);
+      const paymentResult = await this.yolcu360Service.processLimitPaymentForCallback(
+        booking.transaction_id,
+      );
 
       if (paymentResult.success) {
         findeksCode = paymentResult.findeksCode;
@@ -468,7 +494,11 @@ export class PaymentService {
   /**
    * PAX callback işleme (mevcut flow)
    */
-  private async processPaxCallback(booking: any, responseData: any, adminClient: any): Promise<string> {
+  private async processPaxCallback(
+    booking: any,
+    responseData: any,
+    adminClient: any,
+  ): Promise<string> {
     let newStatus = responseData.success ? 'SUCCESS' : 'FAILED';
     let bookingDetail = null;
     let reservationDetails = null;
@@ -553,17 +583,34 @@ export class PaymentService {
 
       if (commitResult?.header?.success === true) {
         const reservationNumber = commitResult?.body?.reservationNumber || '';
-        this.logger.log({ message: 'Callback: commit-transaction başarılı', transactionId, reservationNumber });
+        this.logger.log({
+          message: 'Callback: commit-transaction başarılı',
+          transactionId,
+          reservationNumber,
+        });
         return { status: 'CONFIRMED', reservationNumber, bookingDetail: commitResult };
       }
 
       const commitError = commitResult?.header?.messages?.[0]?.message || 'Commit işlemi başarısız';
-      this.logger.warn({ message: 'Callback: commit-transaction başarısız', transactionId, response: commitResult });
+      this.logger.warn({
+        message: 'Callback: commit-transaction başarısız',
+        transactionId,
+        error: commitError,
+        response: commitResult,
+      });
       return { status: 'COMMIT_ERROR', reservationNumber: '', bookingDetail: commitResult };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      this.logger.error({ message: 'Callback: commit-transaction hatası', transactionId, error: errorMessage });
-      return { status: 'COMMIT_ERROR', reservationNumber: '', bookingDetail: { error: errorMessage } };
+      this.logger.error({
+        message: 'Callback: commit-transaction hatası',
+        transactionId,
+        error: errorMessage,
+      });
+      return {
+        status: 'COMMIT_ERROR',
+        reservationNumber: '',
+        bookingDetail: { error: errorMessage },
+      };
     }
   }
 
@@ -574,7 +621,9 @@ export class PaymentService {
     try {
       const baseUrl = this.configService.get<string>('pax.baseUrl');
       const detailEndpoint = this.configService.get<string>('pax.endpoints.reservationDetail');
-      const result = await this.paxHttp.post(`${baseUrl}${detailEndpoint}`, { ReservationNumber: reservationNumber });
+      const result = await this.paxHttp.post(`${baseUrl}${detailEndpoint}`, {
+        ReservationNumber: reservationNumber,
+      });
       this.logger.log({ message: 'Callback: reservation-detail alındı', reservationNumber });
       return result;
     } catch (error) {
@@ -590,7 +639,12 @@ export class PaymentService {
   /**
    * Redirect URL oluştur
    */
-  private buildRedirectUrl(responseData: any, transactionId: string, reservationNumber: string, productType: string = 'flight'): string {
+  private buildRedirectUrl(
+    responseData: any,
+    transactionId: string,
+    reservationNumber: string,
+    productType: string = 'flight',
+  ): string {
     const isFullySuccessful = responseData.success && reservationNumber;
     const isCommitError = responseData.success && !reservationNumber;
 
@@ -605,12 +659,19 @@ export class PaymentService {
       ...(isFullySuccessful
         ? { reservationNumber }
         : isCommitError
-          ? { productType, returnCode: responseData.transaction?.returnCode || '', error: 'Ödeme başarılı ancak rezervasyon oluşturulamadı' }
-          : { productType, returnCode: responseData.transaction?.returnCode || '', message: responseData.transaction?.message || '' }),
+          ? {
+              productType,
+              returnCode: responseData.transaction?.returnCode || '',
+              error: 'Ödeme başarılı ancak rezervasyon oluşturulamadı',
+            }
+          : {
+              productType,
+              returnCode: responseData.transaction?.returnCode || '',
+              message: responseData.transaction?.message || '',
+            }),
     });
 
     const baseRedirectUrl = this.configService.get<string>('payment.redirectUrl');
     return `${baseRedirectUrl}?${params.toString()}`;
   }
 }
-

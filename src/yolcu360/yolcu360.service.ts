@@ -73,11 +73,15 @@ export class Yolcu360Service {
 
       // Yolcu360'dan gelen yanıtı parse et
       const errorDetails = this.parseErrorResponse(errorText);
-      
+
       // Eğer JSON yanıt varsa direkt onu döndür, yoksa text yanıtı döndür
       if (errorDetails) {
         // Error message için description veya message kullan (JSON.stringify gereksiz)
-        const errorMessage = errorDetails.description || errorDetails.message || errorDetails.error || `${context} başarısız`;
+        const errorMessage =
+          errorDetails.description ||
+          errorDetails.message ||
+          errorDetails.error ||
+          `${context} başarısız`;
         const error = new Error(errorMessage) as Error & {
           status?: number;
           response?: Yolcu360Error;
@@ -144,9 +148,12 @@ export class Yolcu360Service {
   /**
    * Cache'e search yanıtını kaydet (tüm searchID'ler için)
    */
-  private async cacheSearchResponse(response: CarSearchResponse, searchIDs: string[]): Promise<void> {
+  private async cacheSearchResponse(
+    response: CarSearchResponse,
+    searchIDs: string[],
+  ): Promise<void> {
     if (searchIDs.length === 0) {
-      this.logger.warn('Search yanıtında searchID bulunamadı, cache\'e kaydedilemedi');
+      this.logger.warn("Search yanıtında searchID bulunamadı, cache'e kaydedilemedi");
       return;
     }
 
@@ -161,7 +168,9 @@ export class Yolcu360Service {
         }),
       );
     } catch (error) {
-      this.logger.error(`Cache kayıt hatası: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(
+        `Cache kayıt hatası: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -234,10 +243,7 @@ export class Yolcu360Service {
     return response;
   }
 
-  async getCarSearchResult(
-    searchID: string,
-    code: string,
-  ): Promise<CarSearchResultResponse> {
+  async getCarSearchResult(searchID: string, code: string): Promise<CarSearchResultResponse> {
     return this.makeRequest<CarSearchResultResponse>(
       `${YOLCU360_ENDPOINTS.CAR_EXTRA_PRODUCTS}/${searchID}/${code}/extra-products`,
       { method: 'GET' },
@@ -289,7 +295,9 @@ export class Yolcu360Service {
         });
 
       if (insertError) {
-        this.logger.error(`Order veritabanı kayıt hatası: ${insertError.message} (orderId: ${order.id})`);
+        this.logger.error(
+          `Order veritabanı kayıt hatası: ${insertError.message} (orderId: ${order.id})`,
+        );
         return;
       }
 
@@ -307,7 +315,7 @@ export class Yolcu360Service {
     const cachedResponse = await this.getCachedSearchResponse(searchID);
     if (!cachedResponse) {
       throw new NotFoundException(
-        'Search yanıtı cache\'de bulunamadı. Lütfen önce search isteği yapın.',
+        "Search yanıtı cache'de bulunamadı. Lütfen önce search isteği yapın.",
       );
     }
 
@@ -350,7 +358,9 @@ export class Yolcu360Service {
       .single();
 
     if (error) {
-      this.logger.error(`Araç kayıt hatası: ${error.message} (code: ${code}, searchID: ${searchID})`);
+      this.logger.error(
+        `Araç kayıt hatası: ${error.message} (code: ${code}, searchID: ${searchID})`,
+      );
       throw new BadRequestException(`Araç kaydedilemedi: ${error.message}`);
     }
 

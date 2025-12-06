@@ -62,4 +62,3 @@ export class CardInfoDto {
   })
   cardCvv2: string;
 }
-

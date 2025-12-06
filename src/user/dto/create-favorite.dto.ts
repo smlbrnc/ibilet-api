@@ -22,11 +22,10 @@ export class CreateFavoriteDto {
   @IsString()
   image_url?: string;
 
-  @ApiProperty({ 
-    example: { origin: 'IST', destination: 'AYT', date: '2024-06-15' }, 
-    description: 'Favori detay verisi (JSON)' 
+  @ApiProperty({
+    example: { origin: 'IST', destination: 'AYT', date: '2024-06-15' },
+    description: 'Favori detay verisi (JSON)',
   })
   @IsObject()
   data: Record<string, any>;
 }
-

@@ -12,4 +12,3 @@ import { LoggerService } from '../common/logger/logger.service';
   exports: [Yolcu360Service, FindeksService],
 })
 export class Yolcu360Module {}
-

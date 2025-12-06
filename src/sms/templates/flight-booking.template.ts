@@ -88,15 +88,29 @@ export const buildFlightBookingSms = (reservationDetails: any): FlightSmsResult 
   const reservationData: ReservationData = reservationDetails?.body?.reservationData;
 
   if (!reservationData) {
-    return { message: '', phone: null, passengerName: '', outboundPnr: '', returnPnr: null, reservationNumber: '' };
+    return {
+      message: '',
+      phone: null,
+      passengerName: '',
+      outboundPnr: '',
+      returnPnr: null,
+      reservationNumber: '',
+    };
   }
 
   const { reservationInfo, services, travellers } = reservationData;
 
   // Leader yolcuyu bul
-  const leader = travellers?.find(t => t.isLeader);
+  const leader = travellers?.find((t) => t.isLeader);
   if (!leader) {
-    return { message: '', phone: null, passengerName: '', outboundPnr: '', returnPnr: null, reservationNumber: '' };
+    return {
+      message: '',
+      phone: null,
+      passengerName: '',
+      outboundPnr: '',
+      returnPnr: null,
+      reservationNumber: '',
+    };
   }
 
   const phone = formatPhone(leader);
@@ -104,11 +118,11 @@ export const buildFlightBookingSms = (reservationDetails: any): FlightSmsResult 
   const reservationNumber = reservationInfo?.bookingNumber || '';
 
   // Uçuş servislerini ayır (productType: 3 ve isExtraService: false)
-  const flightServices = services?.filter(s => s.productType === 3 && !s.isExtraService) || [];
+  const flightServices = services?.filter((s) => s.productType === 3 && !s.isExtraService) || [];
 
   // Gidiş ve dönüş uçuşlarını grupla
-  const outboundFlights = flightServices.filter(s => s.serviceDetails?.flightInfo?.route === 1);
-  const returnFlights = flightServices.filter(s => s.serviceDetails?.flightInfo?.route === 2);
+  const outboundFlights = flightServices.filter((s) => s.serviceDetails?.flightInfo?.route === 1);
+  const returnFlights = flightServices.filter((s) => s.serviceDetails?.flightInfo?.route === 2);
 
   const outboundFlight = outboundFlights[0];
   const returnFlight = returnFlights[0];
@@ -147,4 +161,3 @@ export const buildFlightBookingSms = (reservationDetails: any): FlightSmsResult 
     reservationNumber,
   };
 };
-

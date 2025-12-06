@@ -11,4 +11,3 @@ export class MagicLinkDto {
   @Matches(/^https?:\/\/.+/, { message: 'Geçerli bir URL giriniz' })
   redirectTo?: string;
 }
-

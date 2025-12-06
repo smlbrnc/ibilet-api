@@ -2,10 +2,10 @@ import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 
 /**
  * Optional Current User Decorator
- * 
+ *
  * Request'ten kullanıcı bilgisini çıkarır.
  * Token yoksa veya geçersizse undefined döner.
- * 
+ *
  * Kullanım:
  * @UseGuards(OptionalAuthGuard)
  * async endpoint(@OptionalCurrentUser() user?: any) {
@@ -17,10 +17,7 @@ import { createParamDecorator, ExecutionContext } from '@nestjs/common';
  *   }
  * }
  */
-export const OptionalCurrentUser = createParamDecorator(
-  (data: unknown, ctx: ExecutionContext) => {
-    const request = ctx.switchToHttp().getRequest();
-    return request.user || undefined;
-  },
-);
-
+export const OptionalCurrentUser = createParamDecorator((data: unknown, ctx: ExecutionContext) => {
+  const request = ctx.switchToHttp().getRequest();
+  return request.user || undefined;
+});

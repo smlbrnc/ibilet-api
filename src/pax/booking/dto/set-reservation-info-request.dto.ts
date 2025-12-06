@@ -19,4 +19,3 @@ export class SetReservationInfoRequestDto {
   @IsArray()
   travellers: any[]; // Simplified - ref kodda detailed structure var
 }
-

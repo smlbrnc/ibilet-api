@@ -6,7 +6,10 @@ export class ResetPasswordDto {
   @IsEmail({}, { message: 'Geçerli bir email adresi giriniz' })
   email: string;
 
-  @ApiPropertyOptional({ example: 'https://yoursite.com/reset-password', description: 'Şifre sıfırlama sonrası yönlendirilecek URL' })
+  @ApiPropertyOptional({
+    example: 'https://yoursite.com/reset-password',
+    description: 'Şifre sıfırlama sonrası yönlendirilecek URL',
+  })
   @IsOptional()
   @Matches(/^https?:\/\/.+/, { message: 'Geçerli bir URL giriniz' })
   redirectTo?: string;
@@ -18,4 +21,3 @@ export class UpdatePasswordDto {
   @MinLength(6, { message: 'Şifre en az 6 karakter olmalıdır' })
   password: string;
 }
-

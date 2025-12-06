@@ -12,4 +12,3 @@ export class GetBalanceDto {
   @Max(3)
   stip: number;
 }
-

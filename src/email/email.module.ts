@@ -12,4 +12,3 @@ import { SupabaseModule } from '../common/services/supabase.module';
   exports: [EmailService],
 })
 export class EmailModule {}
-

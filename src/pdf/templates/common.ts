@@ -74,15 +74,25 @@ export const formatDuration = (minutes: number): string => {
 
 /** Fiyat formatı: "8.222,52 TRY" */
 export const formatPrice = (amount: number, currency: string): string => {
-  return new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount || 0) + ' ' + (currency || 'TRY');
+  return (
+    new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
+      amount || 0,
+    ) +
+    ' ' +
+    (currency || 'TRY')
+  );
 };
 
 /** Yolcu tipi metni */
 export const getTravellerTypeText = (type: number): string => {
   switch (type) {
-    case 1: return 'Yetişkin';
-    case 2: return 'Çocuk';
-    case 3: return 'Bebek';
-    default: return 'Yolcu';
+    case 1:
+      return 'Yetişkin';
+    case 2:
+      return 'Çocuk';
+    case 3:
+      return 'Bebek';
+    default:
+      return 'Yolcu';
   }
 };

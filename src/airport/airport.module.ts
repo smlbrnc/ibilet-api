@@ -8,4 +8,3 @@ import { AirportService } from './airport.service';
   exports: [AirportService],
 })
 export class AirportModule {}
-

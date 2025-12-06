@@ -15,4 +15,3 @@ export const WALKING_DISTANCE_COUNT = 5; // İlk 5 yer yürüme mesafesi
 
 // Cache
 export const NEARBY_CACHE_TTL = 1800 * 1000; // 30 dakika (ms)
-

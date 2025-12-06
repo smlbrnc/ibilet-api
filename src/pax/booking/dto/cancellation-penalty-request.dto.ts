@@ -10,4 +10,3 @@ export class CancellationPenaltyRequestDto {
   @IsString()
   reservationNumber: string;
 }
-

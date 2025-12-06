@@ -10,4 +10,3 @@ export class CommitTransactionRequestDto {
   @IsString()
   transactionId: string;
 }
-

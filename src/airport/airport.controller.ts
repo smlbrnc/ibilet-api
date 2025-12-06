@@ -33,9 +33,7 @@ export class AirportController {
   })
   @ApiResponse({ status: 400, description: 'Geçersiz parametreler' })
   @ApiResponse({ status: 500, description: 'Havalimanı bulunamadı' })
-  async findNearest(
-    @Body() request: NearestAirportRequestDto,
-  ): Promise<NearestAirportResult> {
+  async findNearest(@Body() request: NearestAirportRequestDto): Promise<NearestAirportResult> {
     return this.airportService.findNearestAirport(
       request.latitude,
       request.longitude,
@@ -43,4 +41,3 @@ export class AirportController {
     );
   }
 }
-

@@ -89,9 +89,10 @@ export class PdfService {
       }
 
       const productType = this.getProductType(reservationDetails);
-      const doc = productType === 2
-        ? buildHotelBookingPdf(reservationDetails)
-        : buildFlightBookingPdf(reservationDetails);
+      const doc =
+        productType === 2
+          ? buildHotelBookingPdf(reservationDetails)
+          : buildFlightBookingPdf(reservationDetails);
 
       const buffer = await this.buildPdfBuffer(doc);
       const filePath = this.getPdfPath(reservationNumber);
@@ -128,7 +129,8 @@ export class PdfService {
   /** PDF yolunu booking tablosuna kaydet */
   private async updatePdfPath(bookingId: string, pdfPath: string): Promise<void> {
     try {
-      await this.supabase.getAdminClient()
+      await this.supabase
+        .getAdminClient()
         .schema('backend')
         .from('booking')
         .update({ pdf_path: pdfPath, updated_at: new Date().toISOString() })
@@ -141,7 +143,8 @@ export class PdfService {
   /** Booking ID ile PDF oluştur */
   async generatePdfFromBooking(bookingId: string): Promise<PdfResult> {
     try {
-      const { data: booking, error } = await this.supabase.getAdminClient()
+      const { data: booking, error } = await this.supabase
+        .getAdminClient()
         .schema('backend')
         .from('booking')
         .select('id, reservation_details, booking_number, pdf_path')
@@ -183,8 +186,10 @@ export class PdfService {
           .select('id, reservation_details, booking_number, pdf_path')
           .not('reservation_details', 'is', null);
 
-        booking = allBookings?.find((b: any) => 
-          b.reservation_details?.body?.reservationData?.reservationInfo?.bookingNumber === reservationNumber
+        booking = allBookings?.find(
+          (b: any) =>
+            b.reservation_details?.body?.reservationData?.reservationInfo?.bookingNumber ===
+            reservationNumber,
         ) as BookingRecord | undefined;
       }
 

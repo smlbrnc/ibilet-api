@@ -36,4 +36,3 @@ export class HealthController {
     return { status: 'ok', provider: 'PAXIMUM' };
   }
 }
-

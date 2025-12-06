@@ -36,4 +36,3 @@ export class CheckinDatesRequestDto {
   @Type(() => Location)
   ArrivalLocations: Location[];
 }
-

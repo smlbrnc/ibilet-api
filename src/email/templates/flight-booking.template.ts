@@ -97,23 +97,33 @@ const formatDuration = (minutes: number): string => {
 
 /** Fiyat formatı: "8.222,52 TRY" */
 const formatPrice = (amount: number, currency: string): string => {
-  return new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount) + ' ' + (currency || 'TRY');
+  return (
+    new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
+      amount,
+    ) +
+    ' ' +
+    (currency || 'TRY')
+  );
 };
 
 /** Yolcu tipi metni */
 const getPassengerTypeText = (type: number): string => {
   switch (type) {
-    case 1: return 'Yetişkin';
-    case 2: return 'Çocuk';
-    case 3: return 'Bebek';
-    default: return 'Yolcu';
+    case 1:
+      return 'Yetişkin';
+    case 2:
+      return 'Çocuk';
+    case 3:
+      return 'Bebek';
+    default:
+      return 'Yolcu';
   }
 };
 
 /** Bagaj bilgisi: "25 kg" */
 const getBaggageAllowance = (baggageInfos?: BaggageInfo[]): string => {
   if (!baggageInfos || baggageInfos.length === 0) return '-';
-  const checkedBaggage = baggageInfos.find(b => b.baggageType === 1);
+  const checkedBaggage = baggageInfos.find((b) => b.baggageType === 1);
   if (checkedBaggage) return `${checkedBaggage.weight} kg`;
   return '-';
 };
@@ -132,8 +142,11 @@ const formatBirthDate = (dateStr?: string): string => {
 /** Uçuş kartı HTML'i oluşturur */
 const buildFlightCard = (flight: FlightInfo, pnr: string, isOutbound: boolean): string => {
   const routeLabel = isOutbound ? 'Gidiş' : 'Dönüş';
-  const baggageWeight = getBaggageAllowance(flight.baggageInformations || flight.segments?.[0]?.baggageInformations);
-  const flightClassName = flight.flightClass?.name || flight.segments?.[0]?.flightClass?.name || 'Economy';
+  const baggageWeight = getBaggageAllowance(
+    flight.baggageInformations || flight.segments?.[0]?.baggageInformations,
+  );
+  const flightClassName =
+    flight.flightClass?.name || flight.segments?.[0]?.flightClass?.name || 'Economy';
 
   return `
           <!-- Flight Card: ${routeLabel} -->
@@ -251,7 +264,9 @@ const EMAIL_STYLES = `
 // MAIN TEMPLATE FUNCTION
 // ============================================================================
 
-export const buildFlightBookingEmail = (reservationDetails: any): { html: string; subject: string; toEmail: string | null } => {
+export const buildFlightBookingEmail = (
+  reservationDetails: any,
+): { html: string; subject: string; toEmail: string | null } => {
   const reservationData: ReservationData = reservationDetails?.body?.reservationData;
 
   if (!reservationData) {
@@ -261,22 +276,26 @@ export const buildFlightBookingEmail = (reservationDetails: any): { html: string
   const { reservationInfo, services, travellers } = reservationData;
 
   // Leader yolcuyu bul
-  const leader = travellers?.find(t => t.isLeader);
+  const leader = travellers?.find((t) => t.isLeader);
   const toEmail = leader?.address?.email || null;
 
   // Uçuş servislerini ayır (productType: 3 ve isExtraService: false)
-  const flightServices = services?.filter(s => s.productType === 3 && !s.isExtraService) || [];
+  const flightServices = services?.filter((s) => s.productType === 3 && !s.isExtraService) || [];
 
   // Gidiş ve dönüş uçuşlarını grupla (route: 1 = gidiş, route: 2 = dönüş)
-  const outboundFlights = flightServices.filter(s => s.serviceDetails?.flightInfo?.route === 1);
-  const returnFlights = flightServices.filter(s => s.serviceDetails?.flightInfo?.route === 2);
+  const outboundFlights = flightServices.filter((s) => s.serviceDetails?.flightInfo?.route === 1);
+  const returnFlights = flightServices.filter((s) => s.serviceDetails?.flightInfo?.route === 2);
 
   // İlk gidiş ve dönüş uçuşunu al
   const outboundFlight = outboundFlights[0];
   const returnFlight = returnFlights[0];
 
   // PNR numarası
-  const pnr = reservationInfo?.agencyReservationNumber || outboundFlight?.pnrNo || reservationInfo?.bookingNumber || '-';
+  const pnr =
+    reservationInfo?.agencyReservationNumber ||
+    outboundFlight?.pnrNo ||
+    reservationInfo?.bookingNumber ||
+    '-';
 
   // Rota bilgisi
   const route = `${reservationInfo?.departureCity?.name || '-'} → ${reservationInfo?.arrivalCity?.name || '-'}`;
@@ -298,7 +317,7 @@ export const buildFlightBookingEmail = (reservationDetails: any): { html: string
   }
 
   // Yolcu listesi HTML
-  const passengerListHtml = travellers?.map(t => buildPassengerRow(t)).join('') || '';
+  const passengerListHtml = travellers?.map((t) => buildPassengerRow(t)).join('') || '';
 
   // Email HTML
   const html = `<!DOCTYPE html>
@@ -435,4 +454,3 @@ ${passengerListHtml}
 
   return { html, subject, toEmail };
 };
-

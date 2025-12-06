@@ -28,12 +28,7 @@ export class AirportService implements OnModuleInit {
   /**
    * Haversine formülü ile iki koordinat arasındaki mesafeyi hesaplar (km cinsinden)
    */
-  private calculateDistance(
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number,
-  ): number {
+  private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
     const R = 6371; // Dünya'nın yarıçapı (km)
     const dLat = this.toRadians(lat2 - lat1);
     const dLon = this.toRadians(lon2 - lon1);
@@ -61,11 +56,7 @@ export class AirportService implements OnModuleInit {
   /**
    * Verilen koordinatlara en yakın havalimanını bulur
    */
-  findNearestAirport(
-    latitude: number,
-    longitude: number,
-    types?: string[],
-  ): NearestAirportResult {
+  findNearestAirport(latitude: number, longitude: number, types?: string[]): NearestAirportResult {
     let nearestAirport: Airport | null = null;
     let minDistance = Infinity;
 
@@ -79,12 +70,7 @@ export class AirportService implements OnModuleInit {
         continue;
       }
 
-      const distance = this.calculateDistance(
-        latitude,
-        longitude,
-        airport.lat,
-        airport.lon,
-      );
+      const distance = this.calculateDistance(latitude, longitude, airport.lat, airport.lon);
 
       if (distance < minDistance) {
         minDistance = distance;
@@ -102,4 +88,3 @@ export class AirportService implements OnModuleInit {
     };
   }
 }
-

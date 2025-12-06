@@ -5,7 +5,13 @@
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const PDFDocument = require('pdfkit');
 
-import { ReservationData, formatDateShort, formatPrice, getTravellerTypeText, FONTS } from './common';
+import {
+  ReservationData,
+  formatDateShort,
+  formatPrice,
+  getTravellerTypeText,
+  FONTS,
+} from './common';
 
 interface HotelInfo {
   name: string;
@@ -37,7 +43,9 @@ export const buildHotelBookingPdf = (reservationDetails: any): InstanceType<type
   const { reservationInfo, services, travellers } = reservationData;
 
   // Otel servisini bul
-  const hotelService = services?.find((s: HotelService) => s.productType === 2 && !s.isExtraService) as HotelService | undefined;
+  const hotelService = services?.find(
+    (s: HotelService) => s.productType === 2 && !s.isExtraService,
+  ) as HotelService | undefined;
   const hotelInfo = hotelService?.serviceDetails?.hotelInfo;
   const voucherNo = hotelService?.pnrNo || reservationInfo?.bookingNumber || '-';
 
@@ -94,7 +102,12 @@ export const buildHotelBookingPdf = (reservationDetails: any): InstanceType<type
   // Fiyat Bilgisi
   doc.fontSize(14).font('Roboto-Bold').text('Fiyat Bilgisi');
   doc.moveDown(0.3);
-  doc.fontSize(16).font('Roboto-Bold').text(`Toplam: ${formatPrice(reservationInfo?.totalPrice?.amount, reservationInfo?.totalPrice?.currency)}`);
+  doc
+    .fontSize(16)
+    .font('Roboto-Bold')
+    .text(
+      `Toplam: ${formatPrice(reservationInfo?.totalPrice?.amount, reservationInfo?.totalPrice?.currency)}`,
+    );
 
   // Alt bilgi
   doc.moveDown(2);

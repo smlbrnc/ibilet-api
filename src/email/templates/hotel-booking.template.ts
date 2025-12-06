@@ -70,11 +70,7 @@ interface ReservationData {
 // HELPER FUNCTIONS
 // ============================================================================
 
-/** Tarih formatı: "30 Kasım 2025, Cumartesi" */
-const formatDateFull = (dateStr: string): string => {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric', weekday: 'long' });
-};
+// formatDateFull removed - unused function
 
 /** Kısa tarih formatı: "30 Kas 2025" */
 const formatDateShort = (dateStr: string): string => {
@@ -84,7 +80,13 @@ const formatDateShort = (dateStr: string): string => {
 
 /** Fiyat formatı: "21.121,67 TRY" */
 const formatPrice = (amount: number, currency: string): string => {
-  return new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount) + ' ' + (currency || 'TRY');
+  return (
+    new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
+      amount,
+    ) +
+    ' ' +
+    (currency || 'TRY')
+  );
 };
 
 /** Yıldız HTML'i oluşturur: "★★★★★" */
@@ -96,10 +98,14 @@ const buildStarsHtml = (stars: number): string => {
 /** Misafir tipi metni */
 const getGuestTypeText = (type: number): string => {
   switch (type) {
-    case 1: return 'Yetişkin';
-    case 2: return 'Çocuk';
-    case 3: return 'Bebek';
-    default: return 'Misafir';
+    case 1:
+      return 'Yetişkin';
+    case 2:
+      return 'Çocuk';
+    case 3:
+      return 'Bebek';
+    default:
+      return 'Misafir';
   }
 };
 
@@ -159,7 +165,9 @@ const EMAIL_STYLES = `
 // MAIN TEMPLATE FUNCTION
 // ============================================================================
 
-export const buildHotelBookingEmail = (reservationDetails: any): { html: string; subject: string; toEmail: string | null } => {
+export const buildHotelBookingEmail = (
+  reservationDetails: any,
+): { html: string; subject: string; toEmail: string | null } => {
   const reservationData: ReservationData = reservationDetails?.body?.reservationData;
 
   if (!reservationData) {
@@ -169,11 +177,11 @@ export const buildHotelBookingEmail = (reservationDetails: any): { html: string;
   const { reservationInfo, services, travellers } = reservationData;
 
   // Leader misafiri bul
-  const leader = travellers?.find(t => t.isLeader);
+  const leader = travellers?.find((t) => t.isLeader);
   const toEmail = leader?.address?.email || null;
 
   // Otel servisini bul (productType: 2 ve isExtraService: false)
-  const hotelService = services?.find(s => s.productType === 2 && !s.isExtraService);
+  const hotelService = services?.find((s) => s.productType === 2 && !s.isExtraService);
 
   if (!hotelService) {
     return { html: '', subject: '', toEmail: null };
@@ -191,11 +199,9 @@ export const buildHotelBookingEmail = (reservationDetails: any): { html: string;
   const roomType = hotelService.serviceDetails?.room || '-';
   const boardType = hotelService.serviceDetails?.board || '-';
   const nightCount = hotelService.serviceDetails?.night || 0;
-  const accom = hotelService.serviceDetails?.accom || '-';
 
   // Voucher numarası
   const voucherNo = hotelService.supplierBookingNumber || reservationInfo?.bookingNumber || '-';
-  const bookingNumber = reservationInfo?.bookingNumber || '-';
 
   // Check-in / Check-out
   const checkInDate = hotelService.beginDate || reservationInfo?.beginDate;
@@ -209,11 +215,16 @@ export const buildHotelBookingEmail = (reservationDetails: any): { html: string;
   const currency = reservationInfo?.totalPrice?.currency || 'TRY';
 
   // Misafir listesi HTML
-  const guestListHtml = travellers?.map(t => `
+  const guestListHtml =
+    travellers
+      ?.map(
+        (t) => `
                 <tr style="background:#ffffff;">
                   <td class="base" style="padding:10px 12px;border-bottom:1px solid #e5e7eb;">${t.name} ${t.surname}${t.isLeader ? ' <span style="color:#f26f6d;font-size:11px;">(Lider)</span>' : ''}</td>
                   <td class="base hide-sm" style="padding:10px 12px;border-bottom:1px solid #e5e7eb;">${getGuestTypeText(t.type)}</td>
-                </tr>`).join('') || '';
+                </tr>`,
+      )
+      .join('') || '';
 
   // Email HTML
   const html = `<!DOCTYPE html>
@@ -407,4 +418,3 @@ ${guestListHtml}
 
   return { html, subject, toEmail };
 };
-

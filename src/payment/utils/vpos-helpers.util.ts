@@ -1,6 +1,6 @@
 /**
  * VPOS Yardımcı Fonksiyonlar
- * 
+ *
  * Tekrar eden kodları ve yardımcı fonksiyonları içerir
  */
 
@@ -40,8 +40,8 @@ export function generateOrderId(prefix: string = 'IB'): string {
  * @returns VPOS API URL'i
  */
 export function getVposUrl(): string {
-  return process.env.NODE_ENV === 'production' 
-    ? VPOS_CONSTANTS.URLS.PRODUCTION 
+  return process.env.NODE_ENV === 'production'
+    ? VPOS_CONSTANTS.URLS.PRODUCTION
     : VPOS_CONSTANTS.URLS.TEST;
 }
 
@@ -90,7 +90,10 @@ export function getMotoInd(isRefund: boolean): string {
  * @param message - Dönüş mesajı
  * @returns Başarılı mı?
  */
-export function isTransactionSuccessful(code: string | null | undefined, message: string | null | undefined): boolean {
+export function isTransactionSuccessful(
+  code: string | null | undefined,
+  message: string | null | undefined,
+): boolean {
   return code === VPOS_CONSTANTS.SUCCESS_CODE && message === VPOS_CONSTANTS.SUCCESS_MESSAGE;
 }
 
@@ -125,4 +128,3 @@ export function getTransactionMessage(isRefund: boolean, isSuccess: boolean): st
   }
   return isRefund ? 'İade başarıyla tamamlandı' : 'Ödeme başarıyla tamamlandı';
 }
-

@@ -69,13 +69,23 @@ export class NetgsmService {
 
     // Sadece JobID (uzun sayısal değer)
     if (/^\d{20,}$/.test(trimmed)) {
-      return { success: true, code: 'SUCCESS', message: 'SMS başarıyla gönderildi', jobId: trimmed };
+      return {
+        success: true,
+        code: 'SUCCESS',
+        message: 'SMS başarıyla gönderildi',
+        jobId: trimmed,
+      };
     }
 
     // "00 JobID" formatı
     const match = trimmed.match(/^(00|01|02)\s+(\d{20,})$/);
     if (match) {
-      return { success: true, code: match[1], message: SMS_SUCCESS_MESSAGES[match[1]], jobId: match[2] };
+      return {
+        success: true,
+        code: match[1],
+        message: SMS_SUCCESS_MESSAGES[match[1]],
+        jobId: match[2],
+      };
     }
 
     // Tek başına başarı kodları
@@ -84,7 +94,11 @@ export class NetgsmService {
     }
 
     // Hata kodları
-    return { success: false, code: trimmed, message: SMS_ERROR_MESSAGES[trimmed] || `Bilinmeyen hata: ${trimmed}` };
+    return {
+      success: false,
+      code: trimmed,
+      message: SMS_ERROR_MESSAGES[trimmed] || `Bilinmeyen hata: ${trimmed}`,
+    };
   }
 
   /**
@@ -117,9 +131,19 @@ export class NetgsmService {
       const duration = Date.now() - startTime;
 
       if (result.success) {
-        this.logger.log({ message: 'SMS gönderildi', to: dto.no, jobId: result.jobId, duration: `${duration}ms` });
+        this.logger.log({
+          message: 'SMS gönderildi',
+          to: dto.no,
+          jobId: result.jobId,
+          duration: `${duration}ms`,
+        });
       } else {
-        this.logger.warn({ message: 'SMS gönderim hatası', to: dto.no, code: result.code, error: result.message });
+        this.logger.warn({
+          message: 'SMS gönderim hatası',
+          to: dto.no,
+          code: result.code,
+          error: result.message,
+        });
       }
 
       return {
@@ -132,7 +156,12 @@ export class NetgsmService {
       };
     } catch (error) {
       const duration = Date.now() - startTime;
-      this.logger.error({ message: 'SMS gönderme hatası', to: dto.no, error: error.message, duration: `${duration}ms` });
+      this.logger.error({
+        message: 'SMS gönderme hatası',
+        to: dto.no,
+        error: error.message,
+        duration: `${duration}ms`,
+      });
       throw new InternalServerErrorException('SMS gönderimi başarısız oldu');
     }
   }
@@ -184,15 +213,27 @@ export class NetgsmService {
     reservationDetails: any,
     transactionId?: string,
   ): Promise<{ success: boolean; message: string; jobId?: string }> {
-    const { message, phone, outboundPnr, returnPnr, reservationNumber } = buildBookingSmsMessage(reservationDetails, {
-      warn: (message: string) => this.logger.warn(message),
-    });
+    const { message, phone, outboundPnr, returnPnr, reservationNumber } = buildBookingSmsMessage(
+      reservationDetails,
+      {
+        warn: (message: string) => this.logger.warn(message),
+      },
+    );
 
     // Telefon numarası kontrolü
     if (!phone) {
       const errorMsg = 'Telefon numarası bulunamadı';
-      this.logger.warn('Rezervasyon onay SMS gönderilemedi: Leader yolcu telefon numarası bulunamadı');
-      await this.saveSmsLog({ transactionId, reservationNumber, pnrNo: outboundPnr, phone: '-', status: 'FAILED', message: errorMsg });
+      this.logger.warn(
+        'Rezervasyon onay SMS gönderilemedi: Leader yolcu telefon numarası bulunamadı',
+      );
+      await this.saveSmsLog({
+        transactionId,
+        reservationNumber,
+        pnrNo: outboundPnr,
+        phone: '-',
+        status: 'FAILED',
+        message: errorMsg,
+      });
       return { success: false, message: errorMsg };
     }
 
@@ -200,12 +241,24 @@ export class NetgsmService {
     if (!message) {
       const errorMsg = 'SMS mesajı oluşturulamadı';
       this.logger.warn('Rezervasyon onay SMS gönderilemedi: Mesaj oluşturulamadı');
-      await this.saveSmsLog({ transactionId, reservationNumber, pnrNo: outboundPnr, phone, status: 'FAILED', message: errorMsg });
+      await this.saveSmsLog({
+        transactionId,
+        reservationNumber,
+        pnrNo: outboundPnr,
+        phone,
+        status: 'FAILED',
+        message: errorMsg,
+      });
       return { success: false, message: errorMsg };
     }
 
     try {
-      const result = await this.sendSms({ no: phone, msg: message, msgheader: 'IBGROUP', encoding: 'TR' });
+      const result = await this.sendSms({
+        no: phone,
+        msg: message,
+        msgheader: 'IBGROUP',
+        encoding: 'TR',
+      });
 
       this.logger.log({ message: 'Rezervasyon onay SMS gönderildi', to: phone, reservationNumber });
 
@@ -223,9 +276,20 @@ export class NetgsmService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
 
-      this.logger.error({ message: 'Rezervasyon onay SMS gönderme hatası', error: errorMessage, reservationNumber });
+      this.logger.error({
+        message: 'Rezervasyon onay SMS gönderme hatası',
+        error: errorMessage,
+        reservationNumber,
+      });
 
-      await this.saveSmsLog({ transactionId, reservationNumber, pnrNo: outboundPnr, phone, status: 'FAILED', message: errorMessage });
+      await this.saveSmsLog({
+        transactionId,
+        reservationNumber,
+        pnrNo: outboundPnr,
+        phone,
+        status: 'FAILED',
+        message: errorMessage,
+      });
 
       return { success: false, message: errorMessage };
     }
@@ -246,17 +310,23 @@ export class NetgsmService {
     try {
       const adminClient = this.supabase.getAdminClient();
 
-      await adminClient.schema('backend').from('booking_sms').insert({
-        transaction_id: data.transactionId || '',
-        reservation_number: data.reservationNumber || null,
-        pnr_no: data.pnrNo || null,
-        phone: data.phone,
-        status: data.status,
-        message: data.message || null,
-        job_id: data.jobId || null,
-      });
+      await adminClient
+        .schema('backend')
+        .from('booking_sms')
+        .insert({
+          transaction_id: data.transactionId || '',
+          reservation_number: data.reservationNumber || null,
+          pnr_no: data.pnrNo || null,
+          phone: data.phone,
+          status: data.status,
+          message: data.message || null,
+          job_id: data.jobId || null,
+        });
     } catch (error) {
-      this.logger.error({ message: 'SMS log kaydetme hatası', error: error instanceof Error ? error.message : String(error) });
+      this.logger.error({
+        message: 'SMS log kaydetme hatası',
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 }

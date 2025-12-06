@@ -9,4 +9,3 @@ import { LoggerService } from '../common/logger/logger.service';
   exports: [UserService],
 })
 export class UserModule {}
-

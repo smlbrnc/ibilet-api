@@ -43,7 +43,10 @@ export class UpdateProfileDto {
   @IsString()
   tc_kimlik_no?: string;
 
-  @ApiPropertyOptional({ example: 'https://example.com/avatar.jpg', description: 'Profil fotoğrafı URL' })
+  @ApiPropertyOptional({
+    example: 'https://example.com/avatar.jpg',
+    description: 'Profil fotoğrafı URL',
+  })
   @IsOptional()
   @IsString()
   avatar_url?: string;
@@ -83,4 +86,3 @@ export class UpdateProfileDto {
   @IsBoolean()
   marketing_consent?: boolean;
 }
-

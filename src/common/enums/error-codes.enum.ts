@@ -43,4 +43,3 @@ export enum ErrorCodes {
   // Rate Limit
   TOO_MANY_REQUESTS = 'TOO_MANY_REQUESTS',
 }
-

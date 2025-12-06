@@ -25,10 +25,7 @@ export class TokenService {
       });
 
       if (!response.ok) {
-        throw new HttpException(
-          `Token alınamadı: ${response.statusText}`,
-          response.status,
-        );
+        throw new HttpException(`Token alınamadı: ${response.statusText}`, response.status);
       }
 
       const data = await response.json();
@@ -47,4 +44,3 @@ export class TokenService {
     }
   }
 }
-

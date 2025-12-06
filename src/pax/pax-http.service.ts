@@ -163,12 +163,15 @@ export class PaxHttpService {
           responseHeaders,
           errorTextSize,
           // Büyük error text'leri truncate et
-          responseBody: errorTextSize > maxErrorSize 
-            ? errorText.substring(0, maxErrorSize) + `... [truncated, original size: ${errorTextSize} bytes]`
-            : errorText,
-          errorMessage: errorTextSize > maxErrorSize
-            ? errorText.substring(0, 500) + '... [truncated]'
-            : (errorText || `${response.statusText} (${response.status})`),
+          responseBody:
+            errorTextSize > maxErrorSize
+              ? errorText.substring(0, maxErrorSize) +
+                `... [truncated, original size: ${errorTextSize} bytes]`
+              : errorText,
+          errorMessage:
+            errorTextSize > maxErrorSize
+              ? errorText.substring(0, 500) + '... [truncated]'
+              : errorText || `${response.statusText} (${response.status})`,
           ...options,
         });
 
@@ -225,8 +228,7 @@ export class PaxHttpService {
 
       if (data.error || data.errors || data.body?.error || data.body?.errors) {
         const errorData = data.error || data.errors || data.body?.error || data.body?.errors;
-        const errorMessage =
-          typeof errorData === 'string' ? errorData : JSON.stringify(errorData);
+        const errorMessage = typeof errorData === 'string' ? errorData : JSON.stringify(errorData);
         const responseSize = JSON.stringify(data).length;
 
         this.logger.error({
@@ -262,9 +264,11 @@ export class PaxHttpService {
       errorMessage = errorMessage.replace(/^PAX API POST Hatası \[.*?\]: /, '');
 
       // Sadece beklenmeyen hatalar için logla (business/response error'ları zaten loglandı)
-      if (error instanceof Error && 
-          error.name !== 'PAX_BUSINESS_ERROR' && 
-          error.name !== 'PAX_RESPONSE_ERROR') {
+      if (
+        error instanceof Error &&
+        error.name !== 'PAX_BUSINESS_ERROR' &&
+        error.name !== 'PAX_RESPONSE_ERROR'
+      ) {
         this.logger.error({
           message: 'PAX API unexpected error',
           type: 'PAX_UNEXPECTED_ERROR',
@@ -282,4 +286,3 @@ export class PaxHttpService {
     }
   }
 }
-

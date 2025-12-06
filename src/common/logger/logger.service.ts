@@ -30,14 +30,14 @@ export class LoggerService implements NestLoggerService {
               let msg = `${timestamp} [${level}]`;
               if (context) msg += ` [${context}]`;
               msg += ` ${typeof message === 'object' ? JSON.stringify(message) : message}`;
-              
+
               // Meta bilgileri varsa ekle
               const metaStr = Object.keys(meta).length ? JSON.stringify(meta, null, 2) : '';
               return metaStr ? `${msg}\n${metaStr}` : msg;
             }),
           ),
         }),
-        
+
         // Combined log - Tüm loglar (info ve üzeri)
         new DailyRotateFile({
           dirname: logDir,
@@ -48,7 +48,7 @@ export class LoggerService implements NestLoggerService {
           maxFiles: '14d', // 14 gün sakla
           level: 'info',
         }),
-        
+
         // Error log - Sadece hatalar
         new DailyRotateFile({
           dirname: logDir,
@@ -59,7 +59,7 @@ export class LoggerService implements NestLoggerService {
           maxFiles: '30d', // 30 gün sakla
           level: 'error',
         }),
-        
+
         // Debug log - Development için detaylı loglar
         new DailyRotateFile({
           dirname: logDir,
@@ -98,4 +98,3 @@ export class LoggerService implements NestLoggerService {
     this.logger.verbose(message, { context: this.context });
   }
 }
-

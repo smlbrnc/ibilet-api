@@ -22,4 +22,3 @@ export enum BlogCategory {
   DESTINATION = 'destination',
   GUIDE = 'guide',
 }
-

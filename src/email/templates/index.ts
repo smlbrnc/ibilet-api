@@ -60,4 +60,3 @@ export const buildBookingConfirmationEmail = (
 // Re-export individual templates
 export { buildFlightBookingEmail } from './flight-booking.template';
 export { buildHotelBookingEmail } from './hotel-booking.template';
-

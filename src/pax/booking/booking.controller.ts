@@ -1,4 +1,14 @@
-import { Controller, Post, Get, Body, Req, Param, HttpException, HttpStatus, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  Req,
+  Param,
+  HttpException,
+  HttpStatus,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 import { Request } from 'express';
 import { BookingService } from './booking.service';
@@ -51,7 +61,11 @@ export class BookingController {
   @ApiResponse({ status: 200, description: 'Transaction başlatıldı' })
   async beginTransaction(@Body() request: BeginTransactionRequestDto, @Req() req: Request) {
     try {
-      return await this.bookingService.callPaxEndpoint('beginTransaction', request, this.getRequestOptions(req));
+      return await this.bookingService.callPaxEndpoint(
+        'beginTransaction',
+        request,
+        this.getRequestOptions(req),
+      );
     } catch (error) {
       handlePaxApiError(error, 'BEGIN_TRANSACTION_ERROR', 'Rezervasyon başlatılamadı');
     }
@@ -63,7 +77,11 @@ export class BookingController {
   @ApiResponse({ status: 200, description: 'Hizmetler eklendi' })
   async addServices(@Body() request: AddServicesRequestDto, @Req() req: Request) {
     try {
-      return await this.bookingService.callPaxEndpoint('addServices', request, this.getRequestOptions(req));
+      return await this.bookingService.callPaxEndpoint(
+        'addServices',
+        request,
+        this.getRequestOptions(req),
+      );
     } catch (error) {
       handlePaxApiError(error, 'ADD_SERVICES_ERROR', 'Hizmet eklenemedi');
     }
@@ -75,7 +93,11 @@ export class BookingController {
   @ApiResponse({ status: 200, description: 'Hizmetler kaldırıldı' })
   async removeServices(@Body() request: RemoveServicesRequestDto, @Req() req: Request) {
     try {
-      return await this.bookingService.callPaxEndpoint('removeServices', request, this.getRequestOptions(req));
+      return await this.bookingService.callPaxEndpoint(
+        'removeServices',
+        request,
+        this.getRequestOptions(req),
+      );
     } catch (error) {
       handlePaxApiError(error, 'REMOVE_SERVICES_ERROR', 'Hizmet kaldırılamadı');
     }
@@ -108,7 +130,11 @@ export class BookingController {
   @ApiResponse({ status: 200, description: 'Rezervasyon onaylandı' })
   async commitTransaction(@Body() request: CommitTransactionRequestDto, @Req() req: Request) {
     try {
-      return await this.bookingService.callPaxEndpoint('commitTransaction', request, this.getRequestOptions(req));
+      return await this.bookingService.callPaxEndpoint(
+        'commitTransaction',
+        request,
+        this.getRequestOptions(req),
+      );
     } catch (error) {
       handlePaxApiError(error, 'COMMIT_TRANSACTION_ERROR', 'Rezervasyon onaylanamadı');
     }
@@ -120,7 +146,11 @@ export class BookingController {
   @ApiResponse({ status: 200, description: 'Rezervasyon detayları' })
   async getReservationDetail(@Body() request: ReservationDetailRequestDto, @Req() req: Request) {
     try {
-      return await this.bookingService.callPaxEndpoint('reservationDetail', request, this.getRequestOptions(req));
+      return await this.bookingService.callPaxEndpoint(
+        'reservationDetail',
+        request,
+        this.getRequestOptions(req),
+      );
     } catch (error) {
       handlePaxApiError(error, 'RESERVATION_DETAIL_ERROR', 'Rezervasyon detayları alınamadı');
     }
@@ -132,7 +162,11 @@ export class BookingController {
   @ApiResponse({ status: 200, description: 'Rezervasyon listesi' })
   async getReservationList(@Body() request: ReservationListRequestDto, @Req() req: Request) {
     try {
-      return await this.bookingService.callPaxEndpoint('reservationList', request, this.getRequestOptions(req));
+      return await this.bookingService.callPaxEndpoint(
+        'reservationList',
+        request,
+        this.getRequestOptions(req),
+      );
     } catch (error) {
       handlePaxApiError(error, 'RESERVATION_LIST_ERROR', 'Rezervasyon listesi alınamadı');
     }
@@ -143,9 +177,16 @@ export class BookingController {
   @ApiOperation({ summary: 'İptal cezası sorgula (Cancellation Penalty)' })
   @ApiResponse({ status: 200, description: 'İptal ceza tutarı ve detayları' })
   @ApiResponse({ status: 404, description: 'Rezervasyon bulunamadı' })
-  async getCancellationPenalty(@Body() request: CancellationPenaltyRequestDto, @Req() req: Request) {
+  async getCancellationPenalty(
+    @Body() request: CancellationPenaltyRequestDto,
+    @Req() req: Request,
+  ) {
     try {
-      return await this.bookingService.getCancellationPenalty(request.reservationNumber, request, this.getRequestOptions(req));
+      return await this.bookingService.getCancellationPenalty(
+        request.reservationNumber,
+        request,
+        this.getRequestOptions(req),
+      );
     } catch (error) {
       handlePaxApiError(error, 'CANCELLATION_PENALTY_ERROR', 'İptal cezası sorgulanamadı');
     }
@@ -157,7 +198,11 @@ export class BookingController {
   @ApiResponse({ status: 200, description: 'Rezervasyon başarıyla iptal edildi' })
   async cancelReservation(@Body() request: CancelReservationRequestDto, @Req() req: Request) {
     try {
-      return await this.bookingService.cancelReservation(request.reservationNumber, request, this.getRequestOptions(req));
+      return await this.bookingService.cancelReservation(
+        request.reservationNumber,
+        request,
+        this.getRequestOptions(req),
+      );
     } catch (error) {
       handlePaxApiError(error, 'CANCEL_RESERVATION_ERROR', 'Rezervasyon iptal edilemedi');
     }

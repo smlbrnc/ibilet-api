@@ -17,7 +17,8 @@ export class NearestAirportRequestDto {
   longitude: number;
 
   @ApiProperty({
-    description: 'Havalimanı tipi filtresi (opsiyonel). Gönderilmezse tüm havalimanları kontrol eder.',
+    description:
+      'Havalimanı tipi filtresi (opsiyonel). Gönderilmezse tüm havalimanları kontrol eder.',
     example: ['large_airport', 'medium_airport'],
     required: false,
     isArray: true,
@@ -28,4 +29,3 @@ export class NearestAirportRequestDto {
   @IsString({ each: true })
   type?: string[];
 }
-

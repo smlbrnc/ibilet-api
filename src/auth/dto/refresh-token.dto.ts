@@ -7,4 +7,3 @@ export class RefreshTokenDto {
   @IsNotEmpty({ message: 'Refresh token gereklidir' })
   refresh_token: string;
 }
-

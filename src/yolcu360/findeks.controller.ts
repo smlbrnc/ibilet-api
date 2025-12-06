@@ -56,9 +56,7 @@ export class FindeksController {
   @ApiResponse({ status: 400, description: 'Geçersiz istek' })
   @ApiResponse({ status: 401, description: 'Yetkisiz erişim' })
   @ApiResponse({ status: 500, description: 'Sunucu hatası' })
-  async getPhoneList(
-    @Body() dto: FindeksPhoneListDto,
-  ): Promise<FindeksPhoneListResponse> {
+  async getPhoneList(@Body() dto: FindeksPhoneListDto): Promise<FindeksPhoneListResponse> {
     return this.findeksService.getPhoneList(dto);
   }
 
@@ -78,9 +76,7 @@ export class FindeksController {
   @ApiResponse({ status: 400, description: 'Geçersiz istek' })
   @ApiResponse({ status: 401, description: 'Yetkisiz erişim' })
   @ApiResponse({ status: 500, description: 'Sunucu hatası' })
-  async generateReport(
-    @Body() dto: FindeksReportDto,
-  ): Promise<FindeksReportResponse> {
+  async generateReport(@Body() dto: FindeksReportDto): Promise<FindeksReportResponse> {
     return this.findeksService.generateReport(dto);
   }
 
@@ -122,4 +118,3 @@ export class FindeksController {
     return this.findeksService.renewPin(dto);
   }
 }
-

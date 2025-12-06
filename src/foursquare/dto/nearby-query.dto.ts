@@ -39,7 +39,7 @@ export class NearbyQueryDto {
   radius?: number = 2000;
 
   @ApiProperty({
-    description: 'Kategori ID\'leri (virgülle ayrılmış, ör: 16000,13000)',
+    description: "Kategori ID'leri (virgülle ayrılmış, ör: 16000,13000)",
     example: '16000,13000',
     required: false,
   })
@@ -71,4 +71,3 @@ export class NearbyQueryDto {
   @IsEnum(SortOption)
   sort?: SortOption = SortOption.POPULARITY;
 }
-

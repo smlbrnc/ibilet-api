@@ -17,4 +17,3 @@ export class TokenRequestDto {
   @IsNotEmpty()
   Password: string;
 }
-

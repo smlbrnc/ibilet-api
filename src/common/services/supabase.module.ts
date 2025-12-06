@@ -10,4 +10,3 @@ import { LoggerService } from '../logger/logger.service';
   exports: [SupabaseService],
 })
 export class SupabaseModule {}
-

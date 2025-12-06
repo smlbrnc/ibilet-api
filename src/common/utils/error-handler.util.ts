@@ -18,4 +18,3 @@ export function handlePaxApiError(error: any, code: string, message: string): ne
     HttpStatus.BAD_GATEWAY,
   );
 }
-

@@ -71,4 +71,3 @@ export enum LocationType {
   Airport = 5,
   Trainstation = 6,
 }
-

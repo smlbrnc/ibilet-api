@@ -27,8 +27,12 @@ export class PaymentConfigService {
 
     // Callback URL'lerini API_URL'den oluştur
     const callbackBaseUrl = this.configService.get<string>('payment.callbackBaseUrl') || apiUrl;
-    const successUrl = this.configService.get<string>('payment.successUrl') || (apiUrl ? `${apiUrl}/payment/callback` : '');
-    const errorUrl = this.configService.get<string>('payment.errorUrl') || (apiUrl ? `${apiUrl}/payment/callback` : '');
+    const successUrl =
+      this.configService.get<string>('payment.successUrl') ||
+      (apiUrl ? `${apiUrl}/payment/callback` : '');
+    const errorUrl =
+      this.configService.get<string>('payment.errorUrl') ||
+      (apiUrl ? `${apiUrl}/payment/callback` : '');
 
     if (isProduction) {
       this.config = {
@@ -55,7 +59,9 @@ export class PaymentConfigService {
         provisionPassword: this.configService.get<string>('payment.testProvisionPassword') || '',
         provisionUserId: this.configService.get<string>('payment.testProvisionUserId') || 'PROVAUT',
         terminalUserId: this.configService.get<string>('payment.testTerminalUserId') || '',
-        terminalJwkKeyProvizyon: this.configService.get<string>('payment.testTerminalJwkKeyProvizyon'),
+        terminalJwkKeyProvizyon: this.configService.get<string>(
+          'payment.testTerminalJwkKeyProvizyon',
+        ),
         apiVersion: '512',
         securityLevel: '3D_PAY',
         baseUrl: 'https://sanalposprovtest.garantibbva.com.tr/servlet/gt3dengine',
@@ -137,4 +143,3 @@ export class PaymentConfigService {
     return this.config.errorUrl;
   }
 }
-

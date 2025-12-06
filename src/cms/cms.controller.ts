@@ -43,13 +43,15 @@ export class CmsController {
   @Public()
   @Get('campaigns')
   @ApiOperation({ summary: 'Kampanya listesini getir' })
-  @ApiQuery({ name: 'type', required: false, enum: ['flight', 'hotel', 'both'], description: 'Kampanya tipi' })
+  @ApiQuery({
+    name: 'type',
+    required: false,
+    enum: ['flight', 'hotel', 'both'],
+    description: 'Kampanya tipi',
+  })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Limit' })
   @ApiResponse({ status: 200, description: 'Kampanya listesi' })
-  async getCampaigns(
-    @Query('type') type?: string,
-    @Query('limit') limit?: string,
-  ) {
+  async getCampaigns(@Query('type') type?: string, @Query('limit') limit?: string) {
     return this.cmsService.getCampaigns({
       type,
       limit: limit ? parseInt(limit, 10) : undefined,
@@ -123,4 +125,3 @@ export class CmsController {
     return this.cmsService.getStaticPageBySlug(slug);
   }
 }
-

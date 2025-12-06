@@ -11,4 +11,3 @@ import { LoggerService } from '../common/logger/logger.service';
   exports: [FoursquareService],
 })
 export class FoursquareModule {}
-

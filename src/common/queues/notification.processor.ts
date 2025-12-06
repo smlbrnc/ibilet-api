@@ -42,7 +42,10 @@ export class NotificationProcessor {
       let pdfFilename: string | undefined;
 
       try {
-        const pdfResult = await this.pdfService.generateBookingPdf(reservationDetails, reservationNumber);
+        const pdfResult = await this.pdfService.generateBookingPdf(
+          reservationDetails,
+          reservationNumber,
+        );
         pdfBuffer = pdfResult.buffer;
         pdfFilename = `booking-${reservationNumber}.pdf`;
 
@@ -70,7 +73,12 @@ export class NotificationProcessor {
 
       // Email ve SMS'i paralel gönder
       const [emailResult, smsResult] = await Promise.allSettled([
-        this.emailService.sendBookingConfirmation(reservationDetails, transactionId, pdfBuffer, pdfFilename),
+        this.emailService.sendBookingConfirmation(
+          reservationDetails,
+          transactionId,
+          pdfBuffer,
+          pdfFilename,
+        ),
         this.netgsmService.sendBookingConfirmation(reservationDetails, transactionId),
       ]);
 
@@ -121,4 +129,3 @@ export class NotificationProcessor {
     }
   }
 }
-

@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  CanActivate,
-  ExecutionContext,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { SupabaseService } from '../services/supabase.service';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
@@ -48,9 +43,10 @@ export class AuthGuard implements CanActivate {
 
     try {
       // Token'ı Supabase'de validate et
-      const { data: { user }, error } = await this.supabase
-        .getAnonClient()
-        .auth.getUser(token);
+      const {
+        data: { user },
+        error,
+      } = await this.supabase.getAnonClient().auth.getUser(token);
 
       if (error || !user) {
         this.logger.warn({
@@ -110,4 +106,3 @@ export class AuthGuard implements CanActivate {
     return type === 'Bearer' ? token : null;
   }
 }
-

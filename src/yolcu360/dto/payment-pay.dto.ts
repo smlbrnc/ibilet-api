@@ -19,4 +19,3 @@ export class PaymentPayDto {
   @IsNotEmpty()
   paymentType: string;
 }
-

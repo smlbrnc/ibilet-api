@@ -63,51 +63,70 @@ export enum VposErrorCode {
 }
 
 export const VposErrorMessages: Record<VposErrorCode, string> = {
-  [VposErrorCode.INVALID_CHARACTERS]: 'Giriş yaptığınız değerleri kontrol ediniz. Invalid characters!',
-  [VposErrorCode.MANDATORY_FIELD_MISSING]: 'Giriş yaptığınız işlem tipi için zorunlu alanları kontrol ediniz.',
-  [VposErrorCode.INVALID_CARD_EXPIRE_DATE]: 'Giriş yaptığınız değerleri kontrol ediniz. CardExpireDate field must be between 4 and 4 char.',
+  [VposErrorCode.INVALID_CHARACTERS]:
+    'Giriş yaptığınız değerleri kontrol ediniz. Invalid characters!',
+  [VposErrorCode.MANDATORY_FIELD_MISSING]:
+    'Giriş yaptığınız işlem tipi için zorunlu alanları kontrol ediniz.',
+  [VposErrorCode.INVALID_CARD_EXPIRE_DATE]:
+    'Giriş yaptığınız değerleri kontrol ediniz. CardExpireDate field must be between 4 and 4 char.',
   [VposErrorCode.INVALID_ORDER_ID_LENGTH]: 'PGM:OY5CB040 (orderid max 32 karakter olmalı)',
   [VposErrorCode.TRANSACTION_NOT_FOUND]: 'İptal edilecek işlem bulunamadı ErrorId: 0101',
   [VposErrorCode.PREAUTH_NOT_FOUND]: 'Kapatılacak ön otorizasyon işlemi bulunamadı. ErrorId: 0102',
   [VposErrorCode.REFUND_TRANSACTION_NOT_FOUND]: 'İade edilecek işlem bulunamadı ErrorId: 0103',
-  [VposErrorCode.MULTIPLE_SALES_IN_ORDER]: 'Aynı sipariş içinde sadece bir tane satış işlemi yapılabilir. ErrorId: 0104',
+  [VposErrorCode.MULTIPLE_SALES_IN_ORDER]:
+    'Aynı sipariş içinde sadece bir tane satış işlemi yapılabilir. ErrorId: 0104',
   [VposErrorCode.SECURITY_CODE_ERROR]: 'Güvenlik kodu hatalı. ErrorId: 0099',
-  [VposErrorCode.SYSTEM_ERROR]: 'Sistem hatası sebebiyle işlem tamamlanamamaktadır. Bankayı aramanız gerekir.',
+  [VposErrorCode.SYSTEM_ERROR]:
+    'Sistem hatası sebebiyle işlem tamamlanamamaktadır. Bankayı aramanız gerekir.',
   [VposErrorCode.ORDER_NOT_FOUND]: 'Gönderilen sipariş numarasına ait kayıt bulunmamaktadır',
-  [VposErrorCode.NO_SALES_IN_ORDER]: 'Bu sipariş bilgilerinde herhangi bir satış işlemi bulunmamaktadır.',
+  [VposErrorCode.NO_SALES_IN_ORDER]:
+    'Bu sipariş bilgilerinde herhangi bir satış işlemi bulunmamaktadır.',
   [VposErrorCode.TRANSACTION_NOT_FOUND_ALT]: 'İşlem bulunamadı.',
   [VposErrorCode.ORDER_APPROVED]: 'Sipariş onaylanmış, sorgulama için yeni sipariş kullanınız',
   [VposErrorCode.DCC_QUERY_NOT_FOUND]: 'DCC sorgu sonucu bulunamadi.',
   [VposErrorCode.TRANSACTION_FAILED]: 'İşleminizi gerçekleştiremiyoruz. Tekrar deneyiniz',
   [VposErrorCode.CANCEL_TRANSACTION_NOT_FOUND]: 'İptal edilecek işlem bulunamadı ErrorId: 0201',
-  [VposErrorCode.MULTIPLE_CANCEL_TRANSACTIONS]: 'İptal edebileceğiniz birden fazla işlem var, RRN bilgisi gönderin',
+  [VposErrorCode.MULTIPLE_CANCEL_TRANSACTIONS]:
+    'İptal edebileceğiniz birden fazla işlem var, RRN bilgisi gönderin',
   [VposErrorCode.REFUND_NOT_FOUND]: 'İade edilecek işlem bulunamadı.',
-  [VposErrorCode.PREAUTH_CLOSE_NOT_FOUND]: 'Kapatılacak ön otorizasyon işlemi bulunamadı ErrorId: 0205',
-  [VposErrorCode.CANCEL_LAST_FIRST]: 'İlk önce, en son yapılan işlemi iptal etmelisiniz. ErrorId: 0207',
-  [VposErrorCode.INVALID_REFUND_TRANSACTION]: 'İade etmek istediğiniz işlem geçerli değil ErrorId: 0208',
-  [VposErrorCode.INVALID_PREAUTH_CLOSE]: 'Kapama yapmak istediğiniz ön otorizasyon işlemi geçerli değil. ErrorId: 0209',
-  [VposErrorCode.INVALID_CANCEL_TRANSACTION]: 'İptal etmek istediğiniz işlem geçerli değil ErrorId: 0210',
+  [VposErrorCode.PREAUTH_CLOSE_NOT_FOUND]:
+    'Kapatılacak ön otorizasyon işlemi bulunamadı ErrorId: 0205',
+  [VposErrorCode.CANCEL_LAST_FIRST]:
+    'İlk önce, en son yapılan işlemi iptal etmelisiniz. ErrorId: 0207',
+  [VposErrorCode.INVALID_REFUND_TRANSACTION]:
+    'İade etmek istediğiniz işlem geçerli değil ErrorId: 0208',
+  [VposErrorCode.INVALID_PREAUTH_CLOSE]:
+    'Kapama yapmak istediğiniz ön otorizasyon işlemi geçerli değil. ErrorId: 0209',
+  [VposErrorCode.INVALID_CANCEL_TRANSACTION]:
+    'İptal etmek istediğiniz işlem geçerli değil ErrorId: 0210',
   [VposErrorCode.REFUND_AMOUNT_EXCEEDS_SALES]: 'İade tutarı, satış tutarından büyük olamaz',
-  [VposErrorCode.SALES_AMOUNT_TOO_SMALL]: 'Satış tutarı, kullanılan ödül ve çek toplamından küçük olamaz.',
-  [VposErrorCode.DAILY_TRANSACTION_LIMIT_EXCEEDED]: 'Aynı kart numarası için tanımlı günlük işlem adedi aşılıyor',
-  [VposErrorCode.DAILY_IP_AMOUNT_LIMIT_EXCEEDED]: 'Aynı IP numarası için tanımlı günlük işlem tutarı aşılıyor',
+  [VposErrorCode.SALES_AMOUNT_TOO_SMALL]:
+    'Satış tutarı, kullanılan ödül ve çek toplamından küçük olamaz.',
+  [VposErrorCode.DAILY_TRANSACTION_LIMIT_EXCEEDED]:
+    'Aynı kart numarası için tanımlı günlük işlem adedi aşılıyor',
+  [VposErrorCode.DAILY_IP_AMOUNT_LIMIT_EXCEEDED]:
+    'Aynı IP numarası için tanımlı günlük işlem tutarı aşılıyor',
   [VposErrorCode.INVALID_USER_PASSWORD]: 'Kullanıcı şifresi hatalı. ErrorId: 0651',
   [VposErrorCode.UNAUTHORIZED_OPERATION]: 'Üzgünüz, bu işlemi yapmaya yetkiniz yok. ErrorId: 0652',
-  [VposErrorCode.USER_NOT_DEFINED_IN_TERMINAL]: 'Kullanıcı bu terminalde tanımlı değildir. ErrorId: 0653',
+  [VposErrorCode.USER_NOT_DEFINED_IN_TERMINAL]:
+    'Kullanıcı bu terminalde tanımlı değildir. ErrorId: 0653',
   [VposErrorCode.USER_STATUS_CLOSED]: 'Kullanıcı statüsü kapalı. ErrorId: 0654',
   [VposErrorCode.TERMINAL_NOT_FOUND]: 'Terminal kaydı yok ErrorId: 0752',
   [VposErrorCode.INVALID_MERCHANT_ID]: 'Bu terminal için yanlış işyeri numarası girilmiştir.',
-  [VposErrorCode.NO_RECURRING_PAYMENT_PERMISSION]: 'Bu terminalde tekrarlı ödeme yapma yetkisi yoktur',
-  [VposErrorCode.NO_FOREIGN_CURRENCY_PERMISSION]: 'Bu terminalde farklı döviz kodunda işlem yetkisi yoktur',
+  [VposErrorCode.NO_RECURRING_PAYMENT_PERMISSION]:
+    'Bu terminalde tekrarlı ödeme yapma yetkisi yoktur',
+  [VposErrorCode.NO_FOREIGN_CURRENCY_PERMISSION]:
+    'Bu terminalde farklı döviz kodunda işlem yetkisi yoktur',
   [VposErrorCode.MISSING_3D_FIELDS]: '3D alanlarını girmelisiniz',
   [VposErrorCode.NO_MOTO_PERMISSION]: 'Bu terminalde moto kullanımı yetkisi yoktur. ErrorId: 0764',
-  [VposErrorCode.IP_NOT_ALLOWED]: 'Terminal için tanımlı IP\'ler haricinde işlem gelemez.',
+  [VposErrorCode.IP_NOT_ALLOWED]: "Terminal için tanımlı IP'ler haricinde işlem gelemez.",
   [VposErrorCode.TRANSACTION_FAILED_ALT1]: 'İşleminizi gerçekleştiremiyoruz. Tekrar deneyiniz',
   [VposErrorCode.TRANSACTION_FAILED_ALT2]: 'İşleminizi gerçekleştiremiyoruz. Tekrar deneyiniz',
   [VposErrorCode.TRANSACTION_FAILED_ALT3]: 'İşleminizi gerçekleştiremiyoruz. Tekrar deneyiniz',
   [VposErrorCode.NO_GRANTIPAY_PERMISSION]: 'Garntipay yetkisi yok',
-  [VposErrorCode.MD_SECURITY_VERIFICATION_ERROR]: 'MD güvenlik doğrulamasında hata. (işlem miktarı veya işlem ID si yanlış girilmiş olabilir) ErrorId: 0804',
-  [VposErrorCode.GENERAL_EXCEPTION]: 'İşleminizi gerçekleştiremiyoruz. Lütfen daha sonra tekrar deneyiniz. General Exception :null',
+  [VposErrorCode.MD_SECURITY_VERIFICATION_ERROR]:
+    'MD güvenlik doğrulamasında hata. (işlem miktarı veya işlem ID si yanlış girilmiş olabilir) ErrorId: 0804',
+  [VposErrorCode.GENERAL_EXCEPTION]:
+    'İşleminizi gerçekleştiremiyoruz. Lütfen daha sonra tekrar deneyiniz. General Exception :null',
   [VposErrorCode.TIMEOUT]: 'Zaman aşımı oluştu. Lütfen daha sonra tekrar deneyiniz.',
 };
-

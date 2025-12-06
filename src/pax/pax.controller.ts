@@ -75,7 +75,10 @@ export class PaxController {
   @Post('price-search')
   @ApiOperation({ summary: 'Fiyat arama (Uçak/Otel)' })
   @ApiResponse({ status: 200, description: 'Fiyat sonuçları' })
-  async priceSearch(@Body() request: FlightPriceSearchDto | HotelPriceSearchDto, @Req() req: Request) {
+  async priceSearch(
+    @Body() request: FlightPriceSearchDto | HotelPriceSearchDto,
+    @Req() req: Request,
+  ) {
     try {
       return await this.paxService.priceSearch(request, this.getRequestOptions(req));
     } catch (error) {
@@ -87,7 +90,8 @@ export class PaxController {
   @Post('get-offers')
   @ApiOperation({
     summary: 'Teklifleri getir (Get Offers)',
-    description: 'Uçak veya Otel tekliflerini getirmek için kullanılır. productType değerine göre farklı parametreler kullanılır.',
+    description:
+      'Uçak veya Otel tekliflerini getirmek için kullanılır. productType değerine göre farklı parametreler kullanılır.',
   })
   @ApiResponse({ status: 200, description: 'Teklif detayları' })
   @ApiBody({
@@ -133,7 +137,11 @@ export class PaxController {
     try {
       return await this.paxService.getOfferDetails(request, this.getRequestOptions(req));
     } catch (error) {
-      handlePaxApiError(error, 'GET_OFFER_DETAILS_ERROR', 'Teklif detayları ve ürün bilgisi alınamadı');
+      handlePaxApiError(
+        error,
+        'GET_OFFER_DETAILS_ERROR',
+        'Teklif detayları ve ürün bilgisi alınamadı',
+      );
     }
   }
 

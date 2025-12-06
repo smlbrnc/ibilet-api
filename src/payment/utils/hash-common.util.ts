@@ -15,4 +15,3 @@ export const sha512 = (data: string): string =>
 /** HashedPassword hesaplama */
 export const getHashedPassword = (password: string, terminalId: string): string =>
   sha1(password + '0' + terminalId);
-

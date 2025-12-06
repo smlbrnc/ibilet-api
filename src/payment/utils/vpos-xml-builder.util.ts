@@ -3,7 +3,7 @@ import { getVposMode, formatCardExpireDate, getProvUserId, getMotoInd } from './
 
 /**
  * VPOS XML Builder
- * 
+ *
  * Garanti VPOS için XML request oluşturma işlemlerini yönetir
  */
 
@@ -183,4 +183,3 @@ export async function parseXmlResponse(xmlString: string): Promise<any> {
   const parser = createXmlParser();
   return await parser.parseStringPromise(xmlString);
 }
-

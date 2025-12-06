@@ -22,7 +22,8 @@ export class SegmentDto {
  */
 export class FareRulesRequestDto {
   @ApiProperty({
-    description: 'Rezervasyon numarası (Reservation Number) - transactionId ile birlikte kullanılabilir',
+    description:
+      'Rezervasyon numarası (Reservation Number) - transactionId ile birlikte kullanılabilir',
     example: 'RC00231C',
     required: false,
   })
@@ -67,4 +68,3 @@ export class FareRulesRequestDto {
   @IsString()
   culture: string;
 }
-

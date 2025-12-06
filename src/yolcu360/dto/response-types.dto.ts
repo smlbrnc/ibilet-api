@@ -72,4 +72,3 @@ export class CarSelectionResponseDto {
   @ApiProperty({ description: 'Güncellenme tarihi' })
   updated_at: string;
 }
-

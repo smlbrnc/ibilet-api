@@ -21,7 +21,18 @@ interface Hash3DSecureParams {
  * 3D Secure ile hash değeri hesaplama
  */
 export function getHashData(params: Hash3DSecureParams): string {
-  const { terminalId, orderId, amount, currencyCode, successUrl, errorUrl, type, installmentCount, storeKey, provisionPassword } = params;
+  const {
+    terminalId,
+    orderId,
+    amount,
+    currencyCode,
+    successUrl,
+    errorUrl,
+    type,
+    installmentCount,
+    storeKey,
+    provisionPassword,
+  } = params;
 
   const hashedPassword = getHashedPassword(provisionPassword, terminalId);
 

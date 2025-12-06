@@ -59,4 +59,3 @@ export const DEFAULT_STATUS_INFO: StatusInfo = {
   message: 'Rezervasyon durumu ödeme başlatmaya uygun değil',
   httpStatus: HttpStatus.BAD_REQUEST,
 };
-

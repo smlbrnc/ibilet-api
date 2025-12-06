@@ -42,7 +42,11 @@ export function parseUserAgent(userAgent: string | null): ParsedUserAgent {
 
   // iBilet App tespiti
   if (ua.includes('ibilet')) {
-    device = isMobile ? (ua.includes('iphone') || ua.includes('ipad') ? 'iOS-Device' : 'Android-Device') : device;
+    device = isMobile
+      ? ua.includes('iphone') || ua.includes('ipad')
+        ? 'iOS-Device'
+        : 'Android-Device'
+      : device;
     return { device, browser: 'iBilet App', os, isMobile };
   }
 
@@ -68,4 +72,3 @@ export function parseUserAgent(userAgent: string | null): ParsedUserAgent {
 export function formatSessionDisplay(parsed: ParsedUserAgent): string {
   return `${parsed.device} · ${parsed.browser}`;
 }
-

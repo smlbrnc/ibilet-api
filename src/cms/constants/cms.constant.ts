@@ -69,4 +69,3 @@ export const CMS_DEFAULT_LIMITS = {
   TREND_HOTELS: 6,
   TREND_FLIGHTS: 6,
 } as const;
-

@@ -263,4 +263,3 @@ export class CallbackRequestDto {
   // Diğer callback alanları (opsiyonel)
   [key: string]: any;
 }
-

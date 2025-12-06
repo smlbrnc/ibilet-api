@@ -27,4 +27,3 @@ export enum TravellerGender {
   MALE = 'male',
   FEMALE = 'female',
 }
-

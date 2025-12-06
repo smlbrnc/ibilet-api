@@ -1,4 +1,13 @@
-import { Controller, Post, Get, Body, Res, HttpStatus, UsePipes, ValidationPipe, HttpException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Res,
+  HttpStatus,
+  UsePipes,
+  ValidationPipe,
+  HttpException,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { PaymentService } from './payment.service';
@@ -38,7 +47,8 @@ export class PaymentController {
   @Post('initiate')
   @ApiOperation({
     summary: 'Booking için ödeme başlat (3D Secure)',
-    description: 'AWAITING_PAYMENT durumundaki booking için ödeme başlatır ve status\'u PAYMENT_IN_PROGRESS olarak günceller.',
+    description:
+      "AWAITING_PAYMENT durumundaki booking için ödeme başlatır ve status'u PAYMENT_IN_PROGRESS olarak günceller.",
   })
   @ApiResponse({ status: 200, description: 'Ödeme başlatıldı' })
   @ApiResponse({ status: 400, description: 'Rezervasyon süresi dolmuş veya validation hatası' })
@@ -69,7 +79,11 @@ export class PaymentController {
         // 2. success kontrolü
         if (!preTransaction.success) {
           throw new HttpException(
-            { success: false, code: 'TRANSACTION_NOT_SUCCESS', message: 'Transaction başarısız durumda' },
+            {
+              success: false,
+              code: 'TRANSACTION_NOT_SUCCESS',
+              message: 'Transaction başarısız durumda',
+            },
             HttpStatus.BAD_REQUEST,
           );
         }
@@ -106,16 +120,16 @@ export class PaymentController {
             });
 
           if (createError) {
-            this.logger.error({ 
-              message: 'Booking oluşturma hatası', 
-              error: createError.message, 
-              transactionId: dto.transactionId 
+            this.logger.error({
+              message: 'Booking oluşturma hatası',
+              error: createError.message,
+              transactionId: dto.transactionId,
             });
           } else {
-            this.logger.log({ 
-              message: 'Yolcu360 araç booking oluşturuldu', 
-              transactionId: dto.transactionId, 
-              orderId 
+            this.logger.log({
+              message: 'Yolcu360 araç booking oluşturuldu',
+              transactionId: dto.transactionId,
+              orderId,
             });
           }
         }
@@ -143,7 +157,12 @@ export class PaymentController {
       if (booking.status !== 'AWAITING_PAYMENT') {
         const statusInfo = BOOKING_STATUS_MESSAGES[booking.status] || DEFAULT_STATUS_INFO;
         throw new HttpException(
-          { success: false, code: statusInfo.code, message: statusInfo.message, currentStatus: booking.status },
+          {
+            success: false,
+            code: statusInfo.code,
+            message: statusInfo.message,
+            currentStatus: booking.status,
+          },
           statusInfo.httpStatus,
         );
       }
@@ -184,18 +203,26 @@ export class PaymentController {
         const { error: updateError } = await adminClient
           .schema('backend')
           .from('booking')
-          .update({ 
-            status: 'PAYMENT_IN_PROGRESS', 
-            order_id: orderId, 
+          .update({
+            status: 'PAYMENT_IN_PROGRESS',
+            order_id: orderId,
             product_type: dto.productType,
-            updated_at: new Date().toISOString() 
+            updated_at: new Date().toISOString(),
           })
           .eq('id', booking.id);
 
         if (updateError) {
-          this.logger.error({ message: 'Booking status güncelleme hatası', error: updateError.message, transactionId: dto.transactionId });
+          this.logger.error({
+            message: 'Booking status güncelleme hatası',
+            error: updateError.message,
+            transactionId: dto.transactionId,
+          });
         } else {
-          this.logger.log({ message: 'Booking status güncellendi: PAYMENT_IN_PROGRESS', transactionId: dto.transactionId, orderId });
+          this.logger.log({
+            message: 'Booking status güncellendi: PAYMENT_IN_PROGRESS',
+            transactionId: dto.transactionId,
+            orderId,
+          });
         }
       }
 
@@ -247,12 +274,12 @@ export class PaymentController {
   @UsePipes(new ValidationPipe({ transform: true, whitelist: false, forbidNonWhitelisted: false }))
   @ApiOperation({
     summary: 'VPOS callback işlemi (Bankadan dönen sonuç)',
-    description: '3D Secure doğrulaması sonrası bankadan dönen callback işler, booking status\'unu günceller ve kullanıcıyı sonuç sayfasına yönlendirir.',
+    description:
+      "3D Secure doğrulaması sonrası bankadan dönen callback işler, booking status'unu günceller ve kullanıcıyı sonuç sayfasına yönlendirir.",
   })
   @ApiResponse({ status: 302, description: 'Redirect to payment result page' })
   async callback(@Body() dto: CallbackRequestDto, @Res() res: Response) {
     const result = await this.paymentService.processCallbackWithBooking(dto);
     return res.redirect(result.redirectUrl);
   }
-
 }

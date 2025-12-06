@@ -35,24 +35,16 @@ export class Yolcu360TokenService {
 
   async getValidToken(): Promise<string> {
     try {
-      const cachedToken = await this.cacheManager.get<string>(
-        YOLCU360_CACHE_KEYS.ACCESS_TOKEN,
-      );
-      const cachedExp = await this.cacheManager.get<number>(
-        YOLCU360_CACHE_KEYS.ACCESS_TOKEN_EXP,
-      );
+      const cachedToken = await this.cacheManager.get<string>(YOLCU360_CACHE_KEYS.ACCESS_TOKEN);
+      const cachedExp = await this.cacheManager.get<number>(YOLCU360_CACHE_KEYS.ACCESS_TOKEN_EXP);
 
       if (cachedToken && cachedExp && this.isTokenValid(cachedExp)) {
         return cachedToken;
       }
 
       // Access token geçersiz, refresh token ile yenile
-      const refreshToken = await this.cacheManager.get<string>(
-        YOLCU360_CACHE_KEYS.REFRESH_TOKEN,
-      );
-      const refreshExp = await this.cacheManager.get<number>(
-        YOLCU360_CACHE_KEYS.REFRESH_TOKEN_EXP,
-      );
+      const refreshToken = await this.cacheManager.get<string>(YOLCU360_CACHE_KEYS.REFRESH_TOKEN);
+      const refreshExp = await this.cacheManager.get<number>(YOLCU360_CACHE_KEYS.REFRESH_TOKEN_EXP);
 
       if (refreshToken && refreshExp && this.isTokenValid(refreshExp)) {
         return await this.refreshAccessToken(refreshToken);
@@ -92,14 +84,11 @@ export class Yolcu360TokenService {
   }
 
   private async refreshAccessToken(refreshToken: string): Promise<string> {
-    const response = await fetch(
-      `${this.baseUrl}${YOLCU360_ENDPOINTS.AUTH_REFRESH}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: refreshToken }),
-      },
-    );
+    const response = await fetch(`${this.baseUrl}${YOLCU360_ENDPOINTS.AUTH_REFRESH}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: refreshToken }),
+    });
 
     if (!response.ok) {
       this.logger.warn('Refresh token geçersiz, yeni login yapılıyor');
@@ -122,28 +111,10 @@ export class Yolcu360TokenService {
     const refreshTtl = refreshExpTime - now;
 
     await Promise.all([
-      this.cacheManager.set(
-        YOLCU360_CACHE_KEYS.ACCESS_TOKEN,
-        data.accessToken,
-        accessTtl,
-      ),
-      this.cacheManager.set(
-        YOLCU360_CACHE_KEYS.ACCESS_TOKEN_EXP,
-        accessExpTime,
-        accessTtl,
-      ),
-      this.cacheManager.set(
-        YOLCU360_CACHE_KEYS.REFRESH_TOKEN,
-        data.refreshToken,
-        refreshTtl,
-      ),
-      this.cacheManager.set(
-        YOLCU360_CACHE_KEYS.REFRESH_TOKEN_EXP,
-        refreshExpTime,
-        refreshTtl,
-      ),
+      this.cacheManager.set(YOLCU360_CACHE_KEYS.ACCESS_TOKEN, data.accessToken, accessTtl),
+      this.cacheManager.set(YOLCU360_CACHE_KEYS.ACCESS_TOKEN_EXP, accessExpTime, accessTtl),
+      this.cacheManager.set(YOLCU360_CACHE_KEYS.REFRESH_TOKEN, data.refreshToken, refreshTtl),
+      this.cacheManager.set(YOLCU360_CACHE_KEYS.REFRESH_TOKEN_EXP, refreshExpTime, refreshTtl),
     ]);
   }
-
 }
-

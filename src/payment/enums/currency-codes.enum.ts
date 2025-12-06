@@ -5,4 +5,3 @@ export enum CurrencyCode {
   GBP = '826',
   JPY = '392',
 }
-

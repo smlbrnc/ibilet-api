@@ -3,4 +3,3 @@ export enum ProductType {
   CAR = 'car',
   HOTEL = 'hotel',
 }
-

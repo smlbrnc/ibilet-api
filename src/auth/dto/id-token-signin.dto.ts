@@ -7,7 +7,7 @@ export class IdTokenSignInDto {
   @IsEnum(OAuthProvider)
   provider: OAuthProvider;
 
-  @ApiProperty({ description: 'Native SDK\'dan alınan ID token' })
+  @ApiProperty({ description: "Native SDK'dan alınan ID token" })
   @IsString()
   @IsNotEmpty()
   token: string;
@@ -22,4 +22,3 @@ export class IdTokenSignInDto {
   @IsString()
   accessToken?: string;
 }
-

@@ -67,4 +67,3 @@ export class ArrivalRequestDto {
   @IsNotEmpty()
   Culture: string;
 }
-

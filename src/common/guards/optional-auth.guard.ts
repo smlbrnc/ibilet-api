@@ -1,17 +1,13 @@
-import {
-  Injectable,
-  CanActivate,
-  ExecutionContext,
-} from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { SupabaseService } from '../services/supabase.service';
 import { LoggerService } from '../logger/logger.service';
 
 /**
  * Optional Authentication Guard
- * 
+ *
  * Token varsa user bilgisini alır ve request.user'a ekler.
  * Token yoksa veya geçersizse sessizce geçer (hata fırlatmaz).
- * 
+ *
  * Kullanım:
  * @UseGuards(OptionalAuthGuard)
  * async endpoint(@OptionalCurrentUser() user?: any) {
@@ -42,9 +38,10 @@ export class OptionalAuthGuard implements CanActivate {
 
     try {
       // Token'ı Supabase'de validate et
-      const { data: { user }, error } = await this.supabase
-        .getAnonClient()
-        .auth.getUser(token);
+      const {
+        data: { user },
+        error,
+      } = await this.supabase.getAnonClient().auth.getUser(token);
 
       if (error || !user) {
         // Token geçersizse sessizce geç (hata fırlatma)
@@ -94,4 +91,3 @@ export class OptionalAuthGuard implements CanActivate {
     return type === 'Bearer' ? token : null;
   }
 }
-

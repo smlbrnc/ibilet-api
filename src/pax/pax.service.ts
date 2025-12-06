@@ -4,7 +4,6 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { PaxHttpService } from './pax-http.service';
 import { TokenManagerService } from './token-manager.service';
-import { handlePaxApiError } from '../common/utils/error-handler.util';
 
 export interface PaxRequestOptions {
   ip?: string;
@@ -15,7 +14,7 @@ export interface PaxRequestOptions {
 // Cache süreleri (ms)
 const CACHE_TTL = {
   DEPARTURE: 3600 * 1000, // 1 saat
-  ARRIVAL: 3600 * 1000,   // 1 saat
+  ARRIVAL: 3600 * 1000, // 1 saat
   CHECKIN_DATES: 1800 * 1000, // 30 dakika
 } as const;
 
@@ -31,7 +30,11 @@ export class PaxService {
   /**
    * PAX API endpoint çağrısı (cache'siz)
    */
-  async callEndpoint(endpointKey: string, request: any, options: PaxRequestOptions = {}): Promise<any> {
+  async callEndpoint(
+    endpointKey: string,
+    request: any,
+    options: PaxRequestOptions = {},
+  ): Promise<any> {
     const baseUrl = this.config.get<string>('pax.baseUrl');
     const endpoint = this.config.get<string>(`pax.endpoints.${endpointKey}`);
     const result = await this.paxHttp.post(`${baseUrl}${endpoint}`, request, options);
@@ -48,7 +51,7 @@ export class PaxService {
     options: PaxRequestOptions = {},
   ): Promise<any> {
     const cacheKey = `pax:${endpointKey}:${JSON.stringify(request)}`;
-    
+
     const cached = await this.cacheManager.get(cacheKey);
     if (cached) return cached;
 
@@ -128,4 +131,3 @@ export class PaxService {
     return this.paxHttp.post(`${baseUrl}${endpoint}`, request, options);
   }
 }
-

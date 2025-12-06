@@ -70,9 +70,9 @@ export class FindeksService {
 
       // Yolcu360'dan gelen yanıtı parse et
       const errorDetails = this.parseErrorResponse(errorText);
-      
+
       const httpStatus = this.mapStatusToHttpStatus(response.status);
-      
+
       // Eğer JSON yanıt varsa direkt onu döndür, yoksa text yanıtı döndür
       if (errorDetails) {
         throw new HttpException(errorDetails, httpStatus);
@@ -91,24 +91,30 @@ export class FindeksService {
     }
   }
 
-  private extractErrorFromText(errorText: string, context: string): { message: string; code?: string } {
+  private extractErrorFromText(
+    errorText: string,
+    context: string,
+  ): { message: string; code?: string } {
     if (!errorText) {
       return { message: `${context} başarısız` };
     }
 
     const trimmed = errorText.trim();
-    
+
     // [POST /findeks/check][400] isActiveFindexBadRequest formatını parse et
     const bracketMatch = trimmed.match(/\[.*?\]\s*\[.*?\]\s*(.+)/);
     if (bracketMatch && bracketMatch[1]) {
       const errorPart = bracketMatch[1].trim();
       // Eğer errorPart bir hata kodu gibi görünüyorsa (camelCase veya UPPER_CASE)
-      if (/^[a-zA-Z]+$/.test(errorPart) && (errorPart.includes('Error') || errorPart.includes('Bad') || errorPart.includes('Request'))) {
+      if (
+        /^[a-zA-Z]+$/.test(errorPart) &&
+        (errorPart.includes('Error') || errorPart.includes('Bad') || errorPart.includes('Request'))
+      ) {
         return { message: errorPart, code: errorPart };
       }
       return { message: errorPart };
     }
-    
+
     // [POST /findeks/check][400] formatını parse et
     const singleBracketMatch = trimmed.match(/\[.*?\]\s*(.+)/);
     if (singleBracketMatch && singleBracketMatch[1]) {
@@ -117,7 +123,6 @@ export class FindeksService {
 
     return { message: trimmed };
   }
-
 
   private mapStatusToHttpStatus(status: number): HttpStatus {
     switch (status) {
@@ -148,10 +153,7 @@ export class FindeksService {
     return errorDetails.code ? `YOLCU360_${errorDetails.code}` : null;
   }
 
-  private extractErrorMessage(
-    errorDetails: Yolcu360Error,
-    defaultMessage: string,
-  ): string {
+  private extractErrorMessage(errorDetails: Yolcu360Error, defaultMessage: string): string {
     if (errorDetails.description) {
       let message = errorDetails.description;
       if (errorDetails.details) {
@@ -171,9 +173,7 @@ export class FindeksService {
     return defaultMessage;
   }
 
-  private formatErrorDetails(
-    details: string | Record<string, any>,
-  ): string {
+  private formatErrorDetails(details: string | Record<string, any>): string {
     if (typeof details === 'string') {
       return `: ${details}`;
     }
@@ -217,7 +217,7 @@ export class FindeksService {
       phone: dto.phone,
       integrationCode: dto.integrationCode,
     });
-    
+
     return this.makeRequest<FindeksReportResponse>(
       YOLCU360_ENDPOINTS.FINDEKS_REPORT,
       {
@@ -250,4 +250,3 @@ export class FindeksService {
     );
   }
 }
-

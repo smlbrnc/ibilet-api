@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { BullBoardModule } from '@bull-board/nestjs';
 import { ExpressAdapter } from '@bull-board/express';
 import { BullAdapter } from '@bull-board/api/bullAdapter';
-import { BullModule } from '@nestjs/bull';
 
 @Module({
   imports: [
@@ -17,4 +16,3 @@ import { BullModule } from '@nestjs/bull';
   ],
 })
 export class BullBoardConfigModule {}
-

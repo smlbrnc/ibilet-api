@@ -22,4 +22,3 @@ export class DepartureRequestDto {
   @IsNotEmpty()
   Culture: string;
 }
-

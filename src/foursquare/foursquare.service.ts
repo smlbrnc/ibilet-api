@@ -123,12 +123,21 @@ export class FoursquareService {
    * Foursquare API'den yakındaki yerleri getir
    */
   private async fetchNearbyPlaces(params: NearbyParams): Promise<NearbyPlaceDto[]> {
-    const { lat, lng, radius = DEFAULT_RADIUS, categories, limit = DEFAULT_LIMIT, sort = DEFAULT_SORT } = params;
+    const {
+      lat,
+      lng,
+      radius = DEFAULT_RADIUS,
+      categories,
+      limit = DEFAULT_LIMIT,
+      sort = DEFAULT_SORT,
+    } = params;
 
     try {
       const url = `${this.baseUrl}/places/search`;
 
-      this.logger.debug(`Foursquare nearby isteği: ${url} - lat:${lat}, lng:${lng}, radius:${radius}`);
+      this.logger.debug(
+        `Foursquare nearby isteği: ${url} - lat:${lat}, lng:${lng}, radius:${radius}`,
+      );
 
       const response$ = this.http.get<FsqNearbyResponse>(url, {
         headers: {
@@ -162,7 +171,9 @@ export class FoursquareService {
             lat: place.latitude,
             lng: place.longitude,
             distance: place.distance ?? 0,
-            categoryId: firstCategory?.fsq_category_id ? this.parseCategoryId(firstCategory.fsq_category_id) : null,
+            categoryId: firstCategory?.fsq_category_id
+              ? this.parseCategoryId(firstCategory.fsq_category_id)
+              : null,
             categoryName: firstCategory?.name ?? null,
             address: place.location?.formatted_address ?? null,
             city: place.location?.locality ?? null,

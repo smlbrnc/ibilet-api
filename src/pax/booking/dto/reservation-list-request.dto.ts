@@ -38,4 +38,3 @@ export class ReservationListRequestDto {
   @IsNumber()
   minIndexNumber: number;
 }
-

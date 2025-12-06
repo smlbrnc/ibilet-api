@@ -22,7 +22,19 @@ const errorCategories: Record<string, string[]> = {
   refund_cancel: ['0201', '0202', '0203', '0204', '0207', '0208', '0209', '0210', '0214', '0217'],
   limit: ['0402', '0405'],
   auth: ['0651', '0652', '0653', '0654'],
-  terminal: ['0752', '0753', '0756', '0759', '0763', '0764', '0769', '0770', '0771', '0773', '0785'],
+  terminal: [
+    '0752',
+    '0753',
+    '0756',
+    '0759',
+    '0763',
+    '0764',
+    '0769',
+    '0770',
+    '0771',
+    '0773',
+    '0785',
+  ],
   security: ['0804'],
   system: ['9999', '9998'],
 };
@@ -92,4 +104,3 @@ export function getErrorDetails(errorCode: string): ErrorDetails {
     timestamp: new Date().toISOString(),
   };
 }
-

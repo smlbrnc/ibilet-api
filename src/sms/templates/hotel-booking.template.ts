@@ -79,15 +79,29 @@ export const buildHotelBookingSms = (reservationDetails: any): HotelSmsResult =>
   const reservationData: ReservationData = reservationDetails?.body?.reservationData;
 
   if (!reservationData) {
-    return { message: '', phone: null, guestName: '', voucherNo: '', hotelName: '', reservationNumber: '' };
+    return {
+      message: '',
+      phone: null,
+      guestName: '',
+      voucherNo: '',
+      hotelName: '',
+      reservationNumber: '',
+    };
   }
 
   const { reservationInfo, services, travellers } = reservationData;
 
   // Leader misafiri bul
-  const leader = travellers?.find(t => t.isLeader);
+  const leader = travellers?.find((t) => t.isLeader);
   if (!leader) {
-    return { message: '', phone: null, guestName: '', voucherNo: '', hotelName: '', reservationNumber: '' };
+    return {
+      message: '',
+      phone: null,
+      guestName: '',
+      voucherNo: '',
+      hotelName: '',
+      reservationNumber: '',
+    };
   }
 
   const phone = formatPhone(leader);
@@ -95,10 +109,17 @@ export const buildHotelBookingSms = (reservationDetails: any): HotelSmsResult =>
   const reservationNumber = reservationInfo?.bookingNumber || '';
 
   // Otel servisini bul (productType: 2 ve isExtraService: false)
-  const hotelService = services?.find(s => s.productType === 2 && !s.isExtraService);
+  const hotelService = services?.find((s) => s.productType === 2 && !s.isExtraService);
 
   if (!hotelService) {
-    return { message: '', phone: null, guestName: '', voucherNo: '', hotelName: '', reservationNumber: '' };
+    return {
+      message: '',
+      phone: null,
+      guestName: '',
+      voucherNo: '',
+      hotelName: '',
+      reservationNumber: '',
+    };
   }
 
   const hotelName = hotelService.serviceDetails?.hotelDetail?.name || hotelService.name || '-';
@@ -120,4 +141,3 @@ export const buildHotelBookingSms = (reservationDetails: any): HotelSmsResult =>
     reservationNumber,
   };
 };
-

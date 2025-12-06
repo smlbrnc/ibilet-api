@@ -1,10 +1,22 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNumber, IsEmail, IsIP, IsNotEmpty, IsOptional, Min, Max, IsEnum, MinLength, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsEmail,
+  IsIP,
+  IsNotEmpty,
+  IsOptional,
+  Min,
+  Max,
+  IsEnum,
+  MinLength,
+  MaxLength,
+} from 'class-validator';
 import { CurrencyCode } from '../enums/currency-codes.enum';
 
 export class RefundRequestDto {
   @ApiProperty({
-    description: 'İade edilecek işlemin sipariş ID\'si',
+    description: "İade edilecek işlemin sipariş ID'si",
     example: 'IB_DIRECT_1760712302481_I93189',
   })
   @IsString()
@@ -62,4 +74,3 @@ export class RefundRequestDto {
   @MaxLength(200, { message: 'İade sebebi en fazla 200 karakter olmalıdır' })
   refundReason?: string;
 }
-

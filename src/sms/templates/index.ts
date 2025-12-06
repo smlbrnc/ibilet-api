@@ -38,10 +38,7 @@ const getProductType = (reservationDetails: any): number | null => {
  * Rezervasyon onay SMS'i oluştur
  * productType'a göre uygun template'i seçer
  */
-export const buildBookingSmsMessage = (
-  reservationDetails: any,
-  logger?: LoggerLike,
-): SmsResult => {
+export const buildBookingSmsMessage = (reservationDetails: any, logger?: LoggerLike): SmsResult => {
   const productType = getProductType(reservationDetails);
 
   switch (productType) {
@@ -86,4 +83,3 @@ export const buildBookingSmsMessage = (
 // Re-export individual templates
 export { buildFlightBookingSms, FlightSmsResult } from './flight-booking.template';
 export { buildHotelBookingSms, HotelSmsResult } from './hotel-booking.template';
-

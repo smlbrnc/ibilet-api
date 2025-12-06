@@ -11,4 +11,3 @@ export class SigninDto {
   @MinLength(6, { message: 'Şifre en az 6 karakter olmalıdır' })
   password: string;
 }
-

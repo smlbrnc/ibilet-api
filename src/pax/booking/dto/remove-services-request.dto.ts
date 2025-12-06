@@ -23,4 +23,3 @@ export class RemoveServicesRequestDto {
   @IsString()
   culture: string;
 }
-

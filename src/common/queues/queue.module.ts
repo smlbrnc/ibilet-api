@@ -44,4 +44,3 @@ import { SupabaseModule } from '../services/supabase.module';
   exports: [BullModule],
 })
 export class QueueModule {}
-

@@ -9,4 +9,3 @@ import { LoggerService } from '../common/logger/logger.service';
   exports: [ContactService],
 })
 export class ContactModule {}
-

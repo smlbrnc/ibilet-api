@@ -34,4 +34,3 @@ export class SendSmsDto {
   @IsOptional()
   encoding?: string;
 }
-

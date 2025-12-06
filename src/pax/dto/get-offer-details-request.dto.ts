@@ -26,4 +26,3 @@ export class GetOfferDetailsRequestDto {
   @IsString()
   currency: string;
 }
-

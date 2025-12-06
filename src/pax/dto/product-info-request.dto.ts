@@ -40,4 +40,3 @@ export class ProductInfoRequestDto {
   @IsString()
   culture: string;
 }
-

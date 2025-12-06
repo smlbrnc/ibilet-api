@@ -5,7 +5,15 @@
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const PDFDocument = require('pdfkit');
 
-import { ReservationData, formatDateShort, formatTime, formatDuration, formatPrice, getTravellerTypeText, FONTS } from './common';
+import {
+  ReservationData,
+  formatDateShort,
+  formatTime,
+  formatDuration,
+  formatPrice,
+  getTravellerTypeText,
+  FONTS,
+} from './common';
 
 interface FlightInfo {
   route: number;
@@ -28,7 +36,9 @@ interface FlightService {
 /**
  * Uçuş rezervasyonu PDF'i oluştur
  */
-export const buildFlightBookingPdf = (reservationDetails: any): InstanceType<typeof PDFDocument> => {
+export const buildFlightBookingPdf = (
+  reservationDetails: any,
+): InstanceType<typeof PDFDocument> => {
   const reservationData: ReservationData = reservationDetails?.body?.reservationData;
 
   if (!reservationData) {
@@ -38,12 +48,18 @@ export const buildFlightBookingPdf = (reservationDetails: any): InstanceType<typ
   const { reservationInfo, services, travellers } = reservationData;
 
   // Uçuş servislerini ayır
-  const flightServices = (services?.filter((s: FlightService) => s.productType === 3 && !s.isExtraService) || []) as FlightService[];
+  const flightServices = (services?.filter(
+    (s: FlightService) => s.productType === 3 && !s.isExtraService,
+  ) || []) as FlightService[];
   const outboundFlight = flightServices.find((s) => s.serviceDetails?.flightInfo?.route === 1);
   const returnFlight = flightServices.find((s) => s.serviceDetails?.flightInfo?.route === 2);
 
   // PNR ve rota
-  const pnr = reservationInfo?.agencyReservationNumber || outboundFlight?.pnrNo || reservationInfo?.bookingNumber || '-';
+  const pnr =
+    reservationInfo?.agencyReservationNumber ||
+    outboundFlight?.pnrNo ||
+    reservationInfo?.bookingNumber ||
+    '-';
   const route = `${reservationInfo?.departureCity?.name || '-'} → ${reservationInfo?.arrivalCity?.name || '-'}`;
 
   // PDF oluştur
@@ -78,9 +94,13 @@ export const buildFlightBookingPdf = (reservationDetails: any): InstanceType<typ
     doc.fontSize(12).font('Roboto');
     doc.text(`Havayolu: ${info.airline?.name || '-'}`);
     doc.text(`Uçuş No: ${info.flightNo || '-'}`);
-    doc.text(`Kalkış: ${info.departure?.airport?.name || '-'} (${info.departure?.airport?.code || '-'})`);
+    doc.text(
+      `Kalkış: ${info.departure?.airport?.name || '-'} (${info.departure?.airport?.code || '-'})`,
+    );
     doc.text(`Tarih: ${formatDateShort(info.departure?.date)} ${formatTime(info.departure?.date)}`);
-    doc.text(`Varış: ${info.arrival?.airport?.name || '-'} (${info.arrival?.airport?.code || '-'})`);
+    doc.text(
+      `Varış: ${info.arrival?.airport?.name || '-'} (${info.arrival?.airport?.code || '-'})`,
+    );
     doc.text(`Tarih: ${formatDateShort(info.arrival?.date)} ${formatTime(info.arrival?.date)}`);
     doc.text(`Süre: ${formatDuration(info.duration)}`);
     doc.text(`Sınıf: ${info.flightClass?.name || '-'}`);
@@ -107,7 +127,12 @@ export const buildFlightBookingPdf = (reservationDetails: any): InstanceType<typ
   // Fiyat Bilgisi
   doc.fontSize(14).font('Roboto-Bold').text('Fiyat Bilgisi');
   doc.moveDown(0.3);
-  doc.fontSize(16).font('Roboto-Bold').text(`Toplam: ${formatPrice(reservationInfo?.totalPrice?.amount, reservationInfo?.totalPrice?.currency)}`);
+  doc
+    .fontSize(16)
+    .font('Roboto-Bold')
+    .text(
+      `Toplam: ${formatPrice(reservationInfo?.totalPrice?.amount, reservationInfo?.totalPrice?.currency)}`,
+    );
 
   // Alt bilgi
   doc.moveDown(2);

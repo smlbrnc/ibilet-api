@@ -6,4 +6,3 @@ export enum TransactionType {
   COMMERCIAL_CARD = 'commercialcard',
   EXTENDED_CREDIT = 'extendedcredit',
 }
-

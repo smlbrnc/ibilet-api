@@ -46,4 +46,3 @@ export class CreateContactDto {
   @IsString()
   booking_reference?: string;
 }
-

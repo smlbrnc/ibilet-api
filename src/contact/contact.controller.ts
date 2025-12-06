@@ -18,4 +18,3 @@ export class ContactController {
     return this.contactService.createContact(dto);
   }
 }
-

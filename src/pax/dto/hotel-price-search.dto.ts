@@ -121,4 +121,3 @@ export class HotelPriceSearchDto {
   @IsOptional()
   productPriceCategories?: ProductPriceCategory[];
 }
-

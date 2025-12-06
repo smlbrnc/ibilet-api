@@ -10,4 +10,3 @@ export class ReservationDetailRequestDto {
   @IsString()
   ReservationNumber: string;
 }
-

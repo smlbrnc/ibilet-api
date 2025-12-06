@@ -4,9 +4,7 @@ import { IsNotEmpty, IsString, IsArray } from 'class-validator';
 export class BeginTransactionRequestDto {
   @ApiProperty({
     description: 'Offer ID listesi',
-    example: [
-      '13$3$1~^006^~...',
-    ],
+    example: ['13$3$1~^006^~...'],
     type: [String],
   })
   @IsNotEmpty()
@@ -32,4 +30,3 @@ export class BeginTransactionRequestDto {
   @IsString()
   culture: string;
 }
-

@@ -19,7 +19,8 @@ export class CancelReservationRequestDto {
   reason: string;
 
   @ApiProperty({
-    description: 'İptal edilecek servis ID\'leri (opsiyonel - boş bırakılırsa tüm rezervasyon iptal olur)',
+    description:
+      "İptal edilecek servis ID'leri (opsiyonel - boş bırakılırsa tüm rezervasyon iptal olur)",
     example: ['1', '2'],
     required: false,
     type: [String],
@@ -29,4 +30,3 @@ export class CancelReservationRequestDto {
   @IsString({ each: true })
   serviceIds?: string[];
 }
-

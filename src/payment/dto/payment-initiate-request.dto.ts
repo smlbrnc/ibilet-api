@@ -1,5 +1,16 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNumber, IsString, IsEmail, IsIP, IsNotEmpty, IsOptional, Min, Max, ValidateNested, IsEnum } from 'class-validator';
+import {
+  IsNumber,
+  IsString,
+  IsEmail,
+  IsIP,
+  IsNotEmpty,
+  IsOptional,
+  Min,
+  Max,
+  ValidateNested,
+  IsEnum,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { CardInfoDto } from './card-info.dto';
 import { CurrencyCode } from '../enums/currency-codes.enum';
@@ -80,4 +91,3 @@ export class PaymentInitiateRequestDto {
   @IsNotEmpty()
   productType: ProductType;
 }
-

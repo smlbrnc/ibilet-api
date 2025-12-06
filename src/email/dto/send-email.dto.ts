@@ -1,5 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsString, IsNotEmpty, IsOptional, IsArray, ValidateNested } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class EmailAttachmentDto {
@@ -64,4 +71,3 @@ export class SendEmailDto {
   @Type(() => EmailAttachmentDto)
   attachments?: EmailAttachmentDto[];
 }
-

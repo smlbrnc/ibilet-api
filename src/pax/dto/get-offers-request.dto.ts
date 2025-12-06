@@ -1,17 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  IsNotEmpty,
-  IsString,
-  IsNumber,
-  IsArray,
-  IsOptional,
-  IsBoolean,
-} from 'class-validator';
+import { IsNotEmpty, IsString, IsNumber, IsArray, IsOptional, IsBoolean } from 'class-validator';
 
 /**
  * GetOffers Request DTO
  * Price search sonucunda dönen offerIds ile detaylı teklif bilgisi almak için kullanılır
- * 
+ *
  * Uçak (productType: 3) için offerIds (array) kullanılır
  * Otel (productType: 2) için offerId (string) kullanılır
  */
@@ -44,10 +37,7 @@ export class GetOffersRequestDto {
 
   @ApiProperty({
     description: 'Offer ID listesi (Uçak için - productType: 3)',
-    example: [
-      'F0BQUFwNnZvTUZkNV96VDdER19hcFdaTXh3PT0',
-      'F1BQUFwNnZvTUZkNV96VDdER19hcFdaTXh3PT1',
-    ],
+    example: ['F0BQUFwNnZvTUZkNV96VDdER19hcFdaTXh3PT0', 'F1BQUFwNnZvTUZkNV96VDdER19hcFdaTXh3PT1'],
     type: [String],
     required: false,
   })

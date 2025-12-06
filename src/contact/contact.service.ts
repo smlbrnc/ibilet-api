@@ -18,18 +18,21 @@ export class ContactService {
 
   async createContact(dto: CreateContactDto) {
     try {
-      const { data, error } = await this.supabase.getAdminClient()
+      const { data, error } = await this.supabase
+        .getAdminClient()
         .from('contact')
-        .insert([{
-          name: dto.name,
-          email: dto.email,
-          phone: dto.phone,
-          subject: dto.subject,
-          message: dto.message,
-          category: dto.category || 'general',
-          booking_reference: dto.booking_reference,
-          status: 'new',
-        }])
+        .insert([
+          {
+            name: dto.name,
+            email: dto.email,
+            phone: dto.phone,
+            subject: dto.subject,
+            message: dto.message,
+            category: dto.category || 'general',
+            booking_reference: dto.booking_reference,
+            status: 'new',
+          },
+        ])
         .select()
         .single();
 
@@ -37,12 +40,16 @@ export class ContactService {
         this.throwError('CONTACT_ERROR', error.message, HttpStatus.BAD_REQUEST);
       }
 
-      this.logger.log({ message: 'İletişim formu gönderildi', email: dto.email, subject: dto.subject });
+      this.logger.log({
+        message: 'İletişim formu gönderildi',
+        email: dto.email,
+        subject: dto.subject,
+      });
 
-      return { 
-        success: true, 
+      return {
+        success: true,
         message: 'Mesajınız başarıyla gönderildi. En kısa sürede size dönüş yapacağız.',
-        data: { id: data.id }
+        data: { id: data.id },
       };
     } catch (error) {
       if (error instanceof HttpException) throw error;
@@ -51,4 +58,3 @@ export class ContactService {
     }
   }
 }
-

@@ -61,4 +61,3 @@ export class SupabaseService implements OnModuleInit {
     return this.anonClient;
   }
 }
-

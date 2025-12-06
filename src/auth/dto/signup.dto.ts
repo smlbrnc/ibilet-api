@@ -16,4 +16,3 @@ export class SignupDto {
   @IsObject()
   metadata?: Record<string, any>;
 }
-

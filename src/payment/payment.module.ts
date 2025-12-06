@@ -22,4 +22,3 @@ import { QueueModule } from '../common/queues/queue.module';
   exports: [PaymentService],
 })
 export class PaymentModule {}
-

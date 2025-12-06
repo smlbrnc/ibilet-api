@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class NearbyPlaceDto {
   @ApiProperty({
-    description: 'Foursquare yer ID\'si',
+    description: "Foursquare yer ID'si",
     example: '4b5e6f8d9a0b1c2d3e4f5a6b',
   })
   id: string;
@@ -32,7 +32,7 @@ export class NearbyPlaceDto {
   distance: number;
 
   @ApiProperty({
-    description: 'Kategori ID\'si',
+    description: "Kategori ID'si",
     example: 16000,
     nullable: true,
   })
@@ -87,4 +87,3 @@ export class NearbyPlaceDto {
   })
   priceLevel: number | null;
 }
-

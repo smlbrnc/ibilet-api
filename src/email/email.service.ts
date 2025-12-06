@@ -38,6 +38,8 @@ export class EmailService {
     }
 
     try {
+      // Dynamic import for optional dependency
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const { Resend } = require('resend');
       return new Resend(apiKey);
     } catch {
@@ -119,7 +121,12 @@ export class EmailService {
       };
     } catch (error) {
       const duration = Date.now() - startTime;
-      this.logger.error({ message: 'Email gönderme hatası', to: dto.to, error: error.message, duration: `${duration}ms` });
+      this.logger.error({
+        message: 'Email gönderme hatası',
+        to: dto.to,
+        error: error.message,
+        duration: `${duration}ms`,
+      });
 
       if (error instanceof BadRequestException || error instanceof InternalServerErrorException) {
         throw error;
@@ -142,7 +149,8 @@ export class EmailService {
     const reservationNumber = reservationData?.reservationInfo?.bookingNumber || '';
 
     // İlk uçuş servisinden PNR al
-    const flightServices = reservationData?.services?.filter((s: any) => s.productType === 3 && !s.isExtraService) || [];
+    const flightServices =
+      reservationData?.services?.filter((s: any) => s.productType === 3 && !s.isExtraService) || [];
     const pnrNo = flightServices[0]?.pnrNo || '';
 
     const { html, subject, toEmail } = buildBookingConfirmationEmail(reservationDetails, {
@@ -152,29 +160,46 @@ export class EmailService {
     // Validasyonlar
     if (!toEmail) {
       const message = 'Email adresi bulunamadı';
-      this.logger.warn('Rezervasyon onay emaili gönderilemedi: Leader yolcu email adresi bulunamadı');
-      await this.saveEmailLog({ transactionId, reservationNumber, pnrNo, email: '-', status: 'FAILED', message });
+      this.logger.warn(
+        'Rezervasyon onay emaili gönderilemedi: Leader yolcu email adresi bulunamadı',
+      );
+      await this.saveEmailLog({
+        transactionId,
+        reservationNumber,
+        pnrNo,
+        email: '-',
+        status: 'FAILED',
+        message,
+      });
       return { success: false, message };
     }
 
     if (!html || !subject) {
       const message = 'Email template oluşturulamadı';
       this.logger.warn('Rezervasyon onay emaili gönderilemedi: Template oluşturulamadı');
-      await this.saveEmailLog({ transactionId, reservationNumber, pnrNo, email: toEmail, status: 'FAILED', message });
+      await this.saveEmailLog({
+        transactionId,
+        reservationNumber,
+        pnrNo,
+        email: toEmail,
+        status: 'FAILED',
+        message,
+      });
       return { success: false, message };
     }
 
     try {
       // PDF attachment varsa ekle
-      const attachments = pdfBuffer && pdfFilename
-        ? [
-            {
-              content: pdfBuffer,
-              filename: pdfFilename,
-              contentType: 'application/pdf',
-            },
-          ]
-        : undefined;
+      const attachments =
+        pdfBuffer && pdfFilename
+          ? [
+              {
+                content: pdfBuffer,
+                filename: pdfFilename,
+                contentType: 'application/pdf',
+              },
+            ]
+          : undefined;
 
       const result = await this.sendEmail({ to: toEmail, subject, html, attachments });
 
@@ -199,9 +224,20 @@ export class EmailService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
 
-      this.logger.error({ message: 'Rezervasyon onay emaili gönderme hatası', error: errorMessage, bookingNumber: reservationNumber });
+      this.logger.error({
+        message: 'Rezervasyon onay emaili gönderme hatası',
+        error: errorMessage,
+        bookingNumber: reservationNumber,
+      });
 
-      await this.saveEmailLog({ transactionId, reservationNumber, pnrNo, email: toEmail, status: 'FAILED', message: errorMessage });
+      await this.saveEmailLog({
+        transactionId,
+        reservationNumber,
+        pnrNo,
+        email: toEmail,
+        status: 'FAILED',
+        message: errorMessage,
+      });
 
       return { success: false, message: errorMessage };
     }
@@ -222,17 +258,23 @@ export class EmailService {
     try {
       const adminClient = this.supabase.getAdminClient();
 
-      await adminClient.schema('backend').from('booking_email').insert({
-        transaction_id: data.transactionId || '',
-        reservation_number: data.reservationNumber || null,
-        pnr_no: data.pnrNo || null,
-        email: data.email,
-        status: data.status,
-        message: data.message || null,
-        email_id: data.emailId || null,
-      });
+      await adminClient
+        .schema('backend')
+        .from('booking_email')
+        .insert({
+          transaction_id: data.transactionId || '',
+          reservation_number: data.reservationNumber || null,
+          pnr_no: data.pnrNo || null,
+          email: data.email,
+          status: data.status,
+          message: data.message || null,
+          email_id: data.emailId || null,
+        });
     } catch (error) {
-      this.logger.error({ message: 'Email log kaydetme hatası', error: error instanceof Error ? error.message : String(error) });
+      this.logger.error({
+        message: 'Email log kaydetme hatası',
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 }

@@ -1,6 +1,6 @@
 /**
  * VPOS Response Parser
- * 
+ *
  * VPOS'tan gelen yanıtları parse eder ve formatlar
  */
 
@@ -91,7 +91,8 @@ export function formatDirectPaymentResponse(params: {
     },
     paymentDetails: {
       hostRefNum: transaction.RetrefNum || transaction.HostRefNum || null,
-      maskedPan: transaction.CardNumberMasked || (cardInfo ? maskCardNumber(cardInfo.cardNumber) : null),
+      maskedPan:
+        transaction.CardNumberMasked || (cardInfo ? maskCardNumber(cardInfo.cardNumber) : null),
       cardholderName: transaction.CardHolderName || cardInfo?.cardholderName || null,
       transactionTimestamp: new Date().toISOString(),
       customerIpAddress: customerIp,
@@ -134,7 +135,9 @@ export function format3DSecureCallbackResponse(callbackData: any): any {
       authCode: authcode,
       amount: txnamount ? convertToMajorUnits(txnamount) : null,
       currencyCode: txncurrencycode,
-      message: isSuccess ? 'İşlem başarıyla tamamlandı' : errmsg || mderrormessage || 'İşlem başarısız',
+      message: isSuccess
+        ? 'İşlem başarıyla tamamlandı'
+        : errmsg || mderrormessage || 'İşlem başarısız',
     },
     paymentDetails: {
       hostRefNum: hostrefnum || null,
@@ -165,4 +168,3 @@ export function format3DSecurePaymentResponse(params: {
     redirectUrl,
   };
 }
-

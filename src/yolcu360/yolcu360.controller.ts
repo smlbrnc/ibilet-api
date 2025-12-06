@@ -2,7 +2,14 @@ import { Controller, Get, Post, Query, Param, Body, UseFilters } from '@nestjs/c
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { Yolcu360Service } from './yolcu360.service';
 import { Yolcu360ExceptionFilter } from './filters/yolcu360-exception.filter';
-import { LocationSearchDto, CarSearchDto, CreateOrderDto, OrderResponseDto, SaveCarSelectionDto, PaymentPayDto } from './dto';
+import {
+  LocationSearchDto,
+  CarSearchDto,
+  CreateOrderDto,
+  OrderResponseDto,
+  SaveCarSelectionDto,
+  PaymentPayDto,
+} from './dto';
 import { CarSelectionResponse, CarSelectionResponseDto } from './dto/response-types.dto';
 import { Public } from '../common/decorators/public.decorator';
 
@@ -44,10 +51,7 @@ export class Yolcu360Controller {
   @ApiOperation({ summary: 'Araç arama sonucu detayı' })
   @ApiResponse({ status: 200, description: 'Seçilen araç detayı' })
   @ApiResponse({ status: 404, description: 'Araç bulunamadı' })
-  async getCarSearchResult(
-    @Param('searchID') searchID: string,
-    @Param('code') code: string,
-  ) {
+  async getCarSearchResult(@Param('searchID') searchID: string, @Param('code') code: string) {
     return this.yolcu360Service.getCarSearchResult(searchID, code);
   }
 
@@ -83,7 +87,11 @@ export class Yolcu360Controller {
     required: true,
     description: 'Search ID (search isteğinden dönen searchID)',
   })
-  @ApiResponse({ status: 201, description: 'Araç başarıyla kaydedildi', type: CarSelectionResponseDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Araç başarıyla kaydedildi',
+    type: CarSelectionResponseDto,
+  })
   @ApiResponse({ status: 400, description: 'Geçersiz istek' })
   @ApiResponse({ status: 404, description: 'Araç veya search yanıtı bulunamadı' })
   async saveCarSelection(

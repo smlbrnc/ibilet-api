@@ -34,4 +34,3 @@ export class EmailController {
     return await this.emailService.sendEmail(sendEmailDto);
   }
 }
-

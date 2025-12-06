@@ -163,4 +163,3 @@ export class FindeksReportResponse {
   @IsNumber()
   findeksCode: number;
 }
-

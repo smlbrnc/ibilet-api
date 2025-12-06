@@ -1,6 +1,26 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseInterceptors, UploadedFile, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseInterceptors,
+  UploadedFile,
+  UseGuards,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiQuery,
+  ApiConsumes,
+  ApiBody,
+} from '@nestjs/swagger';
 import { UserService } from './user.service';
 import { UpdateProfileDto, CreateFavoriteDto, CreateTravellerDto, UpdateTravellerDto } from './dto';
 import { AuthGuard } from '../common/guards/auth.guard';
@@ -40,10 +60,7 @@ export class UserController {
   @ApiOperation({ summary: 'Kullanıcı profilini güncelle' })
   @ApiResponse({ status: 200, description: 'Profil güncellendi' })
   @ApiResponse({ status: 401, description: 'Yetkisiz erişim' })
-  async updateProfile(
-    @CurrentUser() user: any,
-    @Body() dto: UpdateProfileDto,
-  ) {
+  async updateProfile(@CurrentUser() user: any, @Body() dto: UpdateProfileDto) {
     return this.userService.updateProfile(user.id, dto);
   }
 
@@ -57,17 +74,18 @@ export class UserController {
     schema: {
       type: 'object',
       properties: {
-        file: { type: 'string', format: 'binary', description: 'Avatar dosyası (JPEG/PNG, max 1MB)' },
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Avatar dosyası (JPEG/PNG, max 1MB)',
+        },
       },
     },
   })
   @ApiResponse({ status: 200, description: 'Avatar yüklendi' })
   @ApiResponse({ status: 400, description: 'Geçersiz dosya' })
   @ApiResponse({ status: 401, description: 'Yetkisiz erişim' })
-  async uploadAvatar(
-    @CurrentUser() user: any,
-    @UploadedFile() file: Express.Multer.File,
-  ) {
+  async uploadAvatar(@CurrentUser() user: any, @UploadedFile() file: Express.Multer.File) {
     return this.userService.uploadAvatar(user.id, file);
   }
 
@@ -85,30 +103,21 @@ export class UserController {
   @ApiOperation({ summary: 'Favorileri listele' })
   @ApiQuery({ name: 'type', required: false, enum: ['flight', 'hotel', 'destination'] })
   @ApiResponse({ status: 200, description: 'Favori listesi' })
-  async getFavorites(
-    @CurrentUser() user: any,
-    @Query('type') type?: string,
-  ) {
+  async getFavorites(@CurrentUser() user: any, @Query('type') type?: string) {
     return this.userService.getFavorites(user.id, type);
   }
 
   @Post('favorites')
   @ApiOperation({ summary: 'Favorilere ekle' })
   @ApiResponse({ status: 201, description: 'Favori eklendi' })
-  async addFavorite(
-    @CurrentUser() user: any,
-    @Body() dto: CreateFavoriteDto,
-  ) {
+  async addFavorite(@CurrentUser() user: any, @Body() dto: CreateFavoriteDto) {
     return this.userService.addFavorite(user.id, dto);
   }
 
   @Delete('favorites/:id')
   @ApiOperation({ summary: 'Favoriyi sil' })
   @ApiResponse({ status: 200, description: 'Favori silindi' })
-  async removeFavorite(
-    @CurrentUser() user: any,
-    @Param('id') id: string,
-  ) {
+  async removeFavorite(@CurrentUser() user: any, @Param('id') id: string) {
     return this.userService.removeFavorite(user.id, id);
   }
 
@@ -125,20 +134,14 @@ export class UserController {
   @ApiOperation({ summary: 'Yolcu detayını getir' })
   @ApiResponse({ status: 200, description: 'Yolcu detayı' })
   @ApiResponse({ status: 404, description: 'Yolcu bulunamadı' })
-  async getTraveller(
-    @CurrentUser() user: any,
-    @Param('id') id: string,
-  ) {
+  async getTraveller(@CurrentUser() user: any, @Param('id') id: string) {
     return this.userService.getTraveller(user.id, id);
   }
 
   @Post('travellers')
   @ApiOperation({ summary: 'Yeni yolcu ekle' })
   @ApiResponse({ status: 201, description: 'Yolcu eklendi' })
-  async addTraveller(
-    @CurrentUser() user: any,
-    @Body() dto: CreateTravellerDto,
-  ) {
+  async addTraveller(@CurrentUser() user: any, @Body() dto: CreateTravellerDto) {
     return this.userService.addTraveller(user.id, dto);
   }
 
@@ -156,10 +159,7 @@ export class UserController {
   @Delete('travellers/:id')
   @ApiOperation({ summary: 'Yolcuyu sil' })
   @ApiResponse({ status: 200, description: 'Yolcu silindi' })
-  async removeTraveller(
-    @CurrentUser() user: any,
-    @Param('id') id: string,
-  ) {
+  async removeTraveller(@CurrentUser() user: any, @Param('id') id: string) {
     return this.userService.removeTraveller(user.id, id);
   }
 
@@ -184,10 +184,7 @@ export class UserController {
   @Put('notifications/:id/read')
   @ApiOperation({ summary: 'Bildirimi okundu olarak işaretle' })
   @ApiResponse({ status: 200, description: 'Bildirim güncellendi' })
-  async markNotificationAsRead(
-    @CurrentUser() user: any,
-    @Param('id') id: string,
-  ) {
+  async markNotificationAsRead(@CurrentUser() user: any, @Param('id') id: string) {
     return this.userService.markNotificationAsRead(user.id, id);
   }
 
@@ -202,7 +199,19 @@ export class UserController {
 
   @Get('bookings')
   @ApiOperation({ summary: 'Kullanıcının rezervasyonlarını listele' })
-  @ApiQuery({ name: 'status', required: false, enum: ['AWAITING_PAYMENT', 'PAYMENT_IN_PROGRESS', 'CONFIRMED', 'CANCELLED', 'EXPIRED', 'FAILED'], description: 'Durum filtresi' })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: [
+      'AWAITING_PAYMENT',
+      'PAYMENT_IN_PROGRESS',
+      'CONFIRMED',
+      'CANCELLED',
+      'EXPIRED',
+      'FAILED',
+    ],
+    description: 'Durum filtresi',
+  })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'offset', required: false, type: Number })
   @ApiResponse({ status: 200, description: 'Rezervasyon listesi' })
@@ -223,10 +232,7 @@ export class UserController {
   @ApiOperation({ summary: 'Rezervasyon detayını getir' })
   @ApiResponse({ status: 200, description: 'Rezervasyon detayı' })
   @ApiResponse({ status: 404, description: 'Rezervasyon bulunamadı' })
-  async getBooking(
-    @CurrentUser() user: any,
-    @Param('id') id: string,
-  ) {
+  async getBooking(@CurrentUser() user: any, @Param('id') id: string) {
     return this.userService.getBooking(user.id, id);
   }
 
@@ -252,10 +258,7 @@ export class UserController {
   @ApiOperation({ summary: 'İşlem detayını getir' })
   @ApiResponse({ status: 200, description: 'İşlem detayı' })
   @ApiResponse({ status: 404, description: 'İşlem bulunamadı' })
-  async getTransaction(
-    @CurrentUser() user: any,
-    @Param('id') id: string,
-  ) {
+  async getTransaction(@CurrentUser() user: any, @Param('id') id: string) {
     return this.userService.getTransaction(user.id, id);
   }
 
@@ -265,10 +268,7 @@ export class UserController {
   @ApiOperation({ summary: 'Kullanıcıya tanımlı indirim kodlarını listele' })
   @ApiQuery({ name: 'active_only', required: false, type: Boolean })
   @ApiResponse({ status: 200, description: 'İndirim listesi' })
-  async getUserDiscounts(
-    @CurrentUser() user: any,
-    @Query('active_only') activeOnly?: string,
-  ) {
+  async getUserDiscounts(@CurrentUser() user: any, @Query('active_only') activeOnly?: string) {
     return this.userService.getUserDiscounts(user.id, {
       activeOnly: activeOnly === 'true',
     });
@@ -278,10 +278,7 @@ export class UserController {
   @ApiOperation({ summary: 'Kullanıcıya özel indirim kodunu doğrula' })
   @ApiResponse({ status: 200, description: 'Geçerli indirim kodu' })
   @ApiResponse({ status: 404, description: 'Geçersiz indirim kodu' })
-  async validateUserDiscount(
-    @CurrentUser() user: any,
-    @Param('code') code: string,
-  ) {
+  async validateUserDiscount(@CurrentUser() user: any, @Param('code') code: string) {
     return this.userService.validateUserDiscount(user.id, code);
   }
 
@@ -289,7 +286,11 @@ export class UserController {
 
   @Get('sessions')
   @ApiOperation({ summary: 'Aktif oturumları listele' })
-  @ApiQuery({ name: 'current_session_id', required: false, description: 'Mevcut oturum ID (Bu cihaz işaretlemesi için)' })
+  @ApiQuery({
+    name: 'current_session_id',
+    required: false,
+    description: 'Mevcut oturum ID (Bu cihaz işaretlemesi için)',
+  })
   @ApiResponse({ status: 200, description: 'Oturum listesi' })
   @ApiResponse({ status: 401, description: 'Yetkisiz erişim' })
   async getSessions(
@@ -304,16 +305,17 @@ export class UserController {
   @ApiResponse({ status: 200, description: 'Oturum sonlandırıldı' })
   @ApiResponse({ status: 404, description: 'Oturum bulunamadı' })
   @ApiResponse({ status: 401, description: 'Yetkisiz erişim' })
-  async terminateSession(
-    @CurrentUser() user: any,
-    @Param('id') id: string,
-  ) {
+  async terminateSession(@CurrentUser() user: any, @Param('id') id: string) {
     return this.userService.terminateSession(user.id, id);
   }
 
   @Delete('sessions')
   @ApiOperation({ summary: 'Mevcut oturum hariç tüm oturumları sonlandır' })
-  @ApiQuery({ name: 'current_session_id', required: true, description: 'Mevcut oturum ID (Silinmeyecek)' })
+  @ApiQuery({
+    name: 'current_session_id',
+    required: true,
+    description: 'Mevcut oturum ID (Silinmeyecek)',
+  })
   @ApiResponse({ status: 200, description: 'Diğer oturumlar sonlandırıldı' })
   @ApiResponse({ status: 401, description: 'Yetkisiz erişim' })
   async terminateOtherSessions(
@@ -323,4 +325,3 @@ export class UserController {
     return this.userService.terminateOtherSessions(user.id, currentSessionId);
   }
 }
-

@@ -1,5 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsBoolean, IsDateString, IsEmail } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsEnum,
+  IsBoolean,
+  IsDateString,
+  IsEmail,
+} from 'class-validator';
 import { TravellerType, TravellerTitle, TravellerGender } from '../enums/user.enum';
 
 export class CreateTravellerDto {
@@ -72,4 +80,3 @@ export class CreateTravellerDto {
   @IsBoolean()
   is_primary?: boolean;
 }
-

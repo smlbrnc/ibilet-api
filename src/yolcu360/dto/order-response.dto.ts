@@ -56,7 +56,11 @@ class CarDto {
   @ApiProperty({ description: 'Sınıf bilgisi', type: () => CarClassDto })
   class: CarClassDto;
 
-  @ApiProperty({ description: 'Araç görsel URL', example: 'https://example.com/car-image.jpg', required: false })
+  @ApiProperty({
+    description: 'Araç görsel URL',
+    example: 'https://example.com/car-image.jpg',
+    required: false,
+  })
   imageURL?: string;
 
   @ApiProperty({ description: 'Fiyatlandırma bilgisi', type: () => TotalPricingDto })
@@ -67,7 +71,11 @@ class OrderedCarProductDto {
   @ApiProperty({ description: 'Sipariş ID', example: 1001 })
   id: number;
 
-  @ApiProperty({ description: 'Durum', example: 'pending', enum: ['pending', 'reserved', 'failed', 'cancelled', 'removed'] })
+  @ApiProperty({
+    description: 'Durum',
+    example: 'pending',
+    enum: ['pending', 'reserved', 'failed', 'cancelled', 'removed'],
+  })
   status: string;
 
   @ApiProperty({ description: 'Miktar', example: 1 })
@@ -115,7 +123,11 @@ class OrderedExtraProductDto {
   @ApiProperty({ description: 'Sipariş ID', example: 1002 })
   id: number;
 
-  @ApiProperty({ description: 'Durum', example: 'pending', enum: ['pending', 'reserved', 'failed', 'cancelled', 'removed'] })
+  @ApiProperty({
+    description: 'Durum',
+    example: 'pending',
+    enum: ['pending', 'reserved', 'failed', 'cancelled', 'removed'],
+  })
   status: string;
 
   @ApiProperty({ description: 'Miktar', example: 1 })
@@ -196,6 +208,9 @@ export class OrderResponseDto {
   @ApiProperty({ description: 'Sipariş edilen araç ürünü', type: () => OrderedCarProductDto })
   orderedCarProduct: OrderedCarProductDto;
 
-  @ApiProperty({ description: 'Sipariş edilen ekstra ürünler', type: () => [OrderedExtraProductDto] })
+  @ApiProperty({
+    description: 'Sipariş edilen ekstra ürünler',
+    type: () => [OrderedExtraProductDto],
+  })
   orderedExtraProducts: OrderedExtraProductDto[];
 }
