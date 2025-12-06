@@ -76,7 +76,9 @@ export class Yolcu360Service {
       
       // Eğer JSON yanıt varsa direkt onu döndür, yoksa text yanıtı döndür
       if (errorDetails) {
-        const error = new Error(JSON.stringify(errorDetails)) as Error & {
+        // Error message için description veya message kullan (JSON.stringify gereksiz)
+        const errorMessage = errorDetails.description || errorDetails.message || errorDetails.error || `${context} başarısız`;
+        const error = new Error(errorMessage) as Error & {
           status?: number;
           response?: Yolcu360Error;
         };

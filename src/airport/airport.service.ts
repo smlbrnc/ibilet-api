@@ -69,13 +69,16 @@ export class AirportService implements OnModuleInit {
     let nearestAirport: Airport | null = null;
     let minDistance = Infinity;
 
-    // Tip filtresi uygula
-    const filteredAirports = types
-      ? this.airports.filter((airport) => types.includes(airport.type))
-      : this.airports; // Type gönderilmemişse tüm havalimanlarını kontrol et
+    // Tip filtresi için Set kullan (O(1) lookup)
+    const typeSet = types ? new Set(types) : null;
 
-    // En yakın havalimanını bul
-    for (const airport of filteredAirports) {
+    // Single pass: Filtreleme ve en yakın bulma aynı loop'ta
+    for (const airport of this.airports) {
+      // Tip filtresi kontrolü (O(1) lookup)
+      if (typeSet && !typeSet.has(airport.type)) {
+        continue;
+      }
+
       const distance = this.calculateDistance(
         latitude,
         longitude,

@@ -18,6 +18,10 @@ export interface SmsResult {
   reservationNumber: string;
 }
 
+export interface LoggerLike {
+  warn?: (message: string) => void;
+}
+
 /**
  * Rezervasyon detaylarından productType'ı belirle
  */
@@ -34,7 +38,10 @@ const getProductType = (reservationDetails: any): number | null => {
  * Rezervasyon onay SMS'i oluştur
  * productType'a göre uygun template'i seçer
  */
-export const buildBookingSmsMessage = (reservationDetails: any): SmsResult => {
+export const buildBookingSmsMessage = (
+  reservationDetails: any,
+  logger?: LoggerLike,
+): SmsResult => {
   const productType = getProductType(reservationDetails);
 
   switch (productType) {
@@ -61,7 +68,9 @@ export const buildBookingSmsMessage = (reservationDetails: any): SmsResult => {
     }
     default: {
       // Bilinmeyen productType - varsayılan olarak uçuş template'i kullan
-      console.warn(`Unknown productType: ${productType}, using flight template as default`);
+      if (logger?.warn) {
+        logger.warn(`Unknown productType: ${productType}, using flight template as default`);
+      }
       const defaultResult: FlightSmsResult = buildFlightBookingSms(reservationDetails);
       return {
         message: defaultResult.message,

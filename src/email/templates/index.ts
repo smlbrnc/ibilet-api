@@ -15,6 +15,10 @@ export interface EmailResult {
   toEmail: string | null;
 }
 
+export interface LoggerLike {
+  warn?: (message: string) => void;
+}
+
 /**
  * Rezervasyon detaylarından productType'ı belirle
  */
@@ -31,7 +35,10 @@ const getProductType = (reservationDetails: any): number | null => {
  * Rezervasyon onay emaili oluştur
  * productType'a göre uygun template'i seçer
  */
-export const buildBookingConfirmationEmail = (reservationDetails: any): EmailResult => {
+export const buildBookingConfirmationEmail = (
+  reservationDetails: any,
+  logger?: LoggerLike,
+): EmailResult => {
   const productType = getProductType(reservationDetails);
 
   switch (productType) {
@@ -43,7 +50,9 @@ export const buildBookingConfirmationEmail = (reservationDetails: any): EmailRes
       return buildFlightBookingEmail(reservationDetails);
     default:
       // Bilinmeyen productType - varsayılan olarak uçuş template'i kullan
-      console.warn(`Unknown productType: ${productType}, using flight template as default`);
+      if (logger?.warn) {
+        logger.warn(`Unknown productType: ${productType}, using flight template as default`);
+      }
       return buildFlightBookingEmail(reservationDetails);
   }
 };

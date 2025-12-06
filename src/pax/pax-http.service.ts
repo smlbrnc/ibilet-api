@@ -4,11 +4,14 @@ import { LoggerService } from '../common/logger/logger.service';
 
 @Injectable()
 export class PaxHttpService {
+  private readonly isProduction: boolean;
+
   constructor(
     private readonly tokenManagerService: TokenManagerService,
     private readonly logger: LoggerService,
   ) {
     this.logger.setContext('PaxHttpService');
+    this.isProduction = process.env.NODE_ENV === 'production';
   }
 
   private extractUniqueMessages(messages: any[]): string {
@@ -121,7 +124,7 @@ export class PaxHttpService {
         requestId,
         endpoint,
         method: 'POST',
-        requestBody: JSON.parse(requestBody), // Parse edilmiş body
+        requestBody: body, // Direkt object (JSON.stringify gereksiz)
         requestHeaders,
         ...options,
       });
@@ -251,7 +254,6 @@ export class PaxHttpService {
       return data;
     } catch (error) {
       const responseTime = Date.now() - startTime;
-      const isProduction = process.env.NODE_ENV === 'production';
       let errorMessage = error instanceof Error ? error.message : String(error);
 
       // PAX API ön eklerini temizle
@@ -271,7 +273,7 @@ export class PaxHttpService {
           responseTime,
           errorMessage,
           // Stack trace sadece development'ta
-          ...(isProduction ? {} : { stack: error.stack }),
+          ...(this.isProduction ? {} : { stack: error.stack }),
           ...options,
         });
       }

@@ -26,6 +26,8 @@ export interface CallbackResult {
 
 @Injectable()
 export class PaymentService {
+  private readonly isProduction: boolean;
+
   constructor(
     private readonly httpService: HttpService,
     private readonly logger: LoggerService,
@@ -37,6 +39,7 @@ export class PaymentService {
     @InjectQueue('notifications') private readonly notificationQueue: Queue,
   ) {
     this.logger.setContext('PaymentService');
+    this.isProduction = process.env.NODE_ENV === 'production';
   }
 
   /**
@@ -44,8 +47,6 @@ export class PaymentService {
    */
   async initiate3DSecurePayment(dto: PaymentRequestDto) {
     try {
-      const isProduction = process.env.NODE_ENV === 'production';
-      
       const orderId = generateOrderId('IB');
       
       this.logger.log({
@@ -112,13 +113,12 @@ export class PaymentService {
         data: responseData,
       };
     } catch (error) {
-      const isProduction = process.env.NODE_ENV === 'production';
       this.logger.error({
         message: 'Payment initiation error',
         error: error instanceof Error ? error.message : String(error),
         code: (error as any)?.code || 'PAYMENT_INITIATION_ERROR',
         // Stack trace sadece development'ta
-        ...(isProduction ? {} : { stack: error instanceof Error ? error.stack : undefined }),
+        ...(this.isProduction ? {} : { stack: error instanceof Error ? error.stack : undefined }),
       });
       throw new InternalServerErrorException('Ödeme işlemi oluşturulurken hata oluştu');
     }
@@ -131,8 +131,6 @@ export class PaymentService {
     try {
       const isRefund = dto.transactionType === 'refund';
 
-      const isProduction = process.env.NODE_ENV === 'production';
-      
       this.logger.log({
         message: `VPOS direct ${isRefund ? 'refund' : 'payment'} request`,
         orderId: isRefund ? dto.orderId : undefined, // Preview için
@@ -241,13 +239,12 @@ export class PaymentService {
         });
       }
     } catch (error) {
-      const isProduction = process.env.NODE_ENV === 'production';
       this.logger.error({
         message: 'Direct payment processing error',
         error: error instanceof Error ? error.message : String(error),
         code: (error as any)?.code || 'DIRECT_PAYMENT_ERROR',
         // Stack trace sadece development'ta
-        ...(isProduction ? {} : { stack: error instanceof Error ? error.stack : undefined }),
+        ...(this.isProduction ? {} : { stack: error instanceof Error ? error.stack : undefined }),
       });
 
       if (error instanceof BadRequestException) {

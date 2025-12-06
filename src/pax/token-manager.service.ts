@@ -11,6 +11,7 @@ export class TokenManagerService {
   private readonly tokenRefreshThreshold = 5 * 60 * 1000; // 5 dakika
   private readonly TOKEN_CACHE_KEY = 'pax:token';
   private readonly TOKEN_EXP_CACHE_KEY = 'pax:token:exp';
+  private readonly isProduction: boolean;
 
   constructor(
     private readonly configService: ConfigService,
@@ -19,6 +20,7 @@ export class TokenManagerService {
     private readonly logger: LoggerService,
   ) {
     this.logger.setContext('TokenManagerService');
+    this.isProduction = process.env.NODE_ENV === 'production';
   }
 
   async getValidToken(): Promise<string> {
@@ -93,13 +95,12 @@ export class TokenManagerService {
 
       return newToken;
     } catch (error) {
-      const isProduction = process.env.NODE_ENV === 'production';
       const errorMessage = error instanceof Error ? error.message : String(error);
 
       this.logger.error({
         message: 'Token renewal error',
         error: errorMessage,
-        ...(isProduction ? {} : { stack: error instanceof Error ? error.stack : undefined }),
+        ...(this.isProduction ? {} : { stack: error instanceof Error ? error.stack : undefined }),
       });
 
       throw new Error(`Token yenileme başarısız: ${errorMessage}`);

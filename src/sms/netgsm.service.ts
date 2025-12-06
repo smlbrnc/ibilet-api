@@ -184,7 +184,9 @@ export class NetgsmService {
     reservationDetails: any,
     transactionId?: string,
   ): Promise<{ success: boolean; message: string; jobId?: string }> {
-    const { message, phone, outboundPnr, returnPnr, reservationNumber } = buildBookingSmsMessage(reservationDetails);
+    const { message, phone, outboundPnr, returnPnr, reservationNumber } = buildBookingSmsMessage(reservationDetails, {
+      warn: (message: string) => this.logger.warn(message),
+    });
 
     // Telefon numarası kontrolü
     if (!phone) {

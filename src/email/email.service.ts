@@ -145,7 +145,9 @@ export class EmailService {
     const flightServices = reservationData?.services?.filter((s: any) => s.productType === 3 && !s.isExtraService) || [];
     const pnrNo = flightServices[0]?.pnrNo || '';
 
-    const { html, subject, toEmail } = buildBookingConfirmationEmail(reservationDetails);
+    const { html, subject, toEmail } = buildBookingConfirmationEmail(reservationDetails, {
+      warn: (message: string) => this.logger.warn(message),
+    });
 
     // Validasyonlar
     if (!toEmail) {
