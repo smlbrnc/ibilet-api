@@ -1,22 +1,23 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, Headers, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseInterceptors, UploadedFile, UseGuards } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { UserService } from './user.service';
 import { UpdateProfileDto, CreateFavoriteDto, CreateTravellerDto, UpdateTravellerDto } from './dto';
+import { AuthGuard } from '../common/guards/auth.guard';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { Public } from '../common/decorators/public.decorator';
 
 @ApiTags('User')
 @Controller('user')
+@UseGuards(AuthGuard)
 @ApiBearerAuth()
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  private getToken(authorization?: string): string {
-    return authorization?.replace('Bearer ', '') || '';
-  }
-
   // ==================== EMAIL CHECK (PUBLIC) ====================
 
   @Get('check')
+  @Public()
   @ApiOperation({ summary: 'Email adresi kayıtlı mı kontrol et (Public)' })
   @ApiQuery({ name: 'email', required: true, description: 'Kontrol edilecek email adresi' })
   @ApiResponse({ status: 200, description: 'Email kontrol sonucu' })
@@ -31,8 +32,8 @@ export class UserController {
   @ApiOperation({ summary: 'Kullanıcı profilini getir' })
   @ApiResponse({ status: 200, description: 'Profil bilgileri' })
   @ApiResponse({ status: 401, description: 'Yetkisiz erişim' })
-  async getProfile(@Headers('authorization') authorization?: string) {
-    return this.userService.getProfile(this.getToken(authorization));
+  async getProfile(@CurrentUser() user: any) {
+    return this.userService.getProfile(user.id);
   }
 
   @Put('profile')
@@ -40,10 +41,10 @@ export class UserController {
   @ApiResponse({ status: 200, description: 'Profil güncellendi' })
   @ApiResponse({ status: 401, description: 'Yetkisiz erişim' })
   async updateProfile(
-    @Headers('authorization') authorization: string,
+    @CurrentUser() user: any,
     @Body() dto: UpdateProfileDto,
   ) {
-    return this.userService.updateProfile(this.getToken(authorization), dto);
+    return this.userService.updateProfile(user.id, dto);
   }
 
   // ==================== AVATAR ====================
@@ -64,18 +65,18 @@ export class UserController {
   @ApiResponse({ status: 400, description: 'Geçersiz dosya' })
   @ApiResponse({ status: 401, description: 'Yetkisiz erişim' })
   async uploadAvatar(
-    @Headers('authorization') authorization: string,
+    @CurrentUser() user: any,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    return this.userService.uploadAvatar(this.getToken(authorization), file);
+    return this.userService.uploadAvatar(user.id, file);
   }
 
   @Delete('avatar')
   @ApiOperation({ summary: 'Avatar sil' })
   @ApiResponse({ status: 200, description: 'Avatar silindi' })
   @ApiResponse({ status: 401, description: 'Yetkisiz erişim' })
-  async deleteAvatar(@Headers('authorization') authorization: string) {
-    return this.userService.deleteAvatar(this.getToken(authorization));
+  async deleteAvatar(@CurrentUser() user: any) {
+    return this.userService.deleteAvatar(user.id);
   }
 
   // ==================== FAVORITES ====================
@@ -85,30 +86,30 @@ export class UserController {
   @ApiQuery({ name: 'type', required: false, enum: ['flight', 'hotel', 'destination'] })
   @ApiResponse({ status: 200, description: 'Favori listesi' })
   async getFavorites(
-    @Headers('authorization') authorization: string,
+    @CurrentUser() user: any,
     @Query('type') type?: string,
   ) {
-    return this.userService.getFavorites(this.getToken(authorization), type);
+    return this.userService.getFavorites(user.id, type);
   }
 
   @Post('favorites')
   @ApiOperation({ summary: 'Favorilere ekle' })
   @ApiResponse({ status: 201, description: 'Favori eklendi' })
   async addFavorite(
-    @Headers('authorization') authorization: string,
+    @CurrentUser() user: any,
     @Body() dto: CreateFavoriteDto,
   ) {
-    return this.userService.addFavorite(this.getToken(authorization), dto);
+    return this.userService.addFavorite(user.id, dto);
   }
 
   @Delete('favorites/:id')
   @ApiOperation({ summary: 'Favoriyi sil' })
   @ApiResponse({ status: 200, description: 'Favori silindi' })
   async removeFavorite(
-    @Headers('authorization') authorization: string,
+    @CurrentUser() user: any,
     @Param('id') id: string,
   ) {
-    return this.userService.removeFavorite(this.getToken(authorization), id);
+    return this.userService.removeFavorite(user.id, id);
   }
 
   // ==================== TRAVELLERS ====================
@@ -116,8 +117,8 @@ export class UserController {
   @Get('travellers')
   @ApiOperation({ summary: 'Kayıtlı yolcuları listele' })
   @ApiResponse({ status: 200, description: 'Yolcu listesi' })
-  async getTravellers(@Headers('authorization') authorization: string) {
-    return this.userService.getTravellers(this.getToken(authorization));
+  async getTravellers(@CurrentUser() user: any) {
+    return this.userService.getTravellers(user.id);
   }
 
   @Get('travellers/:id')
@@ -125,41 +126,41 @@ export class UserController {
   @ApiResponse({ status: 200, description: 'Yolcu detayı' })
   @ApiResponse({ status: 404, description: 'Yolcu bulunamadı' })
   async getTraveller(
-    @Headers('authorization') authorization: string,
+    @CurrentUser() user: any,
     @Param('id') id: string,
   ) {
-    return this.userService.getTraveller(this.getToken(authorization), id);
+    return this.userService.getTraveller(user.id, id);
   }
 
   @Post('travellers')
   @ApiOperation({ summary: 'Yeni yolcu ekle' })
   @ApiResponse({ status: 201, description: 'Yolcu eklendi' })
   async addTraveller(
-    @Headers('authorization') authorization: string,
+    @CurrentUser() user: any,
     @Body() dto: CreateTravellerDto,
   ) {
-    return this.userService.addTraveller(this.getToken(authorization), dto);
+    return this.userService.addTraveller(user.id, dto);
   }
 
   @Put('travellers/:id')
   @ApiOperation({ summary: 'Yolcu bilgilerini güncelle' })
   @ApiResponse({ status: 200, description: 'Yolcu güncellendi' })
   async updateTraveller(
-    @Headers('authorization') authorization: string,
+    @CurrentUser() user: any,
     @Param('id') id: string,
     @Body() dto: UpdateTravellerDto,
   ) {
-    return this.userService.updateTraveller(this.getToken(authorization), id, dto);
+    return this.userService.updateTraveller(user.id, id, dto);
   }
 
   @Delete('travellers/:id')
   @ApiOperation({ summary: 'Yolcuyu sil' })
   @ApiResponse({ status: 200, description: 'Yolcu silindi' })
   async removeTraveller(
-    @Headers('authorization') authorization: string,
+    @CurrentUser() user: any,
     @Param('id') id: string,
   ) {
-    return this.userService.removeTraveller(this.getToken(authorization), id);
+    return this.userService.removeTraveller(user.id, id);
   }
 
   // ==================== NOTIFICATIONS ====================
@@ -170,11 +171,11 @@ export class UserController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiResponse({ status: 200, description: 'Bildirim listesi' })
   async getNotifications(
-    @Headers('authorization') authorization: string,
+    @CurrentUser() user: any,
     @Query('unread_only') unreadOnly?: string,
     @Query('limit') limit?: string,
   ) {
-    return this.userService.getNotifications(this.getToken(authorization), {
+    return this.userService.getNotifications(user.id, {
       unreadOnly: unreadOnly === 'true',
       limit: limit ? parseInt(limit, 10) : undefined,
     });
@@ -184,17 +185,17 @@ export class UserController {
   @ApiOperation({ summary: 'Bildirimi okundu olarak işaretle' })
   @ApiResponse({ status: 200, description: 'Bildirim güncellendi' })
   async markNotificationAsRead(
-    @Headers('authorization') authorization: string,
+    @CurrentUser() user: any,
     @Param('id') id: string,
   ) {
-    return this.userService.markNotificationAsRead(this.getToken(authorization), id);
+    return this.userService.markNotificationAsRead(user.id, id);
   }
 
   @Put('notifications/read-all')
   @ApiOperation({ summary: 'Tüm bildirimleri okundu olarak işaretle' })
   @ApiResponse({ status: 200, description: 'Bildirimler güncellendi' })
-  async markAllNotificationsAsRead(@Headers('authorization') authorization: string) {
-    return this.userService.markAllNotificationsAsRead(this.getToken(authorization));
+  async markAllNotificationsAsRead(@CurrentUser() user: any) {
+    return this.userService.markAllNotificationsAsRead(user.id);
   }
 
   // ==================== BOOKINGS ====================
@@ -206,12 +207,12 @@ export class UserController {
   @ApiQuery({ name: 'offset', required: false, type: Number })
   @ApiResponse({ status: 200, description: 'Rezervasyon listesi' })
   async getBookings(
-    @Headers('authorization') authorization: string,
+    @CurrentUser() user: any,
     @Query('status') status?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
-    return this.userService.getBookings(this.getToken(authorization), {
+    return this.userService.getBookings(user.id, {
       status,
       limit: limit ? parseInt(limit, 10) : undefined,
       offset: offset ? parseInt(offset, 10) : undefined,
@@ -223,10 +224,10 @@ export class UserController {
   @ApiResponse({ status: 200, description: 'Rezervasyon detayı' })
   @ApiResponse({ status: 404, description: 'Rezervasyon bulunamadı' })
   async getBooking(
-    @Headers('authorization') authorization: string,
+    @CurrentUser() user: any,
     @Param('id') id: string,
   ) {
-    return this.userService.getBooking(this.getToken(authorization), id);
+    return this.userService.getBooking(user.id, id);
   }
 
   // ==================== TRANSACTIONS ====================
@@ -237,11 +238,11 @@ export class UserController {
   @ApiQuery({ name: 'offset', required: false, type: Number })
   @ApiResponse({ status: 200, description: 'İşlem listesi' })
   async getTransactions(
-    @Headers('authorization') authorization: string,
+    @CurrentUser() user: any,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
-    return this.userService.getTransactions(this.getToken(authorization), {
+    return this.userService.getTransactions(user.id, {
       limit: limit ? parseInt(limit, 10) : undefined,
       offset: offset ? parseInt(offset, 10) : undefined,
     });
@@ -252,10 +253,10 @@ export class UserController {
   @ApiResponse({ status: 200, description: 'İşlem detayı' })
   @ApiResponse({ status: 404, description: 'İşlem bulunamadı' })
   async getTransaction(
-    @Headers('authorization') authorization: string,
+    @CurrentUser() user: any,
     @Param('id') id: string,
   ) {
-    return this.userService.getTransaction(this.getToken(authorization), id);
+    return this.userService.getTransaction(user.id, id);
   }
 
   // ==================== USER DISCOUNTS ====================
@@ -265,10 +266,10 @@ export class UserController {
   @ApiQuery({ name: 'active_only', required: false, type: Boolean })
   @ApiResponse({ status: 200, description: 'İndirim listesi' })
   async getUserDiscounts(
-    @Headers('authorization') authorization: string,
+    @CurrentUser() user: any,
     @Query('active_only') activeOnly?: string,
   ) {
-    return this.userService.getUserDiscounts(this.getToken(authorization), {
+    return this.userService.getUserDiscounts(user.id, {
       activeOnly: activeOnly === 'true',
     });
   }
@@ -278,10 +279,10 @@ export class UserController {
   @ApiResponse({ status: 200, description: 'Geçerli indirim kodu' })
   @ApiResponse({ status: 404, description: 'Geçersiz indirim kodu' })
   async validateUserDiscount(
-    @Headers('authorization') authorization: string,
+    @CurrentUser() user: any,
     @Param('code') code: string,
   ) {
-    return this.userService.validateUserDiscount(this.getToken(authorization), code);
+    return this.userService.validateUserDiscount(user.id, code);
   }
 
   // ==================== SESSIONS ====================
@@ -292,10 +293,10 @@ export class UserController {
   @ApiResponse({ status: 200, description: 'Oturum listesi' })
   @ApiResponse({ status: 401, description: 'Yetkisiz erişim' })
   async getSessions(
-    @Headers('authorization') authorization: string,
+    @CurrentUser() user: any,
     @Query('current_session_id') currentSessionId?: string,
   ) {
-    return this.userService.getSessions(this.getToken(authorization), currentSessionId);
+    return this.userService.getSessions(user.id, currentSessionId);
   }
 
   @Delete('sessions/:id')
@@ -304,10 +305,10 @@ export class UserController {
   @ApiResponse({ status: 404, description: 'Oturum bulunamadı' })
   @ApiResponse({ status: 401, description: 'Yetkisiz erişim' })
   async terminateSession(
-    @Headers('authorization') authorization: string,
+    @CurrentUser() user: any,
     @Param('id') id: string,
   ) {
-    return this.userService.terminateSession(this.getToken(authorization), id);
+    return this.userService.terminateSession(user.id, id);
   }
 
   @Delete('sessions')
@@ -316,10 +317,10 @@ export class UserController {
   @ApiResponse({ status: 200, description: 'Diğer oturumlar sonlandırıldı' })
   @ApiResponse({ status: 401, description: 'Yetkisiz erişim' })
   async terminateOtherSessions(
-    @Headers('authorization') authorization: string,
+    @CurrentUser() user: any,
     @Query('current_session_id') currentSessionId: string,
   ) {
-    return this.userService.terminateOtherSessions(this.getToken(authorization), currentSessionId);
+    return this.userService.terminateOtherSessions(user.id, currentSessionId);
   }
 }
 

@@ -12,6 +12,7 @@ import {
   FindeksPhoneListResponse,
   FindeksReportResponse,
 } from './dto/findeks.dto';
+import { Public } from '../common/decorators/public.decorator';
 
 @ApiTags('Findeks')
 @Controller('findeks')
@@ -19,6 +20,7 @@ import {
 export class FindeksController {
   constructor(private readonly findeksService: FindeksService) {}
 
+  @Public()
   @Post('check')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Kredi uygunluk kontrolü' })
@@ -38,6 +40,7 @@ export class FindeksController {
     return this.findeksService.check(dto);
   }
 
+  @Public()
   @Post('phone-list')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Müşteri telefon listesi' })
@@ -59,6 +62,7 @@ export class FindeksController {
     return this.findeksService.getPhoneList(dto);
   }
 
+  @Public()
   @Post('report')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Findeks kredi raporu oluştur' })
@@ -80,6 +84,7 @@ export class FindeksController {
     return this.findeksService.generateReport(dto);
   }
 
+  @Public()
   @Post('pin-confirm')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'PIN kodu onayla' })
@@ -98,6 +103,7 @@ export class FindeksController {
     return this.findeksService.confirmPin(dto);
   }
 
+  @Public()
   @Post('pin-renew')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'PIN kodu yenile' })

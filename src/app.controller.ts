@@ -1,9 +1,11 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { Public } from './common/decorators/public.decorator';
 
 @ApiTags('Root')
 @Controller()
 export class AppController {
+  @Public()
   @Get()
   @ApiOperation({ summary: 'Ana sayfa - API bilgileri' })
   getRoot() {

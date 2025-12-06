@@ -37,9 +37,11 @@ The complete Findeks verification process follows these steps:
 
 ## Authentication
 
-All Findeks endpoints require bearer token authentication:
+All Findeks endpoints are **public** (no authentication required).
 
+**Note:** Findeks endpoints use `@Public()` decorator, so they bypass the global AuthGuard. This is intentional as Findeks verification is typically done before user authentication in the car rental flow.
 
+**For authenticated endpoints:**
 ```
 Authorization: Bearer YOUR_ACCESS_TOKEN
 ```

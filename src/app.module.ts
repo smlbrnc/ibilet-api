@@ -20,6 +20,8 @@ import { UserModule } from './user/user.module';
 import { Yolcu360Module } from './yolcu360/yolcu360.module';
 import { QueueModule } from './common/queues/queue.module';
 import { AppController } from './app.controller';
+import { AuthGuard } from './common/guards/auth.guard';
+import { LoggerService } from './common/logger/logger.service';
 
 @Module({
   imports: [
@@ -63,6 +65,11 @@ import { AppController } from './app.controller';
       provide: APP_GUARD,
       useClass: ThrottlerGuard, // Global rate limiting
     },
+    {
+      provide: APP_GUARD,
+      useClass: AuthGuard, // Global authentication guard
+    },
+    LoggerService, // Global logger service (AuthGuard için gerekli)
   ],
 })
 export class AppModule {}

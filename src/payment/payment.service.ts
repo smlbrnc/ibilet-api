@@ -275,33 +275,6 @@ export class PaymentService {
   }
 
   /**
-   * İşlem durumu sorgulama
-   */
-  async getTransactionStatus(orderId: string) {
-    try {
-      this.logger.log('=== VPOS TRANSACTION STATUS REQUEST ===');
-      this.logger.debug(`Order ID: ${orderId}`);
-
-      // TODO: Garanti VPOS API'den inquiry XML request oluştur ve gönder
-      // Inquiry için özel hash hesaplama ve XML builder gerekli
-      // Şimdilik placeholder response döndürüyoruz
-
-      throw new BadRequestException('İşlem durumu sorgulama henüz implement edilmedi');
-    } catch (error) {
-      this.logger.error(JSON.stringify({
-        error: error.message,
-        stack: error.stack,
-      }));
-
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-
-      throw new InternalServerErrorException('İşlem durumu sorgulanamadı');
-    }
-  }
-
-  /**
    * Callback işleme ve booking güncelleme (tüm iş mantığı burada)
    */
   async processCallbackWithBooking(dto: CallbackRequestDto): Promise<CallbackResult> {

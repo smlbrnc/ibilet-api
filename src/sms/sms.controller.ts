@@ -3,12 +3,14 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { NetgsmService } from './netgsm.service';
 import { SendSmsDto } from './dto/send-sms.dto';
 import { GetBalanceDto } from './dto/get-balance.dto';
+import { Public } from '../common/decorators/public.decorator';
 
 @ApiTags('Netgsm')
 @Controller('sms')
 export class SmsController {
   constructor(private readonly netgsmService: NetgsmService) {}
 
+  @Public()
   @Post('send')
   @ApiOperation({
     summary: 'SMS Gönder',
@@ -33,6 +35,7 @@ export class SmsController {
     return this.netgsmService.sendSms(dto);
   }
 
+  @Public()
   @Post('balance')
   @ApiOperation({
     summary: 'Bakiye Sorgula',

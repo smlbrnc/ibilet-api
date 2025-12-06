@@ -2,12 +2,14 @@ import { Controller, Get, Param, Res, NotFoundException, HttpException, HttpStat
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { Response } from 'express';
 import { PdfService } from './pdf.service';
+import { Public } from '../common/decorators/public.decorator';
 
 @ApiTags('PDF')
 @Controller('pdf')
 export class PdfController {
   constructor(private readonly pdfService: PdfService) {}
 
+  @Public()
   @Get('reservation/:reservationNumber')
   @ApiOperation({ summary: 'Rezervasyon PDF İndir' })
   @ApiParam({ name: 'reservationNumber', description: 'Rezervasyon numarası', example: 'PX041346' })
@@ -25,6 +27,7 @@ export class PdfController {
     }
   }
 
+  @Public()
   @Get('booking/:bookingId')
   @ApiOperation({ summary: 'Booking ID ile PDF İndir' })
   @ApiParam({ name: 'bookingId', description: 'Booking UUID', example: '139428d8-f639-43c1-937f-681d8e81041f' })

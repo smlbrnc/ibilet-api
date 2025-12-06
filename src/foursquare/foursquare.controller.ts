@@ -3,12 +3,14 @@ import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { FoursquareService } from './foursquare.service';
 import { NearbyQueryDto, SortOption } from './dto/nearby-query.dto';
 import { NearbyGroupedResponseDto } from './dto/nearby-response.dto';
+import { Public } from '../common/decorators/public.decorator';
 
 @ApiTags('Foursquare')
 @Controller('places')
 export class FoursquareController {
   constructor(private readonly foursquareService: FoursquareService) {}
 
+  @Public()
   @Get('nearby')
   @ApiOperation({ summary: 'Yakındaki yerleri listele' })
   @ApiQuery({

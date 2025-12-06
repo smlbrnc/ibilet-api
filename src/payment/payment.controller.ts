@@ -1,6 +1,6 @@
-import { Controller, Post, Get, Body, Param, Res, HttpStatus, UsePipes, ValidationPipe, HttpException } from '@nestjs/common';
+import { Controller, Post, Get, Body, Res, HttpStatus, UsePipes, ValidationPipe, HttpException } from '@nestjs/common';
 import { Response } from 'express';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { PaymentService } from './payment.service';
 import { PaymentRequestDto } from './dto/payment-request.dto';
 import { PaymentInitiateRequestDto } from './dto/payment-initiate-request.dto';
@@ -11,6 +11,7 @@ import { LoggerService } from '../common/logger/logger.service';
 import { SupabaseService } from '../common/services/supabase.service';
 import { BOOKING_STATUS_MESSAGES, DEFAULT_STATUS_INFO } from './constants/booking-status.constant';
 import { ProductType } from './enums/product-type.enum';
+import { Public } from '../common/decorators/public.decorator';
 
 @ApiTags('Payment')
 @Controller('payment')
@@ -23,6 +24,7 @@ export class PaymentController {
     this.logger.setContext('PaymentController');
   }
 
+  @Public()
   @Post()
   @ApiOperation({ summary: '3D Secure ile ödeme işlemi başlatma' })
   @ApiResponse({ status: 200, description: 'Ödeme formu başarıyla oluşturuldu' })
@@ -32,6 +34,7 @@ export class PaymentController {
     return this.paymentService.initiate3DSecurePayment(dto);
   }
 
+  @Public()
   @Post('initiate')
   @ApiOperation({
     summary: 'Booking için ödeme başlat (3D Secure)',
@@ -213,6 +216,7 @@ export class PaymentController {
     }
   }
 
+  @Public()
   @Post('direct')
   @ApiOperation({
     summary: 'Direkt ödeme/iade işlemi (3D Secure olmadan)',
@@ -225,6 +229,7 @@ export class PaymentController {
     return this.paymentService.processDirectPayment(dto);
   }
 
+  @Public()
   @Post('refund')
   @ApiOperation({
     summary: 'İade işlemi (3D Secure olmadan)',
@@ -238,6 +243,7 @@ export class PaymentController {
   }
 
   @Post('callback')
+  @Public()
   @UsePipes(new ValidationPipe({ transform: true, whitelist: false, forbidNonWhitelisted: false }))
   @ApiOperation({
     summary: 'VPOS callback işlemi (Bankadan dönen sonuç)',
@@ -249,17 +255,4 @@ export class PaymentController {
     return res.redirect(result.redirectUrl);
   }
 
-  @Get('status/:orderId')
-  @ApiOperation({
-    summary: 'İşlem durumu sorgulama',
-    description: 'Belirli bir siparişin durumunu Garanti VPOS API üzerinden sorgular.',
-  })
-  @ApiParam({ name: 'orderId', description: 'Sipariş ID' })
-  @ApiResponse({ status: 200, description: 'İşlem durumu başarıyla getirildi' })
-  @ApiResponse({ status: 400, description: 'Validation hatası' })
-  @ApiResponse({ status: 404, description: 'İşlem bulunamadı' })
-  @ApiResponse({ status: 500, description: 'Sunucu hatası' })
-  async getStatus(@Param('orderId') orderId: string) {
-    return this.paymentService.getTransactionStatus(orderId);
-  }
 }

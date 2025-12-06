@@ -1,6 +1,7 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { CmsService } from './cms.service';
+import { Public } from '../common/decorators/public.decorator';
 
 @ApiTags('CMS')
 @Controller('cms')
@@ -9,6 +10,7 @@ export class CmsController {
 
   // ==================== BLOGS ====================
 
+  @Public()
   @Get('blogs')
   @ApiOperation({ summary: 'Blog listesini getir' })
   @ApiQuery({ name: 'category', required: false, description: 'Kategori filtresi' })
@@ -27,6 +29,7 @@ export class CmsController {
     });
   }
 
+  @Public()
   @Get('blogs/:slug')
   @ApiOperation({ summary: 'Blog detayını getir' })
   @ApiResponse({ status: 200, description: 'Blog detayı' })
@@ -37,6 +40,7 @@ export class CmsController {
 
   // ==================== CAMPAIGNS ====================
 
+  @Public()
   @Get('campaigns')
   @ApiOperation({ summary: 'Kampanya listesini getir' })
   @ApiQuery({ name: 'type', required: false, enum: ['flight', 'hotel', 'both'], description: 'Kampanya tipi' })
@@ -52,6 +56,7 @@ export class CmsController {
     });
   }
 
+  @Public()
   @Get('campaigns/:slug')
   @ApiOperation({ summary: 'Kampanya detayını getir' })
   @ApiResponse({ status: 200, description: 'Kampanya detayı' })
@@ -62,6 +67,7 @@ export class CmsController {
 
   // ==================== DISCOUNTS ====================
 
+  @Public()
   @Get('discounts')
   @ApiOperation({ summary: 'Aktif indirim kodlarını listele' })
   @ApiResponse({ status: 200, description: 'İndirim listesi' })
@@ -69,6 +75,7 @@ export class CmsController {
     return this.cmsService.getDiscounts();
   }
 
+  @Public()
   @Get('discounts/validate/:code')
   @ApiOperation({ summary: 'İndirim kodunu doğrula' })
   @ApiResponse({ status: 200, description: 'Geçerli indirim kodu' })
@@ -79,6 +86,7 @@ export class CmsController {
 
   // ==================== TRENDS ====================
 
+  @Public()
   @Get('trends/hotels')
   @ApiOperation({ summary: 'Popüler otelleri getir' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Limit (default: 6)' })
@@ -87,6 +95,7 @@ export class CmsController {
     return this.cmsService.getTrendHotels(limit ? parseInt(limit, 10) : 6);
   }
 
+  @Public()
   @Get('trends/flights')
   @ApiOperation({ summary: 'Popüler uçuşları getir' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Limit (default: 6)' })
@@ -97,6 +106,7 @@ export class CmsController {
 
   // ==================== STATIC PAGES ====================
 
+  @Public()
   @Get('pages')
   @ApiOperation({ summary: 'Statik sayfa listesini getir' })
   @ApiResponse({ status: 200, description: 'Sayfa listesi' })
@@ -104,6 +114,7 @@ export class CmsController {
     return this.cmsService.getStaticPages();
   }
 
+  @Public()
   @Get('pages/:slug')
   @ApiOperation({ summary: 'Statik sayfa detayını getir' })
   @ApiResponse({ status: 200, description: 'Sayfa detayı' })

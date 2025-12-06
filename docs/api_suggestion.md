@@ -182,9 +182,17 @@ describe('Booking (e2e)', () => {
 
 ### 2. Guard Sistemi ve CurrentUser Decorator (🔴 Kritik)
 
-**Mevcut Durum:** Her endpoint'te manuel token parsing
+**Durum:** ✅ **TAMAMLANDI**
 
-**Öneri:**
+**Yapılan İşlemler:**
+- ✅ AuthGuard oluşturuldu ve global olarak aktif
+- ✅ CurrentUser decorator tüm controller'larda kullanılıyor
+- ✅ Public decorator eklendi
+- ✅ Tüm endpoint'ler güncellendi
+
+**Önceki Durum:** Her endpoint'te manuel token parsing
+
+**Güncel Durum:**
 
 #### A. AuthGuard Oluştur
 
@@ -276,14 +284,47 @@ export class AuthController {
 }
 ```
 
-**Tahmini Süre:** 1 hafta  
+**Tahmini Süre:** ~~1 hafta~~ ✅ **TAMAMLANDI**  
 **ROI:** Yüksek (Security + Code quality)
+
+**Güncel Kullanım:**
+```typescript
+// Global guard (app.module.ts)
+{
+  provide: APP_GUARD,
+  useClass: AuthGuard,
+}
+
+// Controller'da
+@Controller('user')
+export class UserController {
+  @Get('profile')
+  async getProfile(@CurrentUser() user: any) {
+    return this.userService.getProfile(user.id);
+  }
+
+  @Public()
+  @Get('check')
+  async checkEmail(@Query('email') email: string) {
+    return this.userService.checkEmail(email);
+  }
+}
+```
 
 ---
 
 ### 3. TODO Fonksiyonlarını Implement Et (🔴 Kritik)
 
-#### A. getTransactionStatus() Implementation
+**Durum:** ✅ **TAMAMLANDI (Temizlik)**
+
+**Yapılan İşlem:**
+- ✅ `getTransactionStatus()` metodu silindi
+- ✅ `getStatus()` endpoint'i controller'dan kaldırıldı
+- ✅ Production'da çalışmayan kod temizlendi
+
+**Not:** Gelecekte ihtiyaç olursa Garanti VPOS Inquiry API dokümantasyonuna göre yeniden implement edilebilir.
+
+#### ~~A. getTransactionStatus() Implementation~~ (Kaldırıldı)
 
 ```typescript
 // payment.service.ts
@@ -344,8 +385,8 @@ private formatInquiryResponse(response: any) {
 }
 ```
 
-**Tahmini Süre:** 1 hafta  
-**Kaynak:** Garanti VPOS Inquiry API Dokümantasyonu
+**Tahmini Süre:** ~~1 hafta~~ ✅ **Kaldırıldı**  
+**Kaynak:** N/A (Metod ve endpoint kaldırıldı)
 
 ---
 
@@ -1224,8 +1265,8 @@ export class LoggingInterceptor implements NestInterceptor {
 
 ### Sprint 1 (2 hafta) - Kritik Güvenlik ve Stabilite
 
-- [ ] AuthGuard + CurrentUser implementation
-- [ ] getTransactionStatus() implementation
+- [x] ✅ AuthGuard + CurrentUser implementation **TAMAMLANDI**
+- [x] ✅ getTransactionStatus() temizliği **TAMAMLANDI** (kaldırıldı)
 - [ ] Error stack trace gizleme
 - [ ] Unit test framework setup
 
@@ -1265,10 +1306,10 @@ export class LoggingInterceptor implements NestInterceptor {
 
 ### Kritik Aksiyonlar (İlk Ay)
 
-1. ✅ Test coverage oluştur
-2. ✅ Guard sistemi implement et
-3. ✅ TODO fonksiyonlarını tamamla
-4. ✅ Type safety iyileştir
+1. [ ] Test coverage oluştur
+2. [x] ✅ Guard sistemi implement et **TAMAMLANDI**
+3. [x] ✅ TODO fonksiyonlarını temizle **TAMAMLANDI** (kaldırıldı)
+4. [ ] Type safety iyileştir
 
 ### Yüksek Öncelikli (İkinci Ay)
 

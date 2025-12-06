@@ -3,17 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PaxHttpService } from '../pax-http.service';
 import { SupabaseService } from '../../common/services/supabase.service';
 import { LoggerService } from '../../common/logger/logger.service';
-
-export interface UserInfo {
-  userId: string | null;
-  email: string | null;
-}
-
-export interface PaxRequestOptions {
-  ip?: string;
-  userId?: string;
-  email?: string;
-}
+import { PaxRequestOptions } from '../pax.service';
 
 @Injectable()
 export class BookingService {

@@ -1,7 +1,8 @@
-import { Controller, Post, Get, Body, Req, Headers, Param, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Body, Req, Param, HttpException, HttpStatus, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 import { Request } from 'express';
-import { BookingService, PaxRequestOptions } from './booking.service';
+import { BookingService } from './booking.service';
+import { PaxRequestOptions } from '../pax.service';
 import { BeginTransactionRequestDto } from './dto/begin-transaction-request.dto';
 import { AddServicesRequestDto } from './dto/add-services-request.dto';
 import { RemoveServicesRequestDto } from './dto/remove-services-request.dto';
@@ -13,7 +14,9 @@ import { CancellationPenaltyRequestDto } from './dto/cancellation-penalty-reques
 import { CancelReservationRequestDto } from './dto/cancel-reservation-request.dto';
 import { handlePaxApiError } from '../../common/utils/error-handler.util';
 import { LoggerService } from '../../common/logger/logger.service';
-import { SupabaseService } from '../../common/services/supabase.service';
+import { Public } from '../../common/decorators/public.decorator';
+import { OptionalAuthGuard } from '../../common/guards/optional-auth.guard';
+import { OptionalCurrentUser } from '../../common/decorators/optional-current-user.decorator';
 
 @ApiTags('Booking')
 @Controller('booking')
@@ -21,7 +24,6 @@ export class BookingController {
   constructor(
     private readonly bookingService: BookingService,
     private readonly logger: LoggerService,
-    private readonly supabase: SupabaseService,
   ) {
     this.logger.setContext('BookingController');
   }
@@ -34,34 +36,16 @@ export class BookingController {
   }
 
   /**
-   * Token'dan user ID çıkar
-   */
-  private async getUserIdFromToken(authorization?: string): Promise<string | undefined> {
-    if (!authorization) return undefined;
-    
-    const token = authorization.replace('Bearer ', '');
-    if (!token) return undefined;
-
-    try {
-      const { data: { user }, error } = await this.supabase.getAnonClient().auth.getUser(token);
-      if (error || !user) return undefined;
-      return user.id;
-    } catch {
-      return undefined;
-    }
-  }
-
-  /**
    * Request'ten options oluştur (IP + User ID)
    */
-  private async getRequestOptionsWithUser(req: Request, authorization?: string): Promise<PaxRequestOptions> {
-    const userId = await this.getUserIdFromToken(authorization);
+  private getRequestOptionsWithUser(req: Request, userId?: string): PaxRequestOptions {
     return {
       ip: req.ip || req.socket.remoteAddress || undefined,
       userId,
     };
   }
 
+  @Public()
   @Post('begin-transaction')
   @ApiOperation({ summary: 'Rezervasyon başlat (Begin Transaction)' })
   @ApiResponse({ status: 200, description: 'Transaction başlatıldı' })
@@ -73,6 +57,7 @@ export class BookingController {
     }
   }
 
+  @Public()
   @Post('add-services')
   @ApiOperation({ summary: 'Ekstra hizmet ekle (Add Services)' })
   @ApiResponse({ status: 200, description: 'Hizmetler eklendi' })
@@ -84,6 +69,7 @@ export class BookingController {
     }
   }
 
+  @Public()
   @Post('remove-services')
   @ApiOperation({ summary: 'Hizmet kaldır (Remove Services)' })
   @ApiResponse({ status: 200, description: 'Hizmetler kaldırıldı' })
@@ -95,23 +81,28 @@ export class BookingController {
     }
   }
 
+  @Public() // Global AuthGuard'ı bypass et
+  @UseGuards(OptionalAuthGuard) // Optional auth için kendi guard'ımızı kullan
   @Post('set-reservation-info')
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'Rezervasyon bilgilerini ayarla (Set Reservation Info)' })
   @ApiResponse({ status: 200, description: 'Rezervasyon bilgileri kaydedildi' })
+  @ApiBearerAuth()
   async setReservationInfo(
     @Body() request: SetReservationInfoRequestDto,
     @Req() req: Request,
-    @Headers('authorization') authorization?: string,
+    @OptionalCurrentUser() user?: any,
   ) {
     try {
-      const options = await this.getRequestOptionsWithUser(req, authorization);
+      // Token varsa user bilgisi OptionalAuthGuard tarafından alınmış olacak
+      const userId = user?.id;
+      const options = this.getRequestOptionsWithUser(req, userId);
       return await this.bookingService.setReservationInfo(request, options);
     } catch (error) {
       handlePaxApiError(error, 'SET_RESERVATION_INFO_ERROR', 'Rezervasyon bilgileri kaydedilemedi');
     }
   }
 
+  @Public()
   @Post('commit-transaction')
   @ApiOperation({ summary: 'Rezervasyonu onayla (Commit Transaction)' })
   @ApiResponse({ status: 200, description: 'Rezervasyon onaylandı' })
@@ -123,6 +114,7 @@ export class BookingController {
     }
   }
 
+  @Public()
   @Post('reservation-detail')
   @ApiOperation({ summary: 'Rezervasyon detayını getir (Reservation Detail)' })
   @ApiResponse({ status: 200, description: 'Rezervasyon detayları' })
@@ -134,6 +126,7 @@ export class BookingController {
     }
   }
 
+  @Public()
   @Post('reservation-list')
   @ApiOperation({ summary: 'Rezervasyon listesi getir (Reservation List)' })
   @ApiResponse({ status: 200, description: 'Rezervasyon listesi' })
@@ -145,6 +138,7 @@ export class BookingController {
     }
   }
 
+  @Public()
   @Post('cancellation-penalty')
   @ApiOperation({ summary: 'İptal cezası sorgula (Cancellation Penalty)' })
   @ApiResponse({ status: 200, description: 'İptal ceza tutarı ve detayları' })
@@ -157,6 +151,7 @@ export class BookingController {
     }
   }
 
+  @Public()
   @Post('cancel-reservation')
   @ApiOperation({ summary: 'Rezervasyonu iptal et (Cancel Reservation)' })
   @ApiResponse({ status: 200, description: 'Rezervasyon başarıyla iptal edildi' })
@@ -168,6 +163,7 @@ export class BookingController {
     }
   }
 
+  @Public()
   @Get(':transactionId')
   @ApiOperation({ summary: 'Booking durumunu getir ve güncelle' })
   @ApiParam({ name: 'transactionId', description: 'PAX API transaction ID' })

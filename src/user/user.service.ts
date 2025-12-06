@@ -32,15 +32,6 @@ export class UserService {
     }
   }
 
-  // Token'dan user ID çıkar
-  async getUserIdFromToken(token: string): Promise<string> {
-    if (!token) this.throwError('UNAUTHORIZED', 'Token bulunamadı', HttpStatus.UNAUTHORIZED);
-
-    const { data: { user }, error } = await this.supabase.getAnonClient().auth.getUser(token);
-    if (error || !user) this.throwError('UNAUTHORIZED', 'Geçersiz token', HttpStatus.UNAUTHORIZED);
-
-    return user.id;
-  }
 
   // ==================== EMAIL CHECK (PUBLIC) ====================
 
@@ -65,10 +56,8 @@ export class UserService {
 
   // ==================== PROFILE ====================
 
-  async getProfile(token: string) {
+  async getProfile(userId: string) {
     return this.handleRequest(async () => {
-      const userId = await this.getUserIdFromToken(token);
-
       const { data, error } = await this.supabase.getAdminClient()
         .from('user_profiles')
         .select('*')
@@ -81,10 +70,8 @@ export class UserService {
     }, 'PROFILE_ERROR', 'Profil getirilemedi');
   }
 
-  async updateProfile(token: string, dto: UpdateProfileDto) {
+  async updateProfile(userId: string, dto: UpdateProfileDto) {
     return this.handleRequest(async () => {
-      const userId = await this.getUserIdFromToken(token);
-
       const { data, error } = await this.supabase.getAdminClient()
         .from('user_profiles')
         .update({ ...dto, updated_at: new Date().toISOString() })
@@ -101,10 +88,8 @@ export class UserService {
 
   // ==================== FAVORITES ====================
 
-  async getFavorites(token: string, type?: string) {
+  async getFavorites(userId: string, type?: string) {
     return this.handleRequest(async () => {
-      const userId = await this.getUserIdFromToken(token);
-
       let query = this.supabase.getAdminClient()
         .from('user_favorites')
         .select('*')
@@ -120,10 +105,8 @@ export class UserService {
     }, 'FAVORITES_ERROR', 'Favoriler getirilemedi');
   }
 
-  async addFavorite(token: string, dto: CreateFavoriteDto) {
+  async addFavorite(userId: string, dto: CreateFavoriteDto) {
     return this.handleRequest(async () => {
-      const userId = await this.getUserIdFromToken(token);
-
       const { data, error } = await this.supabase.getAdminClient()
         .from('user_favorites')
         .insert([{ ...dto, user_id: userId }])
@@ -137,10 +120,8 @@ export class UserService {
     }, 'FAVORITES_ERROR', 'Favori eklenemedi');
   }
 
-  async removeFavorite(token: string, id: string) {
+  async removeFavorite(userId: string, id: string) {
     return this.handleRequest(async () => {
-      const userId = await this.getUserIdFromToken(token);
-
       const { error } = await this.supabase.getAdminClient()
         .from('user_favorites')
         .delete()
@@ -156,10 +137,8 @@ export class UserService {
 
   // ==================== TRAVELLERS ====================
 
-  async getTravellers(token: string) {
+  async getTravellers(userId: string) {
     return this.handleRequest(async () => {
-      const userId = await this.getUserIdFromToken(token);
-
       const { data, error } = await this.supabase.getAdminClient()
         .from('user_travellers')
         .select('*')
@@ -173,10 +152,8 @@ export class UserService {
     }, 'TRAVELLERS_ERROR', 'Yolcular getirilemedi');
   }
 
-  async getTraveller(token: string, id: string) {
+  async getTraveller(userId: string, id: string) {
     return this.handleRequest(async () => {
-      const userId = await this.getUserIdFromToken(token);
-
       const { data, error } = await this.supabase.getAdminClient()
         .from('user_travellers')
         .select('*')
@@ -190,10 +167,8 @@ export class UserService {
     }, 'TRAVELLERS_ERROR', 'Yolcu getirilemedi');
   }
 
-  async addTraveller(token: string, dto: CreateTravellerDto) {
+  async addTraveller(userId: string, dto: CreateTravellerDto) {
     return this.handleRequest(async () => {
-      const userId = await this.getUserIdFromToken(token);
-
       const { data, error } = await this.supabase.getAdminClient()
         .from('user_travellers')
         .insert([{ ...dto, user_id: userId }])
@@ -207,10 +182,8 @@ export class UserService {
     }, 'TRAVELLERS_ERROR', 'Yolcu eklenemedi');
   }
 
-  async updateTraveller(token: string, id: string, dto: UpdateTravellerDto) {
+  async updateTraveller(userId: string, id: string, dto: UpdateTravellerDto) {
     return this.handleRequest(async () => {
-      const userId = await this.getUserIdFromToken(token);
-
       const { data, error } = await this.supabase.getAdminClient()
         .from('user_travellers')
         .update({ ...dto, updated_at: new Date().toISOString() })
@@ -226,10 +199,8 @@ export class UserService {
     }, 'TRAVELLERS_ERROR', 'Yolcu güncellenemedi');
   }
 
-  async removeTraveller(token: string, id: string) {
+  async removeTraveller(userId: string, id: string) {
     return this.handleRequest(async () => {
-      const userId = await this.getUserIdFromToken(token);
-
       const { error } = await this.supabase.getAdminClient()
         .from('user_travellers')
         .delete()
@@ -245,10 +216,8 @@ export class UserService {
 
   // ==================== NOTIFICATIONS ====================
 
-  async getNotifications(token: string, options?: { unreadOnly?: boolean; limit?: number }) {
+  async getNotifications(userId: string, options?: { unreadOnly?: boolean; limit?: number }) {
     return this.handleRequest(async () => {
-      const userId = await this.getUserIdFromToken(token);
-
       let query = this.supabase.getAdminClient()
         .from('notifications')
         .select('*')
@@ -265,10 +234,8 @@ export class UserService {
     }, 'NOTIFICATIONS_ERROR', 'Bildirimler getirilemedi');
   }
 
-  async markNotificationAsRead(token: string, id: string) {
+  async markNotificationAsRead(userId: string, id: string) {
     return this.handleRequest(async () => {
-      const userId = await this.getUserIdFromToken(token);
-
       const { error } = await this.supabase.getAdminClient()
         .from('notifications')
         .update({ is_read: true, read_at: new Date().toISOString() })
@@ -281,10 +248,8 @@ export class UserService {
     }, 'NOTIFICATIONS_ERROR', 'Bildirim güncellenemedi');
   }
 
-  async markAllNotificationsAsRead(token: string) {
+  async markAllNotificationsAsRead(userId: string) {
     return this.handleRequest(async () => {
-      const userId = await this.getUserIdFromToken(token);
-
       const { error } = await this.supabase.getAdminClient()
         .from('notifications')
         .update({ is_read: true, read_at: new Date().toISOString() })
@@ -299,10 +264,8 @@ export class UserService {
 
   // ==================== BOOKINGS ====================
 
-  async getBookings(token: string, options?: { status?: string; limit?: number; offset?: number }) {
+  async getBookings(userId: string, options?: { status?: string; limit?: number; offset?: number }) {
     return this.handleRequest(async () => {
-      const userId = await this.getUserIdFromToken(token);
-
       let query = this.supabase.getAdminClient()
         .schema('backend')
         .from('booking')
@@ -321,10 +284,8 @@ export class UserService {
     }, 'BOOKINGS_ERROR', 'Rezervasyonlar getirilemedi');
   }
 
-  async getBooking(token: string, id: string) {
+  async getBooking(userId: string, id: string) {
     return this.handleRequest(async () => {
-      const userId = await this.getUserIdFromToken(token);
-
       const { data, error } = await this.supabase.getAdminClient()
         .schema('backend')
         .from('booking')
@@ -341,10 +302,8 @@ export class UserService {
 
   // ==================== TRANSACTIONS ====================
 
-  async getTransactions(token: string, options?: { limit?: number; offset?: number }) {
+  async getTransactions(userId: string, options?: { limit?: number; offset?: number }) {
     return this.handleRequest(async () => {
-      const userId = await this.getUserIdFromToken(token);
-
       let query = this.supabase.getAdminClient()
         .from('user_transaction')
         .select('*')
@@ -361,10 +320,8 @@ export class UserService {
     }, 'TRANSACTIONS_ERROR', 'İşlemler getirilemedi');
   }
 
-  async getTransaction(token: string, id: string) {
+  async getTransaction(userId: string, id: string) {
     return this.handleRequest(async () => {
-      const userId = await this.getUserIdFromToken(token);
-
       const { data, error } = await this.supabase.getAdminClient()
         .from('user_transaction')
         .select('*')
@@ -380,10 +337,8 @@ export class UserService {
 
   // ==================== USER DISCOUNTS ====================
 
-  async getUserDiscounts(token: string, options?: { activeOnly?: boolean }) {
+  async getUserDiscounts(userId: string, options?: { activeOnly?: boolean }) {
     return this.handleRequest(async () => {
-      const userId = await this.getUserIdFromToken(token);
-
       let query = this.supabase.getAdminClient()
         .from('user_discount')
         .select('*')
@@ -401,10 +356,8 @@ export class UserService {
     }, 'USER_DISCOUNTS_ERROR', 'İndirimler getirilemedi');
   }
 
-  async validateUserDiscount(token: string, code: string) {
+  async validateUserDiscount(userId: string, code: string) {
     return this.handleRequest(async () => {
-      const userId = await this.getUserIdFromToken(token);
-
       const { data, error } = await this.supabase.getAdminClient()
         .from('user_discount')
         .select('*')
@@ -422,10 +375,8 @@ export class UserService {
 
   // ==================== AVATAR ====================
 
-  async uploadAvatar(token: string, file: Express.Multer.File) {
+  async uploadAvatar(userId: string, file: Express.Multer.File) {
     return this.handleRequest(async () => {
-      const userId = await this.getUserIdFromToken(token);
-
       if (!file) this.throwError('AVATAR_ERROR', 'Dosya bulunamadı', HttpStatus.BAD_REQUEST);
       if (file.size > 1048576) this.throwError('AVATAR_ERROR', 'Dosya boyutu 1 MB\'ı geçemez', HttpStatus.BAD_REQUEST);
 
@@ -470,10 +421,8 @@ export class UserService {
     }, 'AVATAR_ERROR', 'Avatar yüklenemedi');
   }
 
-  async deleteAvatar(token: string) {
+  async deleteAvatar(userId: string) {
     return this.handleRequest(async () => {
-      const userId = await this.getUserIdFromToken(token);
-
       const { error: deleteError } = await this.supabase.getAdminClient().storage
         .from('avatars')
         .remove([`${userId}/avatar.jpg`, `${userId}/avatar.png`]);
@@ -500,10 +449,8 @@ export class UserService {
 
   // ==================== SESSIONS ====================
 
-  async getSessions(token: string, currentSessionId?: string) {
+  async getSessions(userId: string, currentSessionId?: string) {
     return this.handleRequest(async () => {
-      const userId = await this.getUserIdFromToken(token);
-
       const { data, error } = await this.supabase.getAdminClient()
         .rpc('get_user_sessions', { p_user_id: userId });
 
@@ -529,10 +476,8 @@ export class UserService {
     }, 'SESSIONS_ERROR', 'Oturumlar getirilemedi');
   }
 
-  async terminateSession(token: string, sessionId: string) {
+  async terminateSession(userId: string, sessionId: string) {
     return this.handleRequest(async () => {
-      const userId = await this.getUserIdFromToken(token);
-
       const { data, error } = await this.supabase.getAdminClient()
         .rpc('terminate_user_session', { p_user_id: userId, p_session_id: sessionId });
 
@@ -544,10 +489,8 @@ export class UserService {
     }, 'SESSIONS_ERROR', 'Oturum sonlandırılamadı');
   }
 
-  async terminateOtherSessions(token: string, currentSessionId: string) {
+  async terminateOtherSessions(userId: string, currentSessionId: string) {
     return this.handleRequest(async () => {
-      const userId = await this.getUserIdFromToken(token);
-
       if (!currentSessionId) {
         this.throwError('SESSIONS_ERROR', 'Mevcut oturum ID gerekli', HttpStatus.BAD_REQUEST);
       }

@@ -259,6 +259,37 @@ POST /auth/refresh
 }
 ```
 
+#### AuthGuard ve CurrentUser Kullanımı
+
+**Global Guard:**
+- Tüm endpoint'ler varsayılan olarak protected
+- `app.module.ts`'de global guard olarak tanımlı
+
+**Public Endpoint'ler:**
+```typescript
+@Public()
+@Post('signin')
+async signin(@Body() dto: SigninDto) {
+  // AuthGuard bypass edilir
+}
+```
+
+**Protected Endpoint'ler:**
+```typescript
+@Get('profile')
+async getProfile(@CurrentUser() user: any) {
+  // user.id direkt kullanılabilir
+  // Token validation AuthGuard tarafından yapıldı
+  return this.userService.getProfile(user.id);
+}
+```
+
+**Not:** Artık manuel token parsing yapmaya gerek yok. AuthGuard otomatik olarak:
+1. Token'ı header'dan alır
+2. Supabase'de validate eder
+3. User bilgisini `request.user` olarak inject eder
+4. `@CurrentUser()` decorator ile erişilebilir hale getirir
+
 ### 2. PAX Module (Uçak/Otel Arama)
 
 **Kullanım:** Paximum API entegrasyonu
@@ -584,12 +615,18 @@ POST /yolcu360/payment/pay
 
 3. Frontend: Authenticated Request
    Headers: { Authorization: "Bearer <access_token>" }
+   → AuthGuard (Global)
+   → Token validation (Supabase)
+   → request.user = user (otomatik inject)
    → Controller
-   → Service.getUserIdFromToken()
-   → Supabase getUser(token)
-   ← { user.id }
+   → @CurrentUser() decorator ile user.id alınır
    → Business logic
 ```
+
+**Yeni Özellikler:**
+- ✅ **Global AuthGuard**: Tüm endpoint'ler varsayılan olarak protected
+- ✅ **@Public() Decorator**: Public endpoint'leri işaretlemek için
+- ✅ **@CurrentUser() Decorator**: User bilgisini direkt almak için
 
 ### 2. Booking Flow (Complete)
 
@@ -750,6 +787,49 @@ const { data, error } = await adminClient
 // Anon client (Row Level Security aktif)
 const anonClient = this.supabase.getAnonClient();
 const { data, error } = await anonClient.auth.getUser(token);
+```
+
+### AuthGuard ve CurrentUser Kullanımı
+
+**Controller'da:**
+```typescript
+import { Controller, Get, UseGuards } from '@nestjs/common';
+import { AuthGuard } from '../common/guards/auth.guard';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { Public } from '../common/decorators/public.decorator';
+
+@Controller('user')
+@UseGuards(AuthGuard) // Controller seviyesinde (opsiyonel, global zaten var)
+export class UserController {
+  // Protected endpoint
+  @Get('profile')
+  async getProfile(@CurrentUser() user: any) {
+    // user.id, user.email, vb. direkt kullanılabilir
+    return this.userService.getProfile(user.id);
+  }
+
+  // Public endpoint
+  @Public()
+  @Get('check')
+  async checkEmail(@Query('email') email: string) {
+    // AuthGuard bypass edilir
+    return this.userService.checkEmail(email);
+  }
+}
+```
+
+**Service'de:**
+```typescript
+// Artık token parametresi yerine userId kullan
+async getProfile(userId: string) {
+  // Direkt userId ile işlem yap
+  const { data } = await this.supabase.getAdminClient()
+    .from('user_profiles')
+    .select('*')
+    .eq('id', userId)
+    .single();
+  return data;
+}
 ```
 
 ### Logger Kullanımı

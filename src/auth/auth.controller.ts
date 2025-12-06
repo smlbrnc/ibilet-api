@@ -1,9 +1,12 @@
-import { Controller, Post, Get, Body, Headers, Query, Res, Param } from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, Res, Param, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiParam } from '@nestjs/swagger';
-import { Response } from 'express';
+import { Response, Request } from 'express';
 import { AuthService } from './auth.service';
 import { LoggerService } from '../common/logger/logger.service';
 import { SignupDto, SigninDto, RefreshTokenDto, MagicLinkDto, ResetPasswordDto, UpdatePasswordDto, OAuthProvider, IdTokenSignInDto } from './dto';
+import { AuthGuard } from '../common/guards/auth.guard';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { Public } from '../common/decorators/public.decorator';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -16,6 +19,7 @@ export class AuthController {
   }
 
   @Post('signup')
+  @Public()
   @ApiOperation({ summary: 'Email/password ile kayıt ol' })
   @ApiResponse({ status: 201, description: 'Kullanıcı başarıyla kaydedildi' })
   @ApiResponse({ status: 400, description: 'Geçersiz istek' })
@@ -24,6 +28,7 @@ export class AuthController {
   }
 
   @Post('signin')
+  @Public()
   @ApiOperation({ summary: 'Email/password ile giriş yap' })
   @ApiResponse({ status: 200, description: 'Giriş başarılı' })
   @ApiResponse({ status: 401, description: 'Geçersiz kimlik bilgileri' })
@@ -32,6 +37,7 @@ export class AuthController {
   }
 
   @Post('signout')
+  @UseGuards(AuthGuard)
   @ApiOperation({ summary: 'Çıkış yap' })
   @ApiResponse({ status: 200, description: 'Çıkış başarılı' })
   @ApiBearerAuth()
@@ -40,15 +46,16 @@ export class AuthController {
   }
 
   @Post('refresh')
+  @Public()
   @ApiOperation({ summary: 'Token yenile' })
   @ApiResponse({ status: 200, description: 'Token yenilendi' })
   @ApiResponse({ status: 401, description: 'Geçersiz token' })
-  @ApiBearerAuth()
   async refresh(@Body() dto: RefreshTokenDto) {
     return this.authService.refreshToken(dto);
   }
 
   @Post('magic-link')
+  @Public()
   @ApiOperation({ summary: 'Magic link gönder' })
   @ApiResponse({ status: 200, description: 'Magic link gönderildi' })
   @ApiResponse({ status: 400, description: 'Geçersiz istek' })
@@ -57,6 +64,7 @@ export class AuthController {
   }
 
   @Post('reset-password')
+  @Public()
   @ApiOperation({ summary: 'Şifre sıfırlama emaili gönder' })
   @ApiResponse({ status: 200, description: 'Şifre sıfırlama emaili gönderildi' })
   @ApiResponse({ status: 400, description: 'Geçersiz istek' })
@@ -65,29 +73,34 @@ export class AuthController {
   }
 
   @Post('update-password')
+  @UseGuards(AuthGuard)
   @ApiOperation({ summary: 'Şifreyi güncelle' })
   @ApiResponse({ status: 200, description: 'Şifre güncellendi' })
   @ApiResponse({ status: 401, description: 'Yetkisiz erişim' })
   @ApiBearerAuth()
   async updatePassword(
-    @Headers('authorization') authorization: string,
+    @CurrentUser() user: any,
+    @Req() req: Request & { token?: string },
     @Body() dto: UpdatePasswordDto,
   ) {
-    const token = authorization?.replace('Bearer ', '') || '';
+    // Token'ı request'ten al (AuthGuard zaten validate etti ve request.token'a ekledi)
+    const token = req.token || req.headers?.authorization?.replace('Bearer ', '') || '';
     return this.authService.updatePassword(token, dto);
   }
 
   @Get('user')
+  @UseGuards(AuthGuard)
   @ApiOperation({ summary: 'Kullanıcı bilgilerini getir' })
   @ApiResponse({ status: 200, description: 'Kullanıcı bilgileri' })
   @ApiResponse({ status: 401, description: 'Yetkisiz erişim' })
   @ApiBearerAuth()
-  async getUser(@Headers('authorization') authorization?: string) {
-    const token = authorization?.replace('Bearer ', '') || '';
-    return this.authService.getUser(token);
+  async getUser(@CurrentUser() user: any) {
+    // User zaten guard'ta validate edildi, direkt döndür
+    return { success: true, data: { user } };
   }
 
   @Get('confirm')
+  @Public()
   @ApiOperation({ summary: 'Email onay linkini doğrula ve frontend\'e yönlendir' })
   @ApiQuery({ name: 'token_hash', required: true, description: 'Token hash' })
   @ApiQuery({ name: 'type', required: true, description: 'Onay tipi (signup, recovery, invite, email)' })
@@ -125,6 +138,7 @@ export class AuthController {
   }
 
   @Get('oauth/:provider')
+  @Public()
   @ApiOperation({ summary: 'OAuth URL al (Google/Apple)' })
   @ApiParam({ name: 'provider', enum: OAuthProvider, description: 'OAuth provider' })
   @ApiQuery({ name: 'redirect_to', required: false, description: 'Başarılı giriş sonrası yönlendirilecek URL' })
@@ -138,6 +152,7 @@ export class AuthController {
   }
 
   @Post('oauth/token')
+  @Public()
   @ApiOperation({ summary: 'ID Token ile giriş (Mobile Native)' })
   @ApiResponse({ status: 200, description: 'Giriş başarılı' })
   @ApiResponse({ status: 401, description: 'Geçersiz token' })

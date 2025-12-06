@@ -2,12 +2,14 @@ import { Controller, Post, Body } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AirportService, NearestAirportResult } from './airport.service';
 import { NearestAirportRequestDto } from './dto/nearest-airport-request.dto';
+import { Public } from '../common/decorators/public.decorator';
 
 @ApiTags('Airport')
 @Controller('airport')
 export class AirportController {
   constructor(private readonly airportService: AirportService) {}
 
+  @Public()
   @Post('nearest')
   @ApiOperation({ summary: 'En yakın havalimanını bul' })
   @ApiResponse({
@@ -25,7 +27,7 @@ export class AirportController {
           },
           distance: 23.45,
         },
-        requestId: 'xxx',
+        requestId: 'airport-2025-12-06T10:30:00.000Z',
       },
     },
   })

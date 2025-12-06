@@ -12,6 +12,7 @@ import { GetOfferDetailsRequestDto } from './dto/get-offer-details-request.dto';
 import { ProductInfoRequestDto } from './dto/product-info-request.dto';
 import { FareRulesRequestDto } from './dto/fare-rules-request.dto';
 import { handlePaxApiError } from '../common/utils/error-handler.util';
+import { Public } from '../common/decorators/public.decorator';
 
 @ApiTags('API')
 @Controller('')
@@ -22,6 +23,7 @@ export class PaxController {
     return { ip: req.ip || req.socket.remoteAddress || undefined };
   }
 
+  @Public()
   @Post('token')
   @ApiOperation({ summary: 'Token yenileme (manuel)' })
   @ApiResponse({ status: 200, description: 'Token yenilendi' })
@@ -33,6 +35,7 @@ export class PaxController {
     }
   }
 
+  @Public()
   @Post('departure')
   @ApiOperation({ summary: 'Kalkış noktası arama' })
   @ApiResponse({ status: 200, description: 'Kalkış noktaları' })
@@ -44,6 +47,7 @@ export class PaxController {
     }
   }
 
+  @Public()
   @Post('arrival')
   @ApiOperation({ summary: 'Varış noktası / Otel konaklama yeri arama' })
   @ApiResponse({ status: 200, description: 'Varış noktaları / Otel listesi' })
@@ -55,6 +59,7 @@ export class PaxController {
     }
   }
 
+  @Public()
   @Post('checkin-dates')
   @ApiOperation({ summary: 'Check-in tarihleri' })
   @ApiResponse({ status: 200, description: 'Check-in tarihleri' })
@@ -66,6 +71,7 @@ export class PaxController {
     }
   }
 
+  @Public()
   @Post('price-search')
   @ApiOperation({ summary: 'Fiyat arama (Uçak/Otel)' })
   @ApiResponse({ status: 200, description: 'Fiyat sonuçları' })
@@ -77,6 +83,7 @@ export class PaxController {
     }
   }
 
+  @Public()
   @Post('get-offers')
   @ApiOperation({
     summary: 'Teklifleri getir (Get Offers)',
@@ -118,6 +125,7 @@ export class PaxController {
     }
   }
 
+  @Public()
   @Post('get-offer-details')
   @ApiOperation({ summary: 'Teklif detayları ve ürün bilgisi getir (Get Offer Details)' })
   @ApiResponse({ status: 200, description: 'Detaylı teklif ve ürün bilgileri' })
@@ -129,6 +137,7 @@ export class PaxController {
     }
   }
 
+  @Public()
   @Post('product-info')
   @ApiOperation({ summary: 'Ürün bilgisi getir (Product Info)' })
   @ApiResponse({ status: 200, description: 'Ürün detayları' })
@@ -140,6 +149,7 @@ export class PaxController {
     }
   }
 
+  @Public()
   @Post('fare-rules')
   @ApiOperation({ summary: 'Uçuş ücret kurallarını getir (Fare Rules)' })
   @ApiResponse({ status: 200, description: 'Ücret kuralları detayları' })

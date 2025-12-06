@@ -2,12 +2,14 @@ import { Controller, Post, Body } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { EmailService } from './email.service';
 import { SendEmailDto } from './dto/send-email.dto';
+import { Public } from '../common/decorators/public.decorator';
 
 @ApiTags('Resend')
 @Controller('resend')
 export class EmailController {
   constructor(private readonly emailService: EmailService) {}
 
+  @Public()
   @Post('send')
   @ApiOperation({
     summary: 'Resend Email Gönder',

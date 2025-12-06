@@ -16,12 +16,22 @@
 
 ## Özet
 
-Bu dokümanda iBilet API projesinde kullanılmayan veya eksik kalan kodlar listelenmiştir. Tespit edilen kullanılmayan kodlar şunlardır:
+Bu dokümanda iBilet API projesinde kullanılmayan veya eksik kalan kodlar listelenmiştir. 
 
-- **1 Decorator**: `@CurrentUser` decorator'ı hiçbir controller'da kullanılmıyor
-- **1 Utility Fonksiyon**: `getErrorDetails()` sadece Yolcu360 modülünde kullanılıyor, payment modülünde kullanılmıyor
-- **1 TODO Fonksiyon**: `getTransactionStatus()` implement edilmemiş
-- **2 Silinmiş Dosya**: Git status'te silinen 2 MD dosyası var
+**Güncelleme Tarihi:** 6 Aralık 2025 (Kod Temizliği Sonrası)
+
+### ✅ Temizlenen Kodlar
+
+- ✅ **getUserIdFromToken()** - `user.service.ts`'den silindi (AuthGuard kullanılıyor)
+- ✅ **getUser()** - `auth.service.ts`'den silindi (Controller'da direkt request.user kullanılıyor)
+- ✅ **getTransactionStatus()** - `payment.service.ts` ve controller'dan silindi (TODO metodu)
+- ✅ **UserInfo interface** - `booking.service.ts`'den silindi (kullanılmıyordu)
+- ✅ **Duplicate PaxRequestOptions** - Düzeltildi (booking.service.ts artık pax.service.ts'den import ediyor)
+
+### ⚠️ Kalan Durumlar
+
+- **1 Utility Fonksiyon**: `getErrorDetails()` sadece Yolcu360 modülünde kullanılıyor, payment modülünde kullanılmıyor (normal kullanım)
+- **2 Silinmiş Dosya**: Git status'te silinen 2 MD dosyası var (opsiyonel temizlik)
 
 ---
 
@@ -31,41 +41,42 @@ Bu dokümanda iBilet API projesinde kullanılmayan veya eksik kalan kodlar liste
 
 **Dosya:** `src/common/decorators/current-user.decorator.ts`
 
-**Kod:**
-```typescript
-import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+**Durum:** ✅ **ARTIK KULLANILIYOR**
 
-export const CurrentUser = createParamDecorator(
-  (data: unknown, ctx: ExecutionContext) => {
-    const request = ctx.switchToHttp().getRequest();
-    return request.user;
-  },
-);
+**Güncel Durum:**
+- ✅ AuthGuard implement edildi (Global guard)
+- ✅ CurrentUser decorator aktif kullanılıyor
+- ✅ Tüm protected endpoint'lerde `@CurrentUser()` kullanılıyor
+
+**Kullanım Örnekleri:**
+
+```typescript
+// UserController
+@Get('profile')
+async getProfile(@CurrentUser() user: any) {
+  return this.userService.getProfile(user.id);
+}
+
+// AuthController
+@Get('user')
+async getUser(@CurrentUser() user: any) {
+  return { success: true, data: { user } };
+}
+
+// BookingController
+@Post('set-reservation-info')
+async setReservationInfo(
+  @CurrentUser() user: any,
+  @Body() request: SetReservationInfoRequestDto,
+) {
+  // user.id direkt kullanılabilir
+}
 ```
 
-**Durum:** ❌ Hiçbir controller'da kullanılmıyor
-
-**Açıklama:** 
-- Bu decorator, request'ten kullanıcı bilgisini çıkarmak için oluşturulmuş
-- Ancak projede hiçbir endpoint'te `@CurrentUser()` şeklinde kullanılmıyor
-- Bunun yerine tüm controller'larda `@Headers('authorization')` ile manuel token alınıp işleniyor
-
-**Örnek Kullanım Yerleri:**
-- `AuthController`: `@Headers('authorization')` kullanıyor
-- `UserController`: `@Headers('authorization')` kullanıyor
-- Diğer tüm controller'lar: Authorization header manuel parse ediliyor
-
-**Neden Kullanılmıyor:**
-- Projede Supabase Auth kullanılıyor ve her endpoint'te token `authorization?.replace('Bearer ', '')` ile parse ediliyor
-- Guard veya middleware ile otomatik user injection yapılmıyor
-- Manuel token yönetimi tercih edilmiş
-
-**Öneri:**
-1. **Seçenek A:** Decorator'ı tamamen sil (kullanılmadığı için)
-2. **Seçenek B:** Guard + Middleware ekleyerek kullanılabilir hale getir:
-   - `AuthGuard` oluştur
-   - Token'ı validate et ve `request.user` olarak inject et
-   - Tüm protected endpoint'lerde `@UseGuards(AuthGuard)` ve `@CurrentUser()` kullan
+**Önceki Durum (Güncellendi):**
+- ❌ Hiçbir controller'da kullanılmıyordu
+- ❌ Manuel token parsing yapılıyordu
+- ✅ **Şimdi:** AuthGuard ile otomatik user injection yapılıyor
 
 ---
 
@@ -115,52 +126,19 @@ src/payment/utils/vpos-errors.util.ts:33: export function getErrorDetails(errorC
 
 ### 1. getTransactionStatus()
 
-**Dosya:** `src/payment/payment.service.ts`  
-**Satır:** 280-302
+**Durum:** ✅ **SİLİNDİ**
 
-**Kod:**
-```typescript
-async getTransactionStatus(orderId: string) {
-  try {
-    this.logger.log('=== VPOS TRANSACTION STATUS REQUEST ===');
-    this.logger.debug(`Order ID: ${orderId}`);
+**Önceki Durum:**
+- ❌ TODO olarak bırakılmış, implement edilmemiş
+- ❌ Endpoint tanımlı ancak fonksiyon çalışmıyordu
+- ❌ Production'da çalışmayan endpoint riski
 
-    // TODO: Garanti VPOS API'den inquiry XML request oluştur ve gönder
-    // Inquiry için özel hash hesaplama ve XML builder gerekli
-    // Şimdilik placeholder response döndürüyoruz
+**Yapılan İşlem:**
+- ✅ `payment.service.ts`'den `getTransactionStatus()` metodu silindi
+- ✅ `payment.controller.ts`'den `getStatus()` endpoint'i silindi
+- ✅ Production'da çalışmayan kod temizlendi
 
-    throw new BadRequestException('İşlem durumu sorgulama henüz implement edilmedi');
-  } catch (error) {
-    // ...
-  }
-}
-```
-
-**Durum:** ❌ TODO olarak bırakılmış, implement edilmemiş
-
-**Controller Endpoint:** 
-```typescript
-@Get('status/:orderId')
-async getStatus(@Param('orderId') orderId: string) {
-  return this.paymentService.getTransactionStatus(orderId);
-}
-```
-
-**Açıklama:**
-- Endpoint tanımlı ancak fonksiyon çalışmıyor
-- Garanti VPOS Inquiry API çağrısı yapılması gerekiyor
-- XML request builder ve hash hesaplama eksik
-
-**Gereken İşlemler:**
-1. Garanti VPOS Inquiry API dokümantasyonunu incele
-2. `buildInquiryXml()` fonksiyonu yaz
-3. Inquiry için hash hesaplama fonksiyonu ekle
-4. `parseXmlResponse()` ile yanıtı parse et
-5. Test et
-
-**Öneri:**
-- Ya endpoint'i kaldır ya da implement et
-- Şu anda çalışmayan bir endpoint production'da olmamalı
+**Not:** Gelecekte ihtiyaç olursa, Garanti VPOS Inquiry API dokümantasyonuna göre yeniden implement edilebilir.
 
 ---
 
@@ -204,29 +182,38 @@ git commit -m "docs: Remove unused documentation files"
 
 ## Öneriler
 
+### ✅ Tamamlanan İşlemler
+
+1. ✅ **getTransactionStatus() kaldırıldı**
+   - Production'da çalışmayan endpoint temizlendi
+   - Metod ve endpoint controller'dan silindi
+
+2. ✅ **CurrentUser decorator aktif edildi**
+   - AuthGuard implement edildi
+   - CurrentUser decorator tüm controller'larda kullanılıyor
+   - Code duplication azaltıldı
+
+3. ✅ **Gereksiz metodlar temizlendi**
+   - `getUserIdFromToken()` silindi
+   - `getUser()` silindi
+   - `UserInfo` interface silindi
+
 ### Öncelik 1: Kritik (Hemen Yapılmalı)
 
-1. **getTransactionStatus() implement et veya endpoint'i kaldır**
-   - Production'da çalışmayan endpoint olmamalı
-   - Ya implement et ya da controller'dan kaldır
-
-2. **Silinen dosyaları temizle**
+1. **Silinen dosyaları temizle**
    - `git rm` ile git'ten kaldır
    - Ya da geri getirip dokümante et
 
 ### Öncelik 2: Orta (İyileştirme)
 
-3. **CurrentUser decorator'ı değerlendir**
-   - Kullanılacaksa: Guard + Middleware ekle
-   - Kullanılmayacaksa: Sil
-
-4. **getErrorDetails() kullanımını genişlet**
+2. **getErrorDetails() kullanımını genişlet**
    - Payment servisinde de kullan
    - Veya common/utils'e taşı
+   - **Not:** Şu anda sadece Findeks'te kullanılıyor, bu normal bir kullanım
 
 ### Öncelik 3: Düşük (Opsiyonel)
 
-5. **TokenService kullanımını gözden geçir**
+3. **TokenService kullanımını gözden geçir**
    - Şu anda sadece TokenManagerService tarafından kullanılıyor
    - Bu normal bir pattern (internal service)
    - Değişiklik gerekmeyebilir
@@ -235,12 +222,15 @@ git commit -m "docs: Remove unused documentation files"
 
 ## Kod Temizlik Checklist
 
-- [ ] `@CurrentUser` decorator'ı için karar ver (kullan veya sil)
-- [ ] `getTransactionStatus()` fonksiyonunu implement et veya endpoint'i kaldır
-- [ ] `getErrorDetails()` kullanımını genişlet veya taşı
-- [ ] Silinen MD dosyalarını git'ten kaldır
-- [ ] Kullanılmayan import'ları temizle (ESLint ile)
-- [ ] Dead code detection tool'u kullan
+- [x] ✅ `@CurrentUser` decorator'ı aktif edildi (AuthGuard ile)
+- [x] ✅ `getTransactionStatus()` endpoint'i kaldırıldı
+- [x] ✅ `getUserIdFromToken()` metodu silindi
+- [x] ✅ `getUser()` metodu silindi
+- [x] ✅ `UserInfo` interface silindi
+- [x] ✅ Duplicate `PaxRequestOptions` düzeltildi
+- [x] ✅ Kullanılmayan import'lar temizlendi
+- [ ] Silinen MD dosyalarını git'ten kaldır (opsiyonel)
+- [ ] `getErrorDetails()` kullanımını genişlet veya taşı (opsiyonel)
 
 ---
 
@@ -262,6 +252,32 @@ npm run lint
 
 ---
 
-**Son Güncelleme:** 6 Aralık 2025  
+**Son Güncelleme:** 6 Aralık 2025 (Kod Temizliği Sonrası)  
 **Hazırlayan:** AI Code Analyzer
+
+---
+
+## Güncelleme Notları (6 Aralık 2025)
+
+### Yapılan Temizlikler
+
+1. **AuthGuard Implementation**
+   - Global AuthGuard eklendi (`app.module.ts`)
+   - Tüm endpoint'ler varsayılan olarak protected
+   - Public endpoint'ler `@Public()` decorator ile işaretleniyor
+
+2. **CurrentUser Decorator**
+   - Artık tüm protected endpoint'lerde aktif kullanılıyor
+   - User bilgisi otomatik inject ediliyor
+   - Manuel token parsing kaldırıldı
+
+3. **Gereksiz Kod Temizliği**
+   - Deprecated metodlar silindi
+   - TODO fonksiyonlar kaldırıldı
+   - Kullanılmayan interface'ler temizlendi
+   - Duplicate kodlar düzeltildi
+
+4. **Type Safety İyileştirmeleri**
+   - Type assertion'lar düzeltildi
+   - Request interface'leri iyileştirildi
 

@@ -4,6 +4,7 @@ import { Yolcu360Service } from './yolcu360.service';
 import { Yolcu360ExceptionFilter } from './filters/yolcu360-exception.filter';
 import { LocationSearchDto, CarSearchDto, CreateOrderDto, OrderResponseDto, SaveCarSelectionDto, PaymentPayDto } from './dto';
 import { CarSelectionResponse, CarSelectionResponseDto } from './dto/response-types.dto';
+import { Public } from '../common/decorators/public.decorator';
 
 @ApiTags('Yolcu 360')
 @Controller('yolcu360')
@@ -11,6 +12,7 @@ import { CarSelectionResponse, CarSelectionResponseDto } from './dto/response-ty
 export class Yolcu360Controller {
   constructor(private readonly yolcu360Service: Yolcu360Service) {}
 
+  @Public()
   @Get('locations')
   @ApiOperation({ summary: 'Lokasyon arama (Autocomplete)' })
   @ApiResponse({ status: 200, description: 'Lokasyon listesi' })
@@ -19,6 +21,7 @@ export class Yolcu360Controller {
     return this.yolcu360Service.searchLocations(dto.query);
   }
 
+  @Public()
   @Get('locations/:placeId')
   @ApiOperation({ summary: 'Lokasyon detayı (Koordinat bilgisi)' })
   @ApiResponse({ status: 200, description: 'Lokasyon detayları' })
@@ -27,6 +30,7 @@ export class Yolcu360Controller {
     return this.yolcu360Service.getLocationDetails(placeId);
   }
 
+  @Public()
   @Post('search')
   @ApiOperation({ summary: 'Araç arama' })
   @ApiResponse({ status: 200, description: 'Müsait araç listesi' })
@@ -35,6 +39,7 @@ export class Yolcu360Controller {
     return this.yolcu360Service.searchCars(dto);
   }
 
+  @Public()
   @Get('search/:searchID/:code')
   @ApiOperation({ summary: 'Araç arama sonucu detayı' })
   @ApiResponse({ status: 200, description: 'Seçilen araç detayı' })
@@ -46,6 +51,7 @@ export class Yolcu360Controller {
     return this.yolcu360Service.getCarSearchResult(searchID, code);
   }
 
+  @Public()
   @Post('order')
   @ApiOperation({ summary: 'Sipariş oluştur' })
   @ApiBody({
@@ -59,6 +65,7 @@ export class Yolcu360Controller {
     return this.yolcu360Service.createOrder(dto);
   }
 
+  @Public()
   @Get('order/:orderId')
   @ApiOperation({ summary: 'Sipariş detayı getir' })
   @ApiResponse({ status: 200, description: 'Sipariş detayı', type: OrderResponseDto })
@@ -68,6 +75,7 @@ export class Yolcu360Controller {
     return this.yolcu360Service.getOrder(orderId);
   }
 
+  @Public()
   @Post('car-selection/:code')
   @ApiOperation({ summary: 'Seçilen aracı veritabanına kaydet' })
   @ApiQuery({
@@ -85,6 +93,7 @@ export class Yolcu360Controller {
     return this.yolcu360Service.saveCarSelection(code, dto.searchID);
   }
 
+  @Public()
   @Get('car-selection/:code')
   @ApiOperation({ summary: 'Kaydedilen araç kaydını getir (code ile)' })
   @ApiResponse({ status: 200, description: 'Araç kaydı', type: CarSelectionResponseDto })
@@ -93,6 +102,7 @@ export class Yolcu360Controller {
     return this.yolcu360Service.getCarSelectionByCode(code);
   }
 
+  @Public()
   @Post('payment/pay')
   @ApiOperation({
     summary: 'Yolcu360 Limit ödeme (3D Secure olmadan)',

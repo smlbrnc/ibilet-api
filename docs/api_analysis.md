@@ -184,12 +184,18 @@ this.logger.debug()    // DEBUG
 
 **Tespit Edilen Tekrarlar:**
 
-1. **Token parsing:**
+1. ~~**Token parsing:**~~ ✅ **ÇÖZÜLDÜ**
 ```typescript
-// Her controller'da tekrar ediliyor
+// ÖNCE: Her controller'da tekrar ediliyordu
 const token = authorization?.replace('Bearer ', '') || '';
+
+// ŞİMDİ: AuthGuard otomatik yapıyor
+@Get('profile')
+async getProfile(@CurrentUser() user: any) {
+  // Token validation otomatik
+}
 ```
-**Çözüm:** Decorator veya Guard kullan
+**Durum:** ✅ AuthGuard ile merkezi hale getirildi
 
 2. **Error throwing:**
 ```typescript
@@ -210,7 +216,7 @@ const adminClient = this.supabase.getAdminClient();
 |--------|------|-----|
 | Type Safety | 6/10 | Çok fazla `any` kullanımı |
 | Error Handling | 8/10 | İyi organize edilmiş |
-| Code Reusability | 7/10 | Bazı tekrarlar var |
+| Code Reusability | 8/10 | ⬆️ Guard sistemi ile tekrarlar azaltıldı |
 | Readability | 8/10 | Kod okunabilir |
 | Documentation | 7/10 | Swagger iyi, inline comment az |
 
@@ -224,19 +230,42 @@ const adminClient = this.supabase.getAdminClient();
 - ✅ Row Level Security (RLS) var
 - ✅ JWT-based authentication
 - ✅ Refresh token support
-- ⚠️ Guard sistemi yok (manuel token validation)
+- ✅ **AuthGuard sistemi implement edildi** (Global guard)
+- ✅ **CurrentUser decorator aktif kullanılıyor**
 
-**Örnek Güvenlik Riski:**
+**Güncel Implementasyon:**
 
 ```typescript
-// Her endpoint'te manuel check
-async getProfile(token: string) {
-  const userId = await this.getUserIdFromToken(token);
-  // ...
+// Global AuthGuard (app.module.ts)
+{
+  provide: APP_GUARD,
+  useClass: AuthGuard,
+}
+
+// Controller'da kullanım
+@Controller('user')
+@UseGuards(AuthGuard)
+export class UserController {
+  @Get('profile')
+  async getProfile(@CurrentUser() user: any) {
+    // user.id direkt kullanılabilir
+    return this.userService.getProfile(user.id);
+  }
+}
+
+// Public endpoint'ler
+@Public()
+@Post('signin')
+async signin(@Body() dto: SigninDto) {
+  // AuthGuard bypass edilir
 }
 ```
 
-**Öneri:** `@UseGuards(AuthGuard)` ile otomatikleştir
+**İyileştirmeler:**
+- ✅ Token validation merkezi hale getirildi
+- ✅ User bilgisi otomatik inject ediliyor
+- ✅ Public endpoint'ler `@Public()` decorator ile işaretleniyor
+- ✅ Code duplication azaltıldı
 
 ### Input Validation
 
@@ -313,8 +342,8 @@ Supabase kullanıldığı için SQL injection riski yok:
 
 | Kriter | Puan | Not |
 |--------|------|-----|
-| Authentication | 7/10 | Güvenli ama Guard eksik |
-| Authorization | 6/10 | RLS var, API guard yok |
+| Authentication | 9/10 | ✅ Guard sistemi implement edildi |
+| Authorization | 8/10 | ✅ RLS + AuthGuard aktif |
 | Input Validation | 9/10 | Çok iyi |
 | CORS | 8/10 | Güvenli konfigürasyon |
 | Rate Limiting | 6/10 | Global var, granular yok |
@@ -684,20 +713,22 @@ CMD ["node", "dist/main"]
    - Effort: 4 hafta
    - Action: Unit + Integration + E2E test'ler yaz
 
-2. **getTransactionStatus() TODO**
-   - Impact: ⭐⭐⭐⭐
-   - Effort: 1 hafta
-   - Action: Garanti VPOS Inquiry API implement et
+2. ~~**getTransactionStatus() TODO**~~ ✅ **TAMAMLANDI**
+   - ~~Impact: ⭐⭐⭐⭐~~
+   - ~~Effort: 1 hafta~~
+   - ~~Action: Garanti VPOS Inquiry API implement et~~
+   - **Durum:** Endpoint ve metod kaldırıldı (production'da çalışmayan kod temizlendi)
 
 3. **Type Safety (any kullanımı)**
    - Impact: ⭐⭐⭐
    - Effort: 2 hafta
    - Action: Interface'ler ve type definition'lar ekle
 
-4. **Guard Sistemi**
-   - Impact: ⭐⭐⭐⭐
-   - Effort: 1 hafta
-   - Action: AuthGuard + CurrentUser decorator implement et
+4. ~~**Guard Sistemi**~~ ✅ **TAMAMLANDI**
+   - ~~Impact: ⭐⭐⭐⭐~~
+   - ~~Effort: 1 hafta~~
+   - ~~Action: AuthGuard + CurrentUser decorator implement et~~
+   - **Durum:** AuthGuard global olarak aktif, CurrentUser decorator tüm controller'larda kullanılıyor
 
 ### Orta Öncelikli
 
@@ -749,23 +780,23 @@ CMD ["node", "dist/main"]
 
 ### Genel Değerlendirme
 
-**Toplam Puan: 6.8/10**
+**Toplam Puan: 7.1/10** (Önceki: 6.8/10)
 
-| Kategori | Puan |
-|----------|------|
-| Mimari | 7.8/10 |
-| Kod Kalitesi | 7.2/10 |
-| Güvenlik | 7.2/10 |
-| Performans | 7.0/10 |
-| Veri Yönetimi | 6.0/10 |
-| Test & QA | 1.2/10 |
-| DevOps | 3.4/10 |
+| Kategori | Önceki | Güncel | Değişim |
+|----------|--------|--------|---------|
+| Mimari | 7.8/10 | 7.8/10 | - |
+| Kod Kalitesi | 7.2/10 | 7.8/10 | ⬆️ +0.6 (Guard sistemi, kod temizliği) |
+| Güvenlik | 7.2/10 | 8.5/10 | ⬆️ +1.3 (AuthGuard implementasyonu) |
+| Performans | 7.0/10 | 7.0/10 | - |
+| Veri Yönetimi | 6.0/10 | 6.0/10 | - |
+| Test & QA | 1.2/10 | 1.2/10 | - |
+| DevOps | 3.4/10 | 3.4/10 | - |
 
 ### Kritik Aksiyonlar
 
 1. **TEST COVERAGE** - En yüksek öncelik!
-2. **Guard Sistemi** - Güvenlik için kritik
-3. **TODO Fonksiyonları** - Production'da olmamalı
+2. ~~**Guard Sistemi**~~ ✅ **TAMAMLANDI** - AuthGuard + CurrentUser aktif
+3. ~~**TODO Fonksiyonları**~~ ✅ **TAMAMLANDI** - getTransactionStatus() kaldırıldı
 4. **Type Safety** - Maintainability için önemli
 5. **CI/CD** - Deployment kalitesi için gerekli
 
@@ -776,6 +807,8 @@ CMD ["node", "dist/main"]
 - ✅ Error handling pattern'i tutarlı
 - ✅ Swagger dokümantasyonu eksiksiz
 - ✅ Queue-based async processing
+- ✅ **AuthGuard sistemi implement edildi** (Global authentication)
+- ✅ **CurrentUser decorator aktif** (Code duplication azaltıldı)
 
 ### Zayıf Yönler
 

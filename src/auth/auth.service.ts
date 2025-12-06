@@ -111,15 +111,6 @@ export class AuthService {
     }, 'MAGIC_LINK_ERROR', 'Magic link gönderilemedi');
     }
 
-  async getUser(token: string) {
-    if (!token) this.throwError('GET_USER_ERROR', 'Token bulunamadı', HttpStatus.UNAUTHORIZED);
-
-    return this.handleRequest(async () => {
-      const { data: { user }, error } = await this.supabase.getAnonClient().auth.getUser(token);
-      if (error) this.throwError('GET_USER_ERROR', error.message, HttpStatus.UNAUTHORIZED);
-      return { success: true, data: { user } };
-    }, 'GET_USER_ERROR', 'Kullanıcı bilgileri alınamadı');
-    }
 
   async resetPassword(dto: ResetPasswordDto) {
     return this.handleRequest(async () => {
