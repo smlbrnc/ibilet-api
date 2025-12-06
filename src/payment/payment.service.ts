@@ -44,10 +44,18 @@ export class PaymentService {
    */
   async initiate3DSecurePayment(dto: PaymentRequestDto) {
     try {
-      this.logger.log('=== VPOS PAYMENT REQUEST ===');
-      this.logger.debug(JSON.stringify({ ...dto, cardInfo: dto.cardInfo ? { ...dto.cardInfo, cardNumber: '****', cardCvv2: '***' } : null }));
-
+      const isProduction = process.env.NODE_ENV === 'production';
+      
       const orderId = generateOrderId('IB');
+      
+      this.logger.log({
+        message: 'VPOS payment request initiated',
+        orderId,
+        amount: dto.amount,
+        currency: dto.currencyCode,
+        customerEmail: dto.customerEmail,
+        // cardInfo loglanmıyor (GDPR uyumluluğu)
+      });
 
       // Hash değeri hesapla (installmentCount boş string olmalı, 0 değil!)
       const installmentCountForHash = dto.installmentCount || '';
@@ -79,8 +87,12 @@ export class PaymentService {
         cardInfo: dto.cardInfo,
       });
 
-      this.logger.log('=== ÖDEME KAYDI ===');
-      this.logger.log(JSON.stringify({ orderId, amount: dto.amount, customerEmail: dto.customerEmail }));
+      this.logger.log({
+        message: 'Payment record',
+        orderId,
+        amount: dto.amount,
+        customerEmail: dto.customerEmail,
+      });
 
       const responseData = format3DSecurePaymentResponse({
         orderId,
@@ -88,8 +100,11 @@ export class PaymentService {
         redirectUrl: this.paymentConfig.getBaseUrl(),
       });
 
-      this.logger.log('=== VPOS PAYMENT RESPONSE ===');
-      this.logger.debug(JSON.stringify({ responseData }));
+      this.logger.log({
+        message: 'VPOS payment response',
+        orderId,
+        success: responseData.success,
+      });
 
       return {
         success: true,
@@ -97,7 +112,14 @@ export class PaymentService {
         data: responseData,
       };
     } catch (error) {
-      this.logger.error(JSON.stringify({ error: error.message, stack: error.stack }));
+      const isProduction = process.env.NODE_ENV === 'production';
+      this.logger.error({
+        message: 'Payment initiation error',
+        error: error instanceof Error ? error.message : String(error),
+        code: (error as any)?.code || 'PAYMENT_INITIATION_ERROR',
+        // Stack trace sadece development'ta
+        ...(isProduction ? {} : { stack: error instanceof Error ? error.stack : undefined }),
+      });
       throw new InternalServerErrorException('Ödeme işlemi oluşturulurken hata oluştu');
     }
   }
@@ -109,11 +131,17 @@ export class PaymentService {
     try {
       const isRefund = dto.transactionType === 'refund';
 
-      this.logger.log(`=== VPOS DIRECT ${isRefund ? 'REFUND' : 'PAYMENT'} REQUEST (3D'siz) ===`);
-      this.logger.debug(JSON.stringify({
-        ...dto,
-        cardInfo: dto.cardInfo ? { ...dto.cardInfo, cardNumber: '****', cardCvv2: '***' } : null,
-      }));
+      const isProduction = process.env.NODE_ENV === 'production';
+      
+      this.logger.log({
+        message: `VPOS direct ${isRefund ? 'refund' : 'payment'} request`,
+        orderId: isRefund ? dto.orderId : undefined, // Preview için
+        amount: dto.amount,
+        currency: dto.currencyCode,
+        transactionType: dto.transactionType,
+        customerEmail: dto.customerEmail,
+        // cardInfo loglanmıyor (GDPR uyumluluğu)
+      });
 
       // Sipariş ID - Refund için sağlanmalı, sales için yeni oluşturulmalı
       let orderId: string;
@@ -171,8 +199,11 @@ export class PaymentService {
       // XML yanıtını parse et
       const parsedResponse = await parseXmlResponse(response.data);
 
-      this.logger.log('=== VPOS RESPONSE ===');
-      this.logger.debug(JSON.stringify(parsedResponse, null, 2));
+      this.logger.log({
+        message: 'VPOS response',
+        orderId,
+        status: parsedResponse?.GVPSResponse?.Transaction?.Response?.Code,
+      });
 
       const gvpsResponse = parsedResponse.GVPSResponse;
       const transaction = gvpsResponse.Transaction;
@@ -190,12 +221,12 @@ export class PaymentService {
         isRefund,
       });
 
-      this.logger.log(`=== DIRECT ${isRefund ? 'REFUND' : 'PAYMENT'} RESULT ===`);
-      this.logger.log(JSON.stringify({
+      this.logger.log({
+        message: `Direct ${isRefund ? 'refund' : 'payment'} result`,
         orderId,
         type: dto.transactionType || 'sales',
         success: responseData.success,
-      }));
+      });
 
       if (responseData.success) {
         return {
@@ -210,11 +241,14 @@ export class PaymentService {
         });
       }
     } catch (error) {
-      this.logger.error(JSON.stringify({
-        error: error.message,
-        stack: error.stack,
-        response: error.response?.data,
-      }));
+      const isProduction = process.env.NODE_ENV === 'production';
+      this.logger.error({
+        message: 'Direct payment processing error',
+        error: error instanceof Error ? error.message : String(error),
+        code: (error as any)?.code || 'DIRECT_PAYMENT_ERROR',
+        // Stack trace sadece development'ta
+        ...(isProduction ? {} : { stack: error instanceof Error ? error.stack : undefined }),
+      });
 
       if (error instanceof BadRequestException) {
         throw error;
@@ -247,8 +281,10 @@ export class PaymentService {
    * Callback işleme (3D Secure dönüş)
    */
   async handleCallback(dto: CallbackRequestDto) {
-    this.logger.log('=== GARANTI CALLBACK ===');
-    this.logger.debug(JSON.stringify({ body: dto }));
+    this.logger.log({
+      message: 'Garanti callback received',
+      orderId: dto.OrderId || dto.orderId,
+    });
 
     // Yanıt verilerini formatla
     const responseData = format3DSecureCallbackResponse(dto);
@@ -260,16 +296,19 @@ export class PaymentService {
     }
 
     // Ödeme sonucu log olarak kaydedilecek
-    this.logger.log('=== ÖDEME SONUCU ===');
-    this.logger.log(JSON.stringify({
+    this.logger.log({
+      message: 'Payment result',
       orderId: responseData.orderId,
       status: responseData.success ? 'Başarılı' : 'Başarısız',
       returnCode: responseData.transaction.returnCode,
       authCode: responseData.transaction.authCode,
-    }));
+    });
 
-    this.logger.log('=== CALLBACK RESPONSE ===');
-    this.logger.debug(JSON.stringify({ responseData }));
+    this.logger.log({
+      message: 'Callback response',
+      orderId: responseData.orderId,
+      success: responseData.success,
+    });
 
     return responseData;
   }

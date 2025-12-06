@@ -93,12 +93,13 @@ export class TokenManagerService {
 
       return newToken;
     } catch (error) {
+      const isProduction = process.env.NODE_ENV === 'production';
       const errorMessage = error instanceof Error ? error.message : String(error);
-      const stack = error instanceof Error ? error.stack : undefined;
 
       this.logger.error({
-        message: `Token yenileme hatası: ${errorMessage}`,
-        trace: stack,
+        message: 'Token renewal error',
+        error: errorMessage,
+        ...(isProduction ? {} : { stack: error instanceof Error ? error.stack : undefined }),
       });
 
       throw new Error(`Token yenileme başarısız: ${errorMessage}`);

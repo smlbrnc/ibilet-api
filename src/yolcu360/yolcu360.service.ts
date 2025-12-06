@@ -403,8 +403,12 @@ export class Yolcu360Service {
         'Limit ödeme (callback)',
       );
 
-      this.logger.log(`=== YOLCU360 PAYMENT RESPONSE (CALLBACK) ===`);
-      this.logger.debug(JSON.stringify(paymentResponse));
+      this.logger.log({
+        message: 'Yolcu360 payment response (callback)',
+        orderID,
+        success: paymentResponse?.success,
+        findeksCode: paymentResponse?.findeksCode,
+      });
 
       const findeksCode = paymentResponse?.findeksCode;
 

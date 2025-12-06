@@ -211,7 +211,12 @@ export class FindeksService {
   }
 
   async generateReport(dto: FindeksReportDto): Promise<FindeksReportResponse> {
-    this.logger.log(`Findeks rapor oluşturma isteği: ${JSON.stringify(dto)}`);
+    this.logger.log({
+      message: 'Findeks report generation request',
+      identityNumber: dto.identityNumber,
+      phone: dto.phone,
+      integrationCode: dto.integrationCode,
+    });
     
     return this.makeRequest<FindeksReportResponse>(
       YOLCU360_ENDPOINTS.FINDEKS_REPORT,

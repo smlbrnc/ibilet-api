@@ -35,6 +35,69 @@ export class PaxHttpService {
     return `${token.substring(0, 6)}...${token.substring(token.length - 4)}`;
   }
 
+  /**
+   * Response body'yi truncate eder (büyük response'lar için)
+   * @param data - Response data
+   * @param maxSize - Maksimum boyut (bytes), default 1024 (1KB)
+   * @returns Truncate edilmiş veya özet response
+   */
+  private truncateResponseBody(data: any, maxSize: number = 1024): any {
+    if (!data) return data;
+
+    try {
+      const dataString = JSON.stringify(data);
+      const dataSize = dataString.length;
+
+      // Küçük response'lar için direkt döndür
+      if (dataSize <= maxSize) {
+        return data;
+      }
+
+      // Büyük response'lar için özet oluştur
+      const summary: any = {
+        _truncated: true,
+        _originalSize: dataSize,
+        _originalSizeMB: (dataSize / 1024 / 1024).toFixed(2),
+      };
+
+      // Header bilgilerini ekle (varsa)
+      if (data.header) {
+        summary.header = {
+          success: data.header.success,
+          responseTime: data.header.responseTime,
+          messageCount: data.header.messages?.length || 0,
+          messages: data.header.messages?.slice(0, 5) || [], // İlk 5 mesaj
+        };
+      }
+
+      // Body özeti (varsa)
+      if (data.body) {
+        const bodyString = JSON.stringify(data.body);
+        if (bodyString.length > maxSize) {
+          summary.body = {
+            _preview: bodyString.substring(0, maxSize),
+            _truncated: true,
+            _size: bodyString.length,
+          };
+        } else {
+          summary.body = data.body;
+        }
+      }
+
+      // İlk 1KB preview ekle
+      summary._preview = dataString.substring(0, maxSize);
+
+      return summary;
+    } catch (error) {
+      // JSON.stringify başarısız olursa sadece tip bilgisi döndür
+      return {
+        _truncated: true,
+        _error: 'Could not stringify response',
+        _type: typeof data,
+      };
+    }
+  }
+
   async post<T = any>(
     endpoint: string,
     body: any,
@@ -83,18 +146,26 @@ export class PaxHttpService {
 
       if (!response.ok) {
         const errorText = await response.text();
+        const errorTextSize = errorText.length;
+        const maxErrorSize = 2048; // 2KB
 
         // ERROR RESPONSE LOG
         this.logger.error({
-          message: 'PAX API ERROR RESPONSE',
+          message: 'PAX API error response',
           type: 'PAX_ERROR_RESPONSE',
           requestId,
           endpoint,
           statusCode,
-          responseTime,
+          responseTime: `${responseTime}ms`,
           responseHeaders,
-          responseBody: errorText,
-          errorMessage: errorText || `${response.statusText} (${response.status})`,
+          errorTextSize,
+          // Büyük error text'leri truncate et
+          responseBody: errorTextSize > maxErrorSize 
+            ? errorText.substring(0, maxErrorSize) + `... [truncated, original size: ${errorTextSize} bytes]`
+            : errorText,
+          errorMessage: errorTextSize > maxErrorSize
+            ? errorText.substring(0, 500) + '... [truncated]'
+            : (errorText || `${response.statusText} (${response.status})`),
           ...options,
         });
 
@@ -103,32 +174,43 @@ export class PaxHttpService {
 
       const data = await response.json();
 
+      // Response boyutunu hesapla
+      const responseSize = JSON.stringify(data).length;
+      const isLargeResponse = responseSize > 1024 * 1024; // 1MB
+
       // RESPONSE LOG - Başarılı yanıt
       this.logger.log({
-        message: 'PAX API RESPONSE',
+        message: 'PAX API response',
         type: 'PAX_RESPONSE',
         requestId,
         endpoint,
         statusCode,
-        responseTime,
-        responseHeaders,
-        responseBody: data, // Tam response body
+        responseTime: `${responseTime}ms`,
+        responseSize,
+        responseSizeMB: (responseSize / 1024 / 1024).toFixed(2),
+        success: data.header?.success,
+        messageCount: data.header?.messages?.length || 0,
+        // Büyük response'lar için truncate edilmiş body, küçükler için tam body
+        responseBody: isLargeResponse ? this.truncateResponseBody(data) : data,
         ...options,
       });
 
       if (data.header?.success === false) {
         const errorMessages = this.extractUniqueMessages(data.header.messages || []);
         const timestamp = data.header.responseTime || new Date().toISOString();
+        const responseSize = JSON.stringify(data).length;
 
         this.logger.error({
-          message: 'PAX API BUSINESS ERROR',
+          message: 'PAX API business error',
           type: 'PAX_BUSINESS_ERROR',
           requestId,
           endpoint,
           statusCode,
-          responseTime,
+          responseTime: `${responseTime}ms`,
+          responseSize,
           errorMessages,
           timestamp,
+          // Hata durumunda tam body logla (debug için gerekli)
           responseBody: data,
           ...options,
         });
@@ -142,15 +224,18 @@ export class PaxHttpService {
         const errorData = data.error || data.errors || data.body?.error || data.body?.errors;
         const errorMessage =
           typeof errorData === 'string' ? errorData : JSON.stringify(errorData);
+        const responseSize = JSON.stringify(data).length;
 
         this.logger.error({
-          message: 'PAX API RESPONSE ERROR',
+          message: 'PAX API response error',
           type: 'PAX_RESPONSE_ERROR',
           requestId,
           endpoint,
           statusCode,
-          responseTime,
+          responseTime: `${responseTime}ms`,
+          responseSize,
           errorMessage,
+          // Hata durumunda tam body logla (debug için gerekli)
           responseBody: data,
           ...options,
         });
@@ -160,22 +245,14 @@ export class PaxHttpService {
         throw error;
       }
 
-      const responseSize = JSON.stringify(data).length;
-      if (responseSize > 1024 * 1024) {
-        this.logger.warn({
-          message: `Large PAX response: ${(responseSize / 1024 / 1024).toFixed(2)} MB from ${endpoint}`,
-          requestId,
-          endpoint,
-          responseSize,
-          responseTime,
-        });
-      }
+      // Büyük response uyarısı (zaten log'da belirtildi, burada tekrar loglamaya gerek yok)
+      // Response size zaten yukarıdaki log'da kaydedildi
 
       return data;
     } catch (error) {
       const responseTime = Date.now() - startTime;
+      const isProduction = process.env.NODE_ENV === 'production';
       let errorMessage = error instanceof Error ? error.message : String(error);
-      const errorStack = error instanceof Error ? error.stack : undefined;
 
       // PAX API ön eklerini temizle
       errorMessage = errorMessage.replace(/^PAX API POST isteği başarısız: /, '');
@@ -187,13 +264,14 @@ export class PaxHttpService {
           error.name !== 'PAX_BUSINESS_ERROR' && 
           error.name !== 'PAX_RESPONSE_ERROR') {
         this.logger.error({
-          message: 'PAX API UNEXPECTED ERROR',
+          message: 'PAX API unexpected error',
           type: 'PAX_UNEXPECTED_ERROR',
           requestId,
           endpoint,
           responseTime,
           errorMessage,
-          errorStack,
+          // Stack trace sadece development'ta
+          ...(isProduction ? {} : { stack: error.stack }),
           ...options,
         });
       }

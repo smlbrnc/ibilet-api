@@ -174,7 +174,11 @@ export class FoursquareService {
         });
     } catch (err: any) {
       if (err.response) {
-        this.logger.error(`Foursquare API hatası [${err.response.status}]: ${JSON.stringify(err.response.data)}`);
+        this.logger.error({
+          message: 'Foursquare API error',
+          status: err.response.status,
+          error: err.response.data,
+        });
       } else {
         this.logger.error('Foursquare nearby isteği başarısız', err.stack || err.message);
       }
