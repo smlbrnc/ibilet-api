@@ -24,7 +24,7 @@ async function bootstrap() {
   // Security headers
   app.use(helmet());
 
-  // CORS
+  // CORS - .env.development veya .env dosyasındaki CORS_ORIGINS kullanılır
   const corsOrigins = configService.get<string[]>('cors.origins') || [];
   app.enableCors({
     origin: corsOrigins,

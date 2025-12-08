@@ -29,6 +29,7 @@
     "@nestjs/terminus": "^10.2.0",
     "@nestjs/throttler": "^5.1.1",
     "@supabase/supabase-js": "^2.86.0",
+    "axios": "^1.6.0",
     "bull": "^4.16.5",
     "cache-manager": "^5.4.0",
     "class-transformer": "^0.5.1",

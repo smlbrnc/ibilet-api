@@ -162,8 +162,8 @@ export class FoursquareService {
       }
 
       return data.results
-        .filter((p) => p.latitude && p.longitude)
-        .map<NearbyPlaceDto>((place) => {
+        .filter((p: FsqPlace) => p.latitude && p.longitude)
+        .map<NearbyPlaceDto>((place: FsqPlace) => {
           const firstCategory = place.categories?.[0] ?? null;
           return {
             id: place.fsq_place_id,

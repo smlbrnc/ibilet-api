@@ -227,14 +227,17 @@ export class AuthService {
   async getOAuthUrl(provider: OAuthProvider, redirectTo?: string) {
     return this.handleRequest(
       async () => {
+        // redirectTo yoksa env'deki FRONTEND_URL kullan
+        const finalRedirectTo = redirectTo || process.env.FRONTEND_URL;
+
         const { data, error } = await this.supabase.getAnonClient().auth.signInWithOAuth({
           provider,
-          options: { redirectTo, skipBrowserRedirect: true },
+          options: { redirectTo: finalRedirectTo, skipBrowserRedirect: true },
         });
 
         if (error) this.throwError('OAUTH_ERROR', error.message, HttpStatus.BAD_REQUEST);
 
-        this.logger.log({ message: 'OAuth URL oluşturuldu', provider });
+        this.logger.log({ message: 'OAuth URL oluşturuldu', provider, redirectTo: finalRedirectTo });
         return { success: true, data: { url: data.url, provider: data.provider } };
       },
       'OAUTH_ERROR',
