@@ -117,4 +117,21 @@ export class PaymentRequestDto {
   @Type(() => CardInfoDto)
   @IsNotEmpty()
   cardInfo: CardInfoDto;
+
+  @ApiPropertyOptional({
+    description: 'Promosyon kodu',
+    example: 'SUMMER2025',
+  })
+  @IsString()
+  @IsOptional()
+  promoCode?: string;
+
+  @ApiPropertyOptional({
+    description: 'İndirim öncesi orijinal tutar (kuruş cinsinden) - promosyon kodu kullanılıyorsa gönderilmeli',
+    example: 10000,
+  })
+  @IsNumber()
+  @IsOptional()
+  @Min(1)
+  originalAmount?: number;
 }

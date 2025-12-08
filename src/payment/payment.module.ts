@@ -2,6 +2,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
 import { PaymentController } from './payment.controller';
 import { PaymentService } from './payment.service';
+import { PromotionService } from './promotion.service';
 import { LoggerService } from '../common/logger/logger.service';
 import { PaymentConfigService } from './config/payment-config.service';
 import { SupabaseModule } from '../common/services/supabase.module';
@@ -18,7 +19,7 @@ import { QueueModule } from '../common/queues/queue.module';
     QueueModule, // Queue module zaten notifications queue'sunu export ediyor
   ],
   controllers: [PaymentController],
-  providers: [PaymentService, LoggerService, PaymentConfigService],
-  exports: [PaymentService],
+  providers: [PaymentService, PromotionService, LoggerService, PaymentConfigService],
+  exports: [PaymentService, PromotionService],
 })
 export class PaymentModule {}

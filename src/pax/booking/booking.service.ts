@@ -307,6 +307,34 @@ export class BookingService {
    * Booking verisini frontend için formatla
    */
   private formatBookingResponse(booking: any) {
+    // Yolcu360 (car) için özel formatlama
+    if (booking.product_type === 'car') {
+      // booking_number null ise transaction_id kullan
+      const bookingNumber =
+        booking.booking_number ||
+        booking.booking_detail?.orderID ||
+        booking.transaction_id;
+
+      // reservation_details null ise booking_detail kullan
+      const reservationDetails = booking.reservation_details || booking.booking_detail;
+
+      return {
+        success: true,
+        data: {
+          transactionId: booking.transaction_id,
+          userId: booking.user_id,
+          status: booking.status,
+          orderId: booking.order_id,
+          orderDetail: booking.order_detail,
+          bookingNumber,
+          reservationDetails,
+          createdAt: booking.created_at,
+          updatedAt: booking.updated_at,
+        },
+      };
+    }
+
+    // PAX (flight/hotel) için normal formatlama
     return {
       success: true,
       data: {

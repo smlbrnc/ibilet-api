@@ -21,6 +21,8 @@ import { SupabaseService } from '../common/services/supabase.service';
 import { BOOKING_STATUS_MESSAGES, DEFAULT_STATUS_INFO } from './constants/booking-status.constant';
 import { ProductType } from './enums/product-type.enum';
 import { Public } from '../common/decorators/public.decorator';
+import { PromotionService } from './promotion.service';
+import { ValidatePromoCodeDto } from './dto/validate-promo-code.dto';
 
 @ApiTags('Payment')
 @Controller('payment')
@@ -29,8 +31,45 @@ export class PaymentController {
     private readonly paymentService: PaymentService,
     private readonly logger: LoggerService,
     private readonly supabase: SupabaseService,
+    private readonly promotionService: PromotionService,
   ) {
     this.logger.setContext('PaymentController');
+  }
+
+  @Public()
+  @Post('promo/validate')
+  @ApiOperation({ summary: 'Promosyon kodunu doğrula ve indirim hesapla' })
+  @ApiResponse({ status: 200, description: 'Promosyon kodu doğrulandı' })
+  @ApiResponse({ status: 400, description: 'Validation hatası' })
+  async validatePromoCode(@Body() dto: ValidatePromoCodeDto) {
+    try {
+      const result = await this.promotionService.validatePromoCode({
+        code: dto.code,
+        amount: dto.amount,
+        currencyCode: dto.currencyCode || '949',
+        userId: dto.userId,
+      });
+
+      return {
+        success: true,
+        data: result,
+      };
+    } catch (error) {
+      this.logger.error({
+        message: 'Promosyon kodu doğrulama hatası',
+        code: dto.code,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      throw new HttpException(
+        {
+          success: false,
+          code: 'PROMO_VALIDATION_ERROR',
+          message: 'Promosyon kodu doğrulanırken hata oluştu',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 
   @Public()
@@ -98,6 +137,8 @@ export class PaymentController {
           customerIp: dto.customerIp,
           companyName: 'IBGROUP',
           cardInfo: dto.cardInfo,
+          promoCode: dto.promoCode,
+          originalAmount: dto.originalAmount,
         };
 
         const paymentResult = await this.paymentService.initiate3DSecurePayment(paymentDto);
@@ -106,18 +147,27 @@ export class PaymentController {
         if (paymentResult.success) {
           const orderId = paymentResult.data?.orderId;
 
+          // Promosyon kodu bilgilerini hazırla
+          const insertData: any = {
+            pre_transaction_id: preTransaction.id,
+            transaction_id: dto.transactionId,
+            order_id: orderId,
+            status: 'PAYMENT_IN_PROGRESS',
+            product_type: dto.productType,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+
+          // Promosyon kodu varsa kaydet
+          // Not: İndirim tutarı callback'de kaydedilecek (promosyon kodu kullanım kaydı sırasında)
+          if (dto.promoCode) {
+            insertData.promo_code = dto.promoCode.toUpperCase();
+          }
+
           const { error: createError } = await adminClient
             .schema('backend')
             .from('booking')
-            .insert({
-              pre_transaction_id: preTransaction.id,
-              transaction_id: dto.transactionId,
-              order_id: orderId,
-              status: 'PAYMENT_IN_PROGRESS',
-              product_type: dto.productType,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            });
+            .insert(insertData);
 
           if (createError) {
             this.logger.error({
@@ -192,6 +242,8 @@ export class PaymentController {
         customerIp: dto.customerIp,
         companyName: 'IBGROUP',
         cardInfo: dto.cardInfo,
+        promoCode: dto.promoCode,
+        originalAmount: dto.originalAmount,
       };
 
       const paymentResult = await this.paymentService.initiate3DSecurePayment(paymentDto);
@@ -200,15 +252,24 @@ export class PaymentController {
       if (paymentResult.success) {
         const orderId = paymentResult.data?.orderId;
 
+        // Promosyon kodu bilgilerini hazırla
+        const updateData: any = {
+          status: 'PAYMENT_IN_PROGRESS',
+          order_id: orderId,
+          product_type: dto.productType,
+          updated_at: new Date().toISOString(),
+        };
+
+        // Promosyon kodu varsa kaydet
+        // Not: İndirim tutarı callback'de kaydedilecek (promosyon kodu kullanım kaydı sırasında)
+        if (dto.promoCode) {
+          updateData.promo_code = dto.promoCode.toUpperCase();
+        }
+
         const { error: updateError } = await adminClient
           .schema('backend')
           .from('booking')
-          .update({
-            status: 'PAYMENT_IN_PROGRESS',
-            order_id: orderId,
-            product_type: dto.productType,
-            updated_at: new Date().toISOString(),
-          })
+          .update(updateData)
           .eq('id', booking.id);
 
         if (updateError) {

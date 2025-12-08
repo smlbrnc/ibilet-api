@@ -9,6 +9,7 @@ import { PaymentConfigService } from './config/payment-config.service';
 import { SupabaseService } from '../common/services/supabase.service';
 import { PaxHttpService } from '../pax/pax-http.service';
 import { Yolcu360Service } from '../yolcu360/yolcu360.service';
+import { PromotionService } from './promotion.service';
 import { PaymentRequestDto } from './dto/payment-request.dto';
 import { DirectPaymentRequestDto } from './dto/direct-payment-request.dto';
 import { RefundRequestDto } from './dto/refund-request.dto';
@@ -44,6 +45,7 @@ export class PaymentService {
     private readonly supabase: SupabaseService,
     private readonly paxHttp: PaxHttpService,
     private readonly yolcu360Service: Yolcu360Service,
+    private readonly promotionService: PromotionService,
     @InjectQueue('notifications') private readonly notificationQueue: Queue,
   ) {
     this.logger.setContext('PaymentService');
@@ -55,23 +57,89 @@ export class PaymentService {
    */
   async initiate3DSecurePayment(dto: PaymentRequestDto) {
     try {
+      let finalAmount = dto.amount;
+      let promoCode = dto.promoCode;
+      let promoDiscountAmount = 0;
+      let originalAmount = dto.originalAmount || dto.amount;
+
+      // Promosyon kodu varsa doğrula ve indirim hesapla
+      if (dto.promoCode) {
+        try {
+          // Kullanıcı ID'yi email'den bulmaya çalış (opsiyonel)
+          let userId: string | undefined;
+          if (dto.customerEmail) {
+            try {
+              const { data: user } = await this.supabase
+                .getAdminClient()
+                .from('user_profiles')
+                .select('id')
+                .eq('email', dto.customerEmail)
+                .single();
+              userId = user?.id;
+            } catch {
+              // Kullanıcı bulunamadı, devam et
+            }
+          }
+
+          const validationResult = await this.promotionService.validatePromoCode({
+            code: dto.promoCode,
+            amount: originalAmount,
+            currencyCode: dto.currencyCode || '949',
+            userId,
+          });
+
+          if (validationResult.valid) {
+            finalAmount = validationResult.discount.finalAmount;
+            promoDiscountAmount = validationResult.discount.calculatedAmount;
+            promoCode = validationResult.code;
+
+            this.logger.log({
+              message: 'Promosyon kodu uygulandı',
+              code: promoCode,
+              originalAmount,
+              discountAmount: promoDiscountAmount,
+              finalAmount,
+            });
+          } else {
+            throw new BadRequestException(
+              validationResult.message || 'Geçersiz promosyon kodu',
+            );
+          }
+        } catch (error) {
+          if (error instanceof BadRequestException) {
+            throw error;
+          }
+          this.logger.warn({
+            message: 'Promosyon kodu doğrulama hatası, ödeme orijinal tutarla devam ediyor',
+            code: dto.promoCode,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          // Hata olsa bile ödemeye devam et (promosyon kodu olmadan)
+          promoCode = undefined;
+        }
+      }
+
       const orderId = generateOrderId('IB');
 
       this.logger.log({
         message: 'VPOS payment request initiated',
         orderId,
-        amount: dto.amount,
+        amount: finalAmount,
+        originalAmount: promoCode ? originalAmount : undefined,
+        discountAmount: promoDiscountAmount > 0 ? promoDiscountAmount : undefined,
+        promoCode,
         currency: dto.currencyCode,
         customerEmail: dto.customerEmail,
         // cardInfo loglanmıyor (GDPR uyumluluğu)
       });
 
       // Hash değeri hesapla (installmentCount boş string olmalı, 0 değil!)
+      // ÖNEMLİ: Hash hesaplamasında indirimli tutar (finalAmount) kullanılmalı
       const installmentCountForHash = dto.installmentCount || '';
       const hashData = get3DSecureHash({
         terminalId: this.paymentConfig.getTerminalId(),
         orderId,
-        amount: dto.amount,
+        amount: finalAmount, // İndirimli tutar kullanılıyor
         currencyCode: dto.currencyCode || '949',
         successUrl: this.paymentConfig.getSuccessUrl(),
         errorUrl: this.paymentConfig.getErrorUrl(),
@@ -82,11 +150,12 @@ export class PaymentService {
       });
 
       // Form verilerini hazırla (installmentCount hash ile aynı olmalı)
+      // ÖNEMLİ: Form data'da da indirimli tutar (finalAmount) kullanılmalı
       const formData = build3DSecureFormData({
         orderId,
         hashData,
         paymentConfig: this.paymentConfig.getConfig(),
-        amount: dto.amount,
+        amount: finalAmount, // İndirimli tutar kullanılıyor
         transactionType: dto.transactionType,
         currencyCode: dto.currencyCode || '949',
         installmentCount: installmentCountForHash,
@@ -99,7 +168,9 @@ export class PaymentService {
       this.logger.log({
         message: 'Payment record',
         orderId,
-        amount: dto.amount,
+        amount: finalAmount, // İndirimli tutar
+        originalAmount: promoCode ? originalAmount : undefined,
+        discountAmount: promoDiscountAmount > 0 ? promoDiscountAmount : undefined,
         customerEmail: dto.customerEmail,
       });
 
@@ -339,7 +410,7 @@ export class PaymentService {
         const { data: booking, error: findError } = await adminClient
           .schema('backend')
           .from('booking')
-          .select('id, transaction_id, product_type')
+          .select('id, transaction_id, product_type, promo_code, user_id')
           .eq('order_id', responseData.orderId)
           .single();
 
@@ -352,6 +423,11 @@ export class PaymentService {
         } else {
           transactionId = booking.transaction_id;
           productType = booking.product_type || 'flight'; // Product type'ı al
+
+          // Promosyon kodu kullanım kaydı (ödeme başarılı ise)
+          if (responseData.success && booking.promo_code) {
+            await this.recordPromoCodeUsageAfterPayment(booking, adminClient);
+          }
 
           // Product type kontrolü - Yolcu360 araç mı?
           if (booking.product_type === 'car') {
@@ -486,6 +562,12 @@ export class PaymentService {
         hasOrderDetails: !!orderDetails,
         hasPaymentError: !!paymentError,
       });
+    }
+
+    // Yolcu360 için: Başarılı ödeme ve status SUCCESS ise transaction_id'yi reservationNumber olarak kullan
+    // findeksCode yoksa veya boşsa transaction_id kullanılır
+    if (responseData.success && newStatus === 'SUCCESS') {
+      return findeksCode || booking.transaction_id;
     }
 
     return findeksCode || '';
@@ -645,8 +727,13 @@ export class PaymentService {
     reservationNumber: string,
     productType: string = 'flight',
   ): string {
-    const isFullySuccessful = responseData.success && reservationNumber;
-    const isCommitError = responseData.success && !reservationNumber;
+    // Yolcu360 (car) için: transaction_id zaten reservationNumber olarak kullanılabilir
+    // Eğer reservationNumber boşsa ama transactionId varsa ve başarılıysa, transactionId'yi kullan
+    const effectiveReservationNumber =
+      reservationNumber || (productType === 'car' && responseData.success ? transactionId : '');
+
+    const isFullySuccessful = responseData.success && effectiveReservationNumber;
+    const isCommitError = responseData.success && !effectiveReservationNumber;
 
     let urlStatus = 'failed';
     if (isFullySuccessful) urlStatus = 'success';
@@ -656,16 +743,15 @@ export class PaymentService {
       status: urlStatus,
       transactionId,
       success: String(isFullySuccessful),
+      productType, // Her durumda productType gönder
       ...(isFullySuccessful
-        ? { reservationNumber }
+        ? { reservationNumber: effectiveReservationNumber }
         : isCommitError
           ? {
-              productType,
               returnCode: responseData.transaction?.returnCode || '',
               error: 'Ödeme başarılı ancak rezervasyon oluşturulamadı',
             }
           : {
-              productType,
               returnCode: responseData.transaction?.returnCode || '',
               message: responseData.transaction?.message || '',
             }),
@@ -673,5 +759,61 @@ export class PaymentService {
 
     const baseRedirectUrl = this.configService.get<string>('payment.redirectUrl');
     return `${baseRedirectUrl}?${params.toString()}`;
+  }
+
+  /**
+   * Ödeme başarılı olduktan sonra promosyon kodu kullanım kaydı yapar
+   */
+  private async recordPromoCodeUsageAfterPayment(booking: any, adminClient: any): Promise<void> {
+    if (!booking.promo_code) {
+      return;
+    }
+
+    try {
+      // Promosyon kodunu doğrula ve discount ID'yi bul
+      const { data: discount } = await adminClient
+        .from('discount')
+        .select('id')
+        .eq('code', booking.promo_code.toUpperCase())
+        .single();
+
+      const { data: userDiscount } = booking.user_id
+        ? await adminClient
+            .from('user_discount')
+            .select('id')
+            .eq('code', booking.promo_code.toUpperCase())
+            .eq('user_id', booking.user_id)
+            .single()
+        : { data: null };
+
+      const discountId = userDiscount?.id || discount?.id;
+      const isUserDiscount = !!userDiscount;
+
+      if (discountId) {
+        await this.promotionService.recordPromoCodeUsage(
+          booking.promo_code,
+          discountId,
+          booking.id,
+          isUserDiscount,
+          booking.user_id,
+        );
+
+        this.logger.log({
+          message: 'Promosyon kodu kullanım kaydı yapıldı',
+          bookingId: booking.id,
+          promoCode: booking.promo_code,
+          discountId,
+          isUserDiscount,
+        });
+      }
+    } catch (error) {
+      this.logger.error({
+        message: 'Promosyon kodu kullanım kaydı hatası',
+        bookingId: booking.id,
+        promoCode: booking.promo_code,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      // Hata olsa bile işlemi durdurmuyoruz (non-critical)
+    }
   }
 }
