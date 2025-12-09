@@ -1,13 +1,22 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { SupabaseService } from '../common/services/supabase.service';
 import { LoggerService } from '../common/logger/logger.service';
-import { UpdateProfileDto, CreateFavoriteDto, CreateTravellerDto, UpdateTravellerDto } from './dto';
+import {
+  UpdateProfileDto,
+  CreateFavoriteDto,
+  CreateTravellerDto,
+  UpdateTravellerDto,
+  CreateNotificationDto,
+  CreateGeneralNotificationDto,
+} from './dto';
 import { parseUserAgent, formatSessionDisplay } from '../common/utils/user-agent.util';
 
 @Injectable()
 export class UserService {
   constructor(
     private readonly supabase: SupabaseService,
+    private readonly config: ConfigService,
     private readonly logger: LoggerService,
   ) {
     this.logger.setContext('UserService');
@@ -334,6 +343,187 @@ export class UserService {
       },
       'NOTIFICATIONS_ERROR',
       'Bildirimler güncellenemedi',
+    );
+  }
+
+  private async checkAdminStatus(user: any): Promise<boolean> {
+    // 1. User metadata'da is_admin kontrolü
+    if (user.user_metadata?.is_admin === true) {
+      return true;
+    }
+
+    // 2. Environment variable'dan admin email listesi kontrolü
+    const adminEmails = this.config.get<string>('admin.emails');
+    if (adminEmails) {
+      const emailList = adminEmails.split(',').map((email) => email.trim().toLowerCase());
+      if (user.email && emailList.includes(user.email.toLowerCase())) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  async sendNotification(currentUserId: string, dto: CreateNotificationDto) {
+    return this.handleRequest(
+      async () => {
+        // Admin kontrolü
+        const { data: currentUser } = await this.supabase
+          .getAdminClient()
+          .auth.admin.getUserById(currentUserId);
+
+        if (!currentUser?.user) {
+          this.throwError('USER_NOT_FOUND', 'Kullanıcı bulunamadı', HttpStatus.NOT_FOUND);
+        }
+
+        const isAdmin = await this.checkAdminStatus(currentUser.user);
+        if (!isAdmin) {
+          this.throwError(
+            'ADMIN_REQUIRED',
+            'Bu işlem için admin yetkisi gereklidir',
+            HttpStatus.FORBIDDEN,
+          );
+        }
+
+        // Kullanıcının varlığını kontrol et
+        const { data: user, error: userError } = await this.supabase
+          .getAdminClient()
+          .from('user_profiles')
+          .select('id')
+          .eq('id', dto.user_id)
+          .maybeSingle();
+
+        if (userError) {
+          this.throwError('USER_NOT_FOUND', 'Kullanıcı bulunamadı', HttpStatus.NOT_FOUND);
+        }
+
+        if (!user) {
+          this.throwError('USER_NOT_FOUND', 'Kullanıcı bulunamadı', HttpStatus.NOT_FOUND);
+        }
+
+        // Bildirim oluştur
+        const notificationData = {
+          user_id: dto.user_id,
+          title: dto.title,
+          message: dto.message || null,
+          type: dto.type || null,
+          action_url: dto.action_url || null,
+          data: dto.data || null,
+          is_read: false,
+        };
+
+        const { data, error } = await this.supabase
+          .getAdminClient()
+          .from('notifications')
+          .insert([notificationData])
+          .select()
+          .single();
+
+        if (error) this.throwError('NOTIFICATIONS_ERROR', error.message, HttpStatus.BAD_REQUEST);
+
+        this.logger.log({
+          message: 'Bildirim gönderildi',
+          userId: dto.user_id,
+          notificationId: data.id,
+        });
+
+        return { success: true, data };
+      },
+      'NOTIFICATIONS_ERROR',
+      'Bildirim gönderilemedi',
+    );
+  }
+
+  async sendGeneralNotification(currentUserId: string, dto: CreateGeneralNotificationDto) {
+    return this.handleRequest(
+      async () => {
+        // Admin kontrolü
+        const { data: currentUser } = await this.supabase
+          .getAdminClient()
+          .auth.admin.getUserById(currentUserId);
+
+        if (!currentUser?.user) {
+          this.throwError('USER_NOT_FOUND', 'Kullanıcı bulunamadı', HttpStatus.NOT_FOUND);
+        }
+
+        const isAdmin = await this.checkAdminStatus(currentUser.user);
+        if (!isAdmin) {
+          this.throwError(
+            'ADMIN_REQUIRED',
+            'Bu işlem için admin yetkisi gereklidir',
+            HttpStatus.FORBIDDEN,
+          );
+        }
+
+        // Tüm kullanıcıları al
+        const { data: users, error: usersError } = await this.supabase
+          .getAdminClient()
+          .from('user_profiles')
+          .select('id');
+
+        if (usersError) {
+          this.throwError('USERS_FETCH_ERROR', usersError.message, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
+        if (!users || users.length === 0) {
+          return {
+            success: true,
+            message: 'Gönderilecek kullanıcı bulunamadı',
+            sentCount: 0,
+          };
+        }
+
+        // Batch insert için bildirim verilerini hazırla
+        const notifications = users.map((user) => ({
+          user_id: user.id,
+          title: dto.title,
+          message: dto.message || null,
+          type: dto.type || null,
+          action_url: dto.action_url || null,
+          data: dto.data || null,
+          is_read: false,
+        }));
+
+        // Supabase batch insert (PostgreSQL limit: ~1000 rows per insert)
+        // Büyük kullanıcı listeleri için chunk'lara böl
+        const chunkSize = 1000;
+        let totalInserted = 0;
+
+        for (let i = 0; i < notifications.length; i += chunkSize) {
+          const chunk = notifications.slice(i, i + chunkSize);
+          const { error: insertError } = await this.supabase
+            .getAdminClient()
+            .from('notifications')
+            .insert(chunk);
+
+          if (insertError) {
+            this.logger.error({
+              message: 'Genel bildirim gönderim hatası',
+              error: insertError.message,
+              chunkIndex: i,
+            });
+            // Hata olsa bile diğer chunk'ları denemeye devam et
+            continue;
+          }
+
+          totalInserted += chunk.length;
+        }
+
+        this.logger.log({
+          message: 'Genel bildirim gönderildi',
+          totalUsers: users.length,
+          sentCount: totalInserted,
+        });
+
+        return {
+          success: true,
+          message: 'Genel bildirim gönderildi',
+          totalUsers: users.length,
+          sentCount: totalInserted,
+        };
+      },
+      'NOTIFICATIONS_ERROR',
+      'Genel bildirim gönderilemedi',
     );
   }
 

@@ -22,7 +22,14 @@ import {
   ApiBody,
 } from '@nestjs/swagger';
 import { UserService } from './user.service';
-import { UpdateProfileDto, CreateFavoriteDto, CreateTravellerDto, UpdateTravellerDto } from './dto';
+import {
+  UpdateProfileDto,
+  CreateFavoriteDto,
+  CreateTravellerDto,
+  UpdateTravellerDto,
+  CreateNotificationDto,
+  CreateGeneralNotificationDto,
+} from './dto';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
@@ -193,6 +200,23 @@ export class UserController {
   @ApiResponse({ status: 200, description: 'Bildirimler güncellendi' })
   async markAllNotificationsAsRead(@CurrentUser() user: any) {
     return this.userService.markAllNotificationsAsRead(user.id);
+  }
+
+  @Post('notifications')
+  @ApiOperation({ summary: 'Kullanıcıya özel bildirim gönder (Admin-only)' })
+  @ApiResponse({ status: 201, description: 'Bildirim gönderildi' })
+  @ApiResponse({ status: 403, description: 'Admin yetkisi gerekli' })
+  @ApiResponse({ status: 404, description: 'Kullanıcı bulunamadı' })
+  async sendNotification(@CurrentUser() user: any, @Body() dto: CreateNotificationDto) {
+    return this.userService.sendNotification(user.id, dto);
+  }
+
+  @Post('notifications/general')
+  @ApiOperation({ summary: 'Tüm kullanıcılara genel bildirim gönder (Admin-only)' })
+  @ApiResponse({ status: 201, description: 'Genel bildirim gönderildi' })
+  @ApiResponse({ status: 403, description: 'Admin yetkisi gerekli' })
+  async sendGeneralNotification(@CurrentUser() user: any, @Body() dto: CreateGeneralNotificationDto) {
+    return this.userService.sendGeneralNotification(user.id, dto);
   }
 
   // ==================== BOOKINGS ====================
