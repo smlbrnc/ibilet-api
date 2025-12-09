@@ -37,6 +37,11 @@ export const BOOKING_STATUS_MESSAGES: Record<string, StatusInfo> = {
     message: 'Rezervasyon onaylaması başarısız oldu',
     httpStatus: HttpStatus.BAD_REQUEST,
   },
+  COMMIT_ERROR: {
+    code: 'COMMIT_ERROR',
+    message: 'Ödeme işleminiz başarıyla tamamlanmıştır. Ancak rezervasyon onaylama aşamasında bir sorun yaşanmıştır. Bu durumla ilgili destek almak için lütfen 0362 440 03 03 numaralı telefon hattımızdan müşteri hizmetlerimizle iletişime geçiniz. Tekrar ödeme yapmanıza gerek bulunmamaktadır.',
+    httpStatus: HttpStatus.BAD_REQUEST,
+  },
   REFUND_PENDING: {
     code: 'REFUND_PENDING',
     message: 'Bu rezervasyon için iade işlemi beklemede',

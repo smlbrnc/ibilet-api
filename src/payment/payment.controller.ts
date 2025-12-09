@@ -204,7 +204,22 @@ export class PaymentController {
       }
 
       // 2. Status kontrolü
-      if (booking.status !== 'AWAITING_PAYMENT') {
+      // FAILED durumunda tekrar ödeme yapmaya izin ver
+      if (booking.status === 'COMMIT_ERROR') {
+        const statusInfo = BOOKING_STATUS_MESSAGES[booking.status] || DEFAULT_STATUS_INFO;
+        throw new HttpException(
+          {
+            success: false,
+            code: statusInfo.code,
+            message: statusInfo.message,
+            currentStatus: booking.status,
+          },
+          statusInfo.httpStatus,
+        );
+      }
+      
+      // AWAITING_PAYMENT veya FAILED durumunda ödeme yapılabilir
+      if (booking.status !== 'AWAITING_PAYMENT' && booking.status !== 'FAILED') {
         const statusInfo = BOOKING_STATUS_MESSAGES[booking.status] || DEFAULT_STATUS_INFO;
         throw new HttpException(
           {
