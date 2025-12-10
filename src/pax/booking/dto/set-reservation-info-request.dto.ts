@@ -22,6 +22,7 @@ export class SetReservationInfoRequestDto {
   @ApiPropertyOptional({
     description: 'Müşteri bilgileri (şirket veya bireysel)',
     type: 'object',
+    additionalProperties: true,
   })
   @IsOptional()
   customerInfo?: any; // PAX API'nin beklediği customerInfo yapısı

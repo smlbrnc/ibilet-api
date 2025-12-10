@@ -92,7 +92,7 @@ export class UserController {
   @ApiResponse({ status: 200, description: 'Avatar yüklendi' })
   @ApiResponse({ status: 400, description: 'Geçersiz dosya' })
   @ApiResponse({ status: 401, description: 'Yetkisiz erişim' })
-  async uploadAvatar(@CurrentUser() user: any, @UploadedFile() file: Express.Multer.File) {
+  async uploadAvatar(@CurrentUser() user: any, @UploadedFile() file: Express.Multer.File | undefined) {
     return this.userService.uploadAvatar(user.id, file);
   }
 

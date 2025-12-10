@@ -684,7 +684,7 @@ export class UserService {
 
   // ==================== AVATAR ====================
 
-  async uploadAvatar(userId: string, file: Express.Multer.File) {
+  async uploadAvatar(userId: string, file: Express.Multer.File | undefined) {
     return this.handleRequest(
       async () => {
         if (!file) this.throwError('AVATAR_ERROR', 'Dosya bulunamadı', HttpStatus.BAD_REQUEST);

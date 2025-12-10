@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CacheModule } from '@nestjs/cache-manager';
+import KeyvRedis from '@keyv/redis';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import configuration from './config/configuration';
@@ -9,6 +10,7 @@ import { PaxModule } from './pax/pax.module';
 import { HealthModule } from './health/health.module';
 import { FoursquareModule } from './foursquare/foursquare.module';
 import { AirportModule } from './airport/airport.module';
+import { DetectAirportModule } from './detect-airport/detect-airport.module';
 import { SupabaseModule } from './common/services/supabase.module';
 import { PaymentModule } from './payment/payment.module';
 import { EmailModule } from './email/email.module';
@@ -33,9 +35,30 @@ import { LoggerService } from './common/logger/logger.service';
       isGlobal: true,
       load: [configuration],
     }),
-    CacheModule.register({
+    CacheModule.registerAsync({
       isGlobal: true,
-      ttl: 3600000, // 1 saat default
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => {
+        const redisConfig = configService.get('redis');
+        
+        // Redis yapılandırması varsa Redis store kullan, yoksa in-memory
+        if (redisConfig?.host) {
+          const redisUrl = redisConfig.password
+            ? `redis://:${redisConfig.password}@${redisConfig.host}:${redisConfig.port}`
+            : `redis://${redisConfig.host}:${redisConfig.port}`;
+          
+          return {
+            store: new KeyvRedis(redisUrl),
+            ttl: 3600000, // 1 saat default (ms)
+          };
+        }
+        
+        // Redis yoksa in-memory cache
+        return {
+          ttl: 3600000, // 1 saat default
+        };
+      },
+      inject: [ConfigService],
     }),
     ThrottlerModule.forRoot([
       {
@@ -48,6 +71,7 @@ import { LoggerService } from './common/logger/logger.service';
     HealthModule,
     FoursquareModule,
     AirportModule,
+    DetectAirportModule,
     SupabaseModule,
     PaymentModule,
     EmailModule,
