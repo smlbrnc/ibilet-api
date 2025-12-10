@@ -1,6 +1,6 @@
 // Simplified for now - full implementation would include all traveller fields
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, IsArray } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsNotEmpty, IsString, IsArray, IsOptional } from 'class-validator';
 
 export class SetReservationInfoRequestDto {
   @ApiProperty({
@@ -18,4 +18,11 @@ export class SetReservationInfoRequestDto {
   @IsNotEmpty()
   @IsArray()
   travellers: any[]; // Simplified - ref kodda detailed structure var
+
+  @ApiPropertyOptional({
+    description: 'Müşteri bilgileri (şirket veya bireysel)',
+    type: 'object',
+  })
+  @IsOptional()
+  customerInfo?: any; // PAX API'nin beklediği customerInfo yapısı
 }
