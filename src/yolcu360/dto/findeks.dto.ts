@@ -84,6 +84,7 @@ export class FindeksPinConfirmDto {
     description: 'Rapor oluşturma işleminden dönen Findeks kodu',
     example: '45473452',
   })
+  @Transform(({ value }) => String(value))
   @IsString()
   findeksCode: string;
 
@@ -107,6 +108,7 @@ export class FindeksPinRenewDto {
     description: 'Rapor oluşturma işleminden dönen Findeks kodu',
     example: '45473452',
   })
+  @Transform(({ value }) => String(value))
   @IsString()
   findeksCode: string;
 
