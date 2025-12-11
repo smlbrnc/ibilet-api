@@ -21,6 +21,7 @@ import { ContactModule } from './contact/contact.module';
 import { UserModule } from './user/user.module';
 import { Yolcu360Module } from './yolcu360/yolcu360.module';
 import { QueueModule } from './common/queues/queue.module';
+import { AdminModule } from './admin/admin.module';
 import { AppController } from './app.controller';
 import { AuthGuard } from './common/guards/auth.guard';
 import { LoggerService } from './common/logger/logger.service';
@@ -82,6 +83,7 @@ import { LoggerService } from './common/logger/logger.service';
     UserModule,
     Yolcu360Module,
     QueueModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [
