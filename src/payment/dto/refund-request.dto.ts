@@ -27,12 +27,12 @@ export class RefundRequestDto {
     description: 'İade tutarı (kuruş cinsinden)',
     example: 5000,
     minimum: 1,
-    maximum: 999999999,
+    maximum: 99999999999,
   })
   @IsNumber()
   @IsNotEmpty()
   @Min(1)
-  @Max(999999999)
+  @Max(99999999999)
   refundAmount: number;
 
   @ApiPropertyOptional({

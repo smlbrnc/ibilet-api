@@ -23,12 +23,12 @@ export class PaymentRequestDto {
     description: 'İşlem tutarı (kuruş cinsinden)',
     example: 10000,
     minimum: 1,
-    maximum: 999999999,
+    maximum: 99999999999,
   })
   @IsNumber()
   @IsNotEmpty()
   @Min(1)
-  @Max(999999999)
+  @Max(99999999999)
   amount: number;
 
   @ApiPropertyOptional({
