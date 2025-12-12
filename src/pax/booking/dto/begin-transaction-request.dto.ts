@@ -1,7 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, IsArray } from 'class-validator';
+import { IsNotEmpty, IsString, IsArray, IsNumber } from 'class-validator';
 
 export class BeginTransactionRequestDto {
+  @ApiProperty({
+    description: 'Ürün tipi (3=Uçak, 2=Otel)',
+    example: 3,
+  })
+  @IsNumber()
+  @IsNotEmpty()
+  ProductType: number;
+
   @ApiProperty({
     description: 'Offer ID listesi',
     example: ['13$3$1~^006^~...'],

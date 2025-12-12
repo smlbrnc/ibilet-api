@@ -1,8 +1,16 @@
 // Simplified for now - full implementation would include all traveller fields
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, IsArray, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsString, IsArray, IsOptional, IsNumber } from 'class-validator';
 
 export class SetReservationInfoRequestDto {
+  @ApiProperty({
+    description: 'Ürün tipi (3=Uçak, 2=Otel)',
+    example: 3,
+  })
+  @IsNumber()
+  @IsNotEmpty()
+  ProductType: number;
+
   @ApiProperty({
     description: 'Transaction ID',
     example: '1e42fb8c-f885-4e5d-9d91-72c40a4b56b2',
