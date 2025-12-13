@@ -1,7 +1,9 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query, Post, Put, Body, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { CmsService } from './cms.service';
 import { Public } from '../common/decorators/public.decorator';
+import { CreateCookieConsentDto, UpdateCookieConsentDto } from './dto/cookie-consent.dto';
+import { Request } from 'express';
 
 @ApiTags('CMS')
 @Controller('cms')
@@ -163,6 +165,15 @@ export class CmsController {
     return this.cmsService.getStaticPageBySlug(slug);
   }
 
+  @Public()
+  @Get('cookie-policy')
+  @ApiOperation({ summary: 'Çerez politikası sayfasını getir' })
+  @ApiResponse({ status: 200, description: 'Çerez politikası içeriği' })
+  @ApiResponse({ status: 404, description: 'Çerez politikası sayfası bulunamadı' })
+  async getCookiePolicy() {
+    return this.cmsService.getStaticPageBySlug('cookie-policy');
+  }
+
   // ==================== FAQ ====================
 
   @Public()
@@ -172,5 +183,61 @@ export class CmsController {
   @ApiResponse({ status: 200, description: 'FAQ listesi' })
   async getFaqs(@Query('lang') lang?: string) {
     return this.cmsService.getFaqs(lang || 'tr');
+  }
+
+  // ==================== COOKIE CONSENT ====================
+
+  @Public()
+  @Post('cookie-consent')
+  @ApiOperation({ summary: 'Çerez onayını kaydet (ilk onay)' })
+  @ApiResponse({
+    status: 201,
+    description: 'Çerez onayı başarıyla kaydedildi',
+    schema: {
+      example: {
+        success: true,
+        data: {
+          id: 'uuid',
+          timestamp: '2025-12-13T12:00:00Z',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Geçersiz istek' })
+  async createCookieConsent(@Body() dto: CreateCookieConsentDto, @Req() req: Request) {
+    const ip =
+      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+      (req.headers['x-real-ip'] as string) ||
+      req.ip ||
+      req.socket?.remoteAddress ||
+      'unknown';
+    return this.cmsService.createCookieConsent(dto, ip);
+  }
+
+  @Public()
+  @Put('cookie-consent')
+  @ApiOperation({ summary: 'Çerez onayını güncelle (tercih değişikliği)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Çerez onayı başarıyla güncellendi',
+    schema: {
+      example: {
+        success: true,
+        data: {
+          id: 'uuid',
+          timestamp: '2025-12-13T12:00:00Z',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Geçersiz istek' })
+  async updateCookieConsent(@Body() dto: UpdateCookieConsentDto, @Req() req: Request) {
+    const ip =
+      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+      (req.headers['x-real-ip'] as string) ||
+      req.ip ||
+      req.socket?.remoteAddress ||
+      'unknown';
+    return this.cmsService.updateCookieConsent(dto, ip);
   }
 }

@@ -3,6 +3,8 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { SupabaseService } from '../common/services/supabase.service';
 import { LoggerService } from '../common/logger/logger.service';
+import { CreateCookieConsentDto, UpdateCookieConsentDto } from './dto/cookie-consent.dto';
+import { hashIpAddress } from '../common/utils/ip-hash.util';
 
 @Injectable()
 export class CmsService {
@@ -489,6 +491,100 @@ export class CmsService {
       });
     } catch (error) {
       this.handleError(error, 'FAQ listesi hatası', 'FAQ_ERROR');
+    }
+  }
+
+  // ==================== COOKIE CONSENT ====================
+
+  async createCookieConsent(dto: CreateCookieConsentDto, ip: string) {
+    try {
+      const ipHash = hashIpAddress(ip);
+      const timestamp = new Date().toISOString();
+
+      const { data, error } = await this.supabase.getAdminClient().from('cookie_consents').insert({
+        user_id: dto.userId || null,
+        ip_hash: ipHash,
+        consent: dto.consent,
+        timestamp: timestamp,
+      }).select('id, timestamp').single();
+
+      if (error) {
+        this.logger.error({ message: 'Cookie consent kayıt hatası', error: error.message });
+        this.throwError('COOKIE_CONSENT_ERROR', 'Çerez onayı kaydedilemedi', HttpStatus.BAD_REQUEST);
+      }
+
+      return this.createSuccessResponse({
+        id: data.id,
+        timestamp: data.timestamp,
+      });
+    } catch (error) {
+      this.handleError(error, 'Çerez onayı kayıt hatası', 'COOKIE_CONSENT_ERROR');
+    }
+  }
+
+  async updateCookieConsent(dto: UpdateCookieConsentDto, ip: string) {
+    try {
+      const ipHash = hashIpAddress(ip);
+      const timestamp = new Date().toISOString();
+
+      // Önce mevcut kaydı bul (ip_hash veya user_id ile)
+      let query = this.supabase.getAdminClient().from('cookie_consents').select('id');
+
+      if (dto.userId) {
+        query = query.eq('user_id', dto.userId);
+      } else {
+        query = query.eq('ip_hash', ipHash);
+      }
+
+      const { data: existing, error: findError } = await query.order('created_at', { ascending: false }).limit(1).maybeSingle();
+
+      if (findError && findError.code !== 'PGRST116') {
+        // PGRST116 = no rows returned (normal durum)
+        this.logger.error({ message: 'Cookie consent sorgu hatası', error: findError.message });
+        this.throwError('COOKIE_CONSENT_ERROR', 'Çerez onayı güncellenemedi', HttpStatus.BAD_REQUEST);
+      }
+
+      if (existing) {
+        // Mevcut kaydı güncelle
+        const { data: existingFull, error: fetchError } = await this.supabase
+          .getAdminClient()
+          .from('cookie_consents')
+          .select('user_id')
+          .eq('id', existing.id)
+          .single();
+
+        if (fetchError) {
+          this.logger.error({ message: 'Cookie consent sorgu hatası', error: fetchError.message });
+          this.throwError('COOKIE_CONSENT_ERROR', 'Çerez onayı güncellenemedi', HttpStatus.BAD_REQUEST);
+        }
+
+        const { data, error } = await this.supabase
+          .getAdminClient()
+          .from('cookie_consents')
+          .update({
+            user_id: dto.userId || existingFull?.user_id || null,
+            consent: dto.consent,
+            timestamp: timestamp,
+          })
+          .eq('id', existing.id)
+          .select('id, timestamp')
+          .single();
+
+        if (error) {
+          this.logger.error({ message: 'Cookie consent güncelleme hatası', error: error.message });
+          this.throwError('COOKIE_CONSENT_ERROR', 'Çerez onayı güncellenemedi', HttpStatus.BAD_REQUEST);
+        }
+
+        return this.createSuccessResponse({
+          id: data.id,
+          timestamp: data.timestamp,
+        });
+      } else {
+        // Yeni kayıt oluştur (PUT ama kayıt yoksa POST gibi davran)
+        return this.createCookieConsent(dto, ip);
+      }
+    } catch (error) {
+      this.handleError(error, 'Çerez onayı güncelleme hatası', 'COOKIE_CONSENT_ERROR');
     }
   }
 }

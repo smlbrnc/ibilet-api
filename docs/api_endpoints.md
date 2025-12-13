@@ -30,17 +30,17 @@
 
 ## Özet
 
-**Toplam Endpoint Sayısı:** 80+  
-**Protected (AuthGuard):** 30+  
-**Public (@Public()):** 45+  
+**Toplam Endpoint Sayısı:** 102  
+**Protected (AuthGuard):** 27  
+**Public (@Public()):** 74  
 **Optional Auth (OptionalAuthGuard):** 1
 
 ### Authentication Dağılımı
 
 | Tip | Sayı | Açıklama |
 |-----|------|----------|
-| 🔒 **Protected** | 30+ | Token zorunlu |
-| 🌐 **Public** | 45+ | Token gerekmez |
+| 🔒 **Protected** | 27 | Token zorunlu |
+| 🌐 **Public** | 74 | Token gerekmez |
 | 🔓 **Optional** | 1 | Token varsa user bilgisi alınır, yoksa anonymous |
 
 ---
@@ -244,10 +244,14 @@
 | GET | `/cms/trends/flights` | 🌐 Public | Popüler uçuşları getir |
 | GET | `/cms/pages` | 🌐 Public | Statik sayfa listesini getir |
 | GET | `/cms/pages/:slug` | 🌐 Public | Statik sayfa detayını getir |
+| GET | `/cms/cookie-policy` | 🌐 Public | Çerez politikası sayfasını getir |
+| POST | `/cms/cookie-consent` | 🌐 Public | Çerez onayını kaydet (ilk onay) |
+| PUT | `/cms/cookie-consent` | 🌐 Public | Çerez onayını güncelle (tercih değişikliği) |
 
 **Özet:**
-- **Public:** 14 endpoint (Tümü public)
+- **Public:** 17 endpoint (Tümü public)
 - **Blog Endpoint'leri:** 6 endpoint (liste, detay, kategoriler, kategoriye göre, öne çıkan, son yazılar)
+- **Cookie Consent Endpoint'leri:** 3 endpoint (politika sayfası, onay kaydetme, onay güncelleme)
 
 ---
 
@@ -345,14 +349,14 @@
 | **Email** | 1 | 0 | 1 | 0 |
 | **SMS** | 2 | 0 | 2 | 0 |
 | **PDF** | 2 | 0 | 2 | 0 |
-| **CMS** | 14 | 0 | 14 | 0 |
+| **CMS** | 17 | 0 | 17 | 0 |
 | **Contact** | 1 | 0 | 1 | 0 |
 | **Airport** | 1 | 0 | 1 | 0 |
 | **Foursquare** | 1 | 0 | 1 | 0 |
 | **Yolcu360** | 9 | 0 | 9 | 0 |
 | **Findeks** | 5 | 0 | 5 | 0 |
 | **Health** | 2 | 0 | 2 | 0 |
-| **TOPLAM** | **99** | **27** | **71** | **1** |
+| **TOPLAM** | **102** | **27** | **74** | **1** |
 
 ---
 
@@ -367,7 +371,7 @@
 - PAX API endpoint'leri (arama, fiyat sorgulama)
 - Booking endpoint'leri (rezervasyon işlemleri)
 - Payment endpoint'leri (banka callback'leri için)
-- CMS endpoint'leri (blog, kampanya, indirim)
+- CMS endpoint'leri (blog, kampanya, indirim, çerez politikası ve onay)
 - Yolcu360 ve Findeks endpoint'leri
 
 ### Optional Auth Endpoint'ler
