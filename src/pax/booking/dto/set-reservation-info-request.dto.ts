@@ -9,7 +9,7 @@ export class SetReservationInfoRequestDto {
   })
   @IsNumber()
   @IsNotEmpty()
-  ProductType: number;
+  productType: number;
 
   @ApiProperty({
     description: 'Transaction ID',

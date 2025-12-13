@@ -8,7 +8,7 @@ export class BeginTransactionRequestDto {
   })
   @IsNumber()
   @IsNotEmpty()
-  ProductType: number;
+  productType: number;
 
   @ApiProperty({
     description: 'Offer ID listesi',
